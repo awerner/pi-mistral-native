@@ -52,11 +52,12 @@ reads "Mistral ecosystem" without copying the brand.
 | Dot pulse | `3s ease-out`, expanding ring | Sky-blue dot ping |
 | Reduced motion | `prefers-reduced-motion: reduce` → disable all | Accessibility: animations never required for comprehension |
 
-The shipped README banner carries the fall-in, pop-in, copy entrance and
-dot-pulse keyframes inline in `assets/banner.svg`; hover and ambient wash
-are web-context tokens (kept in the design source for the future website).
-Ambient wash is not animated in the SVG export — see the render-protocol
-note below.
+`assets/banner.svg` carries the fall-in, pop-in, copy entrance and
+dot-pulse keyframes inline (the README ships the static PNG — see the
+render-protocol note below); hover and ambient wash are web-context tokens
+(kept in the design source for the website, which syncs the repository
+`assets/` wholesale). Ambient wash is not animated in the SVG export — see
+the render-protocol note below.
 
 **Motion principle:** every element's base (un-animated) style is its final
 state. Stripping animations — static rasterization, proxies that drop CSS —

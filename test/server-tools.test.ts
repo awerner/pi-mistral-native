@@ -36,6 +36,7 @@ import {
 } from "../extensions/mistral/server-tools.js";
 import { createMistralClient } from "../extensions/tools/mistral-client.js";
 import { createConnectorTools } from "../extensions/tools/connectors.js";
+import { stringEnum } from "../extensions/tools/string-enum.js";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { setMistralConfigForTests } from "../extensions/mistral/config.js";
 
@@ -1104,5 +1105,20 @@ test("string-enum tool parameters serialize to the flat {type: string, enum} JSO
 		enum: ["user", "workspace", "organization"],
 		description: "Scope to activate the connector for (defaults to user)",
 		default: "user",
+	});
+});
+
+test("stringEnum emits the flat enum JSON Schema for every option combination", () => {
+	// Helper-level pin: every tool site shares this output, so this guards
+	// the wire shape for all of them, not only the ones asserted per-tool.
+	assert.deepEqual(stringEnum(["user", "workspace"] as const), {
+		type: "string",
+		enum: ["user", "workspace"],
+	});
+	assert.deepEqual(stringEnum(["document", "extracted-text"] as const, { description: "d", default: "document" }), {
+		type: "string",
+		enum: ["document", "extracted-text"],
+		description: "d",
+		default: "document",
 	});
 });
