@@ -1,10 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 176 176" role="img" aria-label="pi-mistral-native">
   <!-- Stylized pi mark for the site header, extracted from the project
-       banner: a pi symbol built from blue blocks. The ink tile carries
-       its own surface, so the ramp stays legible on the light (ivory)
-       and dark (ink) header backgrounds. -->
-  <rect width="176" height="176" fill="#101826"/>
-  <!-- Block grid: 20px cells with 6px gaps; the sky-blue dot sits at the
+       banner: a pi symbol built from blue blocks. The tile no longer carries
+       its own surface — the transparent mark sits directly on light and
+       dark chrome, and the dot is azure for light-surface legibility
+       (azure holds 2.62:1 on white and 6.8:1 on ink; the former sky blue
+       measured only 1.89:1 on white). -->
+  <!-- Block grid: 20px cells with 6px gaps; the azure dot sits at the
        baseline, offset right of the last foot (asymmetric composition). -->
   <g transform="translate(8,39)">
     <rect x="0" y="0" width="20" height="20" fill="#0B7FE0"/>
@@ -18,6 +19,6 @@
     <rect x="104" y="52" width="20" height="20" fill="#0A5BD0"/>
     <rect x="0" y="78" width="46" height="20" fill="#0B3FB0"/>
     <rect x="78" y="78" width="46" height="20" fill="#0B3FB0"/>
-    <rect x="140" y="78" width="20" height="20" fill="#4CC9FF"/>
+    <rect x="140" y="78" width="20" height="20" fill="#1FA7FF"/>
   </g>
 </svg>
