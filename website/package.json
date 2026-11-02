@@ -10,7 +10,7 @@
     "build": "npm run sync:assets && astro build",
     "preview": "npm run sync:assets && astro preview",
     "test": "node --test",
-    "test:dist": "REQUIRE_DIST=1 node --test test/built-site.test.js"
+    "test:dist": "REQUIRE_DIST=1 node --test test/built-site.test.js test/inline-whitespace.test.js"
   },
   "engines": {
     "node": ">=22"
