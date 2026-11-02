@@ -41,6 +41,7 @@ import {
 	setMistralFetch,
 	mistralStreamSimple,
 	takeFallThroughNoticeForTests,
+	takeDroppedServerToolsNoticeForTests,
 } from "../extensions/mistral.js";
 import type { MistralModelConfig } from "../extensions/mistral.js";
 import { setMistralConfigForTests } from "../extensions/mistral/config.js";
@@ -2646,6 +2647,10 @@ test("session_start warns once, as a warning, when the effective region is non-g
 		process.env.HOME = join(dir, "home");
 		try {
 			setMistralConfigForTests({ endpoint: { region: "eu", baseUrl: undefined } });
+			// A prior test's stream may have left a dropped-tools notice; the
+			// session_start handler would surface it here. Drain it so the
+			// count pins the region notice alone.
+			takeDroppedServerToolsNoticeForTests();
 			const notifications = await fireSessionStart();
 			assert.equal(notifications.length, 1, "exactly one notify");
 			const notice = notifications[0]!;
@@ -2689,6 +2694,7 @@ test("session_start warns from the MISTRAL_REGION env layer when no JSON is pres
 			process.env.HOME = join(dir, "home");
 			try {
 				setMistralConfigForTests(null);
+				takeDroppedServerToolsNoticeForTests();
 				const notifications = await fireSessionStart();
 				assert.equal(notifications.length, 1, "exactly one notify");
 				const notice = notifications[0]!;

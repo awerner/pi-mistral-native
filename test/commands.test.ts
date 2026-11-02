@@ -277,6 +277,22 @@ test("status card shows provenance per source layer", () => {
 	assert.match(card, /Agent id: agent-from-env  \[env MISTRAL_AGENT_ID\]/);
 	assert.match(card, /RAG default library: unset  \[unset\]/);
 	assert.match(card, /Region: global  \[default\]/);
+	// web_search is rejected by chat completions: the card names it.
+	assert.match(card, /\(web_search do not run in chat completions — use the mistral_web_search tool for web search; see docs\/server-tools\.md\)/);
+});
+
+test("status card: no server-tools footnote when the configured set is supported", () => {
+	const fs = emptyFs();
+	const env = {
+		...memoryEnv(fs, HOME),
+		MISTRAL_SERVER_TOOLS: "image_generation",
+		MISTRAL_REGION: "",
+	};
+	const user = { value: undefined, path: undefined, warning: undefined };
+	const project = { value: undefined, path: undefined, warning: undefined };
+	const card = buildStatusCard({ user, project }, undefined, true, env);
+	assert.doesNotMatch(card, /do not run in chat completions/);
+	assert.doesNotMatch(card, /mistral_web_search/);
 });
 
 test("status card: auth shows the source label, never the key", () => {

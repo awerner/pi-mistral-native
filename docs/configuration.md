@@ -60,8 +60,10 @@ validation error, not "unset".
 
 ```jsonc
 {
-  // Enabled Mistral built-in server-side tools, by name.
-  "serverTools": ["web_search", "web_search_premium", "image_generation", "code_interpreter"],
+  // Enabled Mistral built-in server-side tools, by name. Only
+  // image_generation is sent to chat completions; the others are
+  // dropped with a visible warning (see docs/server-tools.md).
+  "serverTools": ["image_generation"],
   // Connector ids or names whose tools are sent with every request.
   "connectors": ["notion", "8b6b3f2e-9f4a-4a1e-9c1e-0a2b3c4d5e6f"],
   // Agent id that switches chat requests to Mistral's Agents API.
@@ -131,7 +133,7 @@ grab-bag would defeat that.
 
 | Key | Type | Default | Description | Env override |
 |---|---|---|---|---|
-| `serverTools` | string[] | unset | Enabled Mistral built-in server-side tools; one of `web_search`, `web_search_premium`, `image_generation`, `code_interpreter` (behavioral now) | `MISTRAL_SERVER_TOOLS` |
+| `serverTools` | string[] | unset | Enabled Mistral built-in server-side tools; one of `web_search`, `web_search_premium`, `image_generation`, `code_interpreter` (behavioral now). Only `image_generation` is sent to chat completions; the rest are dropped with a warning (see [server-tools.md](server-tools.md)) | `MISTRAL_SERVER_TOOLS` |
 | `connectors` | string[] | unset | Enabled connector ids or names, sent as `{type:"connector"}` entries (behavioral now) | `MISTRAL_CONNECTORS` |
 | `agentId` | string | unset | Agent id switching requests to `/v1/agents/completions`; trimmed, empty-after-trim = unset (behavioral now) | `MISTRAL_AGENT_ID` |
 | `endpoint.region` | `"global"` \| `"eu"` \| `"us"` | `"global"` (effective) | Mistral region: routes chat completions and the model catalog; unset in the file when the key is absent | `MISTRAL_REGION` — applies only when no JSON sets `region` |

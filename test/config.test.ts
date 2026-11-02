@@ -365,8 +365,10 @@ test("stream carries the file config's serverTools and connectors in the request
 	try {
 		const { body } = await runCapturedStream([chunk({ role: "assistant", content: "hi" }), finalChunk("stop")]);
 		const tools = body.tools as { type: string; connector_id?: string }[];
+		// web_search is rejected by chat completions (400 code 1800,
+		// wire-verified 2026-11-03): the request carries only the supported
+		// entries — image_generation and the connector.
 		assert.deepEqual(tools, [
-			{ type: "web_search" },
 			{ type: "image_generation" },
 			{ type: "connector", connector_id: "notion" },
 		]);
@@ -392,8 +394,11 @@ test("stream: JSON serverTools wins over env when both are set", async () => {
 		const { body } = await runCapturedStream([chunk({ role: "assistant", content: "" }), finalChunk("stop")], {
 			env: { MISTRAL_SERVER_TOOLS: "web_search" },
 		});
-		const tools = body.tools as { type: string }[];
-		assert.deepEqual(tools, [{ type: "code_interpreter" }]);
+		// code_interpreter is Conversations/Agents-only (400 code 1800 on
+		// chat completions, wire-verified 2026-11-03): the JSON key still wins
+		// the config precedence, but its unsupported tool is not sent — no
+		// tools field at all.
+		assert.equal(body.tools, undefined);
 	} finally {
 		setMistralConfigForTests(null);
 	}
@@ -405,7 +410,10 @@ test("stream: null override forces today's env-only behavior", async () => {
 		const { body } = await runCapturedStream([chunk({ role: "assistant", content: "" }), finalChunk("stop")], {
 			env: { MISTRAL_SERVER_TOOLS: "web_search" },
 		});
-		assert.deepEqual(body.tools, [{ type: "web_search" }]);
+		// web_search is dropped from chat-completions requests (400 code
+		// 1800 on the wire, verified 2026-11-03): the env-only override still
+		// applies, but nothing unsupported is sent.
+		assert.equal(body.tools, undefined);
 	} finally {
 		setMistralConfigForTests(null);
 	}

@@ -28,6 +28,7 @@ import {
 	getEffectiveRagStreaming,
 	resolveMistralRegionBaseUrl,
 } from "./config.js";
+import { parseServerToolsConfig, unsupportedChatCompletionsServerTools } from "./server-tools.js";
 import { readFileSync, writeFileSync, renameSync, mkdirSync, unlinkSync } from "node:fs";
 import { dirname } from "node:path";
 import type { MistralFileConfig, MistralRegion } from "./config.js";
@@ -291,6 +292,16 @@ export function buildStatusCard(
 			sourceText = sourced === undefined && valueText === "unset" ? "unset" : "default";
 		}
 		lines.push(`  ${display}: ${valueText}  [${sourceText}]`);
+	}
+
+	// Server tools the Chat Completions endpoint rejects are dropped from
+	// requests with a warning; the card names them so the silent drop is
+	// explainable from the status alone.
+	const unsupportedServerTools = unsupportedChatCompletionsServerTools(parseServerToolsConfig(env, merged));
+	if (unsupportedServerTools.length > 0) {
+		lines.push(
+			`  (${unsupportedServerTools.join(" and ")} do not run in chat completions — use the mistral_web_search tool for web search; see docs/server-tools.md)`,
+		);
 	}
 
 	// Auth: source label only — the key value is never rendered.

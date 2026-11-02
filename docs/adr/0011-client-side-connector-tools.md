@@ -32,6 +32,13 @@ against the Mistral API established the wire facts:
   groups tools the way MCP servers do.
 - 53 authenticated connector tools would bloat the prompt if registered
   directly active — hence the loader pattern.
+- Server-tool support is per-endpoint, not per-connector (wire-verified
+  2026-11-03 on the chat completions endpoint, models mistral-large-4 and
+  zai-glm-5-3): `web_search`, `web_search_premium` and `code_interpreter`
+  chat-request entries return HTTP 400 code 1800 ("WebSearchTool
+  connector is not supported" etc.), while `image_generation` and
+  `{type:"connector"}` entries are accepted — Mistral's docs mark the
+  rejected three Conversations/Agents-API-only.
 
 ## Decision
 
@@ -85,6 +92,19 @@ server-side counterpart):
    disabling; the file wins over env per the ADR 0010 precedence chain)
    and `autoLoad` (connector names auto-registered + activated at
    session start, without a model-facing result).
+7. **Per-endpoint filtering in the chat-completions request builder**
+   (server-side counterpart: ADR
+   [0007](0007-server-side-tools-as-opaque-content.md)): entries are
+   filtered to the chat-completions-supported set (`image_generation` +
+   `{type:"connector"}` entries); configured-but-unsupported built-ins
+   (`web_search`, `web_search_premium`, `code_interpreter`) are dropped
+   with a once-per-session warning. Web search takes a tool-based path
+   instead: the `mistral_web_search`/`mistral_web_search_premium` pi
+   tools issue stateless one-shot Conversations calls (configured search
+   model `mistral-small-latest`), so the model composes search results
+   like any other pi tool — the same client-side reasoning model this ADR
+   champions for connectors. A forthcoming sibling ADR owns the
+   search-tool design details.
 
 ## When client-side vs. server-side (ADR 0007)
 

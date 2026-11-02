@@ -90,8 +90,14 @@ import { MISTRAL_BASE_URL } from "./mistral/api.js";
 import { getEffectiveEndpoint, getEffectiveMistralConfig, MISTRAL_REGION_BASE_URLS, refreshMistralConfig, resolveMistralRegionBaseUrl } from "./mistral/config.js";
 import type { MistralRegion } from "./mistral/config.js";
 import { registerKnowledgeTools as registerOcrKnowledgeTools } from "./mistral/knowledge.js";
-import { buildAgentsRequestBody, formatServerToolReport, parseServerToolsConfig, serverToolWireEntries } from "./mistral/server-tools.js";
-import type { ServerToolsConfig } from "./mistral/server-tools.js";
+import {
+	buildAgentsRequestBody,
+	chatCompletionsServerToolEntries,
+	formatServerToolReport,
+	parseServerToolsConfig,
+	unsupportedChatCompletionsServerTools,
+} from "./mistral/server-tools.js";
+import type { MistralServerToolType, ServerToolsConfig } from "./mistral/server-tools.js";
 import { registerKnowledgeTools } from "./tools/knowledge.js";
 import { registerConnectorTools } from "./tools/connectors.js";
 import { registerConnectorLoaderTools } from "./tools/loader.js";
@@ -918,13 +924,16 @@ function buildRequestBody(
 	}
 	if (options?.toolChoice !== undefined) params.tool_choice = options.toolChoice;
 	/*
-	 * Server-side tools: append web_search/image_generation/
-	 * code_interpreter/connector entries after the client function tools.
+	 * Server-side tools: append the entries the Chat Completions endpoint
+	 * accepts (image_generation + connectors; web_search, web_search_premium
+	 * and code_interpreter return 400 code 1800 there — wire-verified
+	 * 2026-11-03 — and are dropped with a visible warning).
 	 *
 	 * ADR 0007 — Server-side tools as opaque content
 	 */
 	if (serverTools.serverExecutionPossible && serverTools.agentId === undefined) {
-		const serverEntries = serverToolWireEntries(serverTools);
+		recordDroppedServerToolsNotice(unsupportedChatCompletionsServerTools(serverTools));
+		const serverEntries = chatCompletionsServerToolEntries(serverTools);
 		if (serverEntries.length > 0) {
 			params.tools = [...(tools.length > 0 ? tools.map(toolDefinition) : []), ...serverEntries];
 		}
@@ -1996,6 +2005,60 @@ function takeFallThroughNoticeMessage(): string | undefined {
 export const takeFallThroughNoticeForTests = takeFallThroughNoticeMessage;
 
 /**
+ * Server tools configured but not accepted by the Chat Completions endpoint
+ * (dropped from the request with a visible warning). Recorded once per chat
+ * request that actually drops tools; object identity is the surfaced-once
+ * dedup key, mirroring the fall-through notice.
+ */
+export interface DroppedServerToolsNotice {
+	/** Dropped server tool types, config order. */
+	tools: readonly MistralServerToolType[];
+	/** When the recording request recorded them (epoch ms). */
+	at: number;
+}
+
+/** Dropped-tools notice of the latest chat request that dropped server tools. */
+let droppedServerToolsNotice: DroppedServerToolsNotice | undefined;
+
+/** Read the dropped-tools notice recorded by the latest chat request (undefined when nothing was dropped). */
+export function lastDroppedServerToolsNotice(): DroppedServerToolsNotice | undefined {
+	return droppedServerToolsNotice;
+}
+
+/** The notice the session_start handler last surfaced (dedup guard by object identity). */
+let surfacedDroppedServerToolsNotice: DroppedServerToolsNotice | undefined;
+
+/**
+ * Record a dropped-tools notice; a fresh notice object per recording, so
+ * object identity (not the timestamp) is the surfaced-once dedup key. No-op
+ * when no tools were dropped.
+ */
+function recordDroppedServerToolsNotice(tools: readonly MistralServerToolType[]): void {
+	if (tools.length === 0) return;
+	droppedServerToolsNotice = { tools: [...tools], at: Date.now() };
+}
+
+/**
+ * Mark the current dropped-tools notice as surfaced and return its message;
+ * undefined when there is no notice or it was already surfaced. Called by
+ * the extension's `session_start` handler, which delivers the message via
+ * `ctx.ui.notify(message, "warning")`.
+ */
+function takeDroppedServerToolsNoticeMessage(): string | undefined {
+	if (droppedServerToolsNotice === undefined || surfacedDroppedServerToolsNotice === droppedServerToolsNotice) {
+		return undefined;
+	}
+	surfacedDroppedServerToolsNotice = droppedServerToolsNotice;
+	return (
+		`mistral-native: server tools unavailable in chat completions: ${droppedServerToolsNotice.tools.join(", ")}` +
+		" — web search is available as the mistral_web_search tool; code interpreter runs in hosted agent mode (see docs/server-tools.md)"
+	);
+}
+
+/** Test seam for `takeDroppedServerToolsNoticeMessage` (mirrors takeFallThroughNoticeForTests). */
+export const takeDroppedServerToolsNoticeForTests = takeDroppedServerToolsNoticeMessage;
+
+/**
  * Rates for one model id from the effective rate card.
  *
  * Region-surcharge hook: every dynamic-catalog cost flows through this
@@ -2353,8 +2416,10 @@ export default function (pi: ExtensionAPI) {
 	 * config warning via ctx.ui.notify — the provider keeps working in
 	 * env-only degraded mode either way. The fall-through notice of the
 	 * latest catalog refresh rides the same channel, surfaced at most once
-	 * per notice; the region notice is recomputed here after the refresh,
-	 * so project-scoped regions warn from the session that activates them.
+	 * per notice; the same applies to the dropped-server-tools notice of the
+	 * latest chat request that dropped unsupported tools; the region notice is
+	 * recomputed here after the refresh, so project-scoped regions warn from
+	 * the session that activates them.
 	 *
 	 * Decisions: ADR 0010 — Configuration via mistral-native.json aligned to
 	 * the pi ecosystem convention; ADR 0012 — Selectable region endpoint with
@@ -2365,6 +2430,8 @@ export default function (pi: ExtensionAPI) {
 		refreshMistralConfig(ctx.cwd, ctx.isProjectTrusted(), (message, type) => ctx.ui.notify(message, type));
 		const fallThroughMessage = takeFallThroughNoticeMessage();
 		if (fallThroughMessage !== undefined) ctx.ui.notify(fallThroughMessage, "warning");
+		const droppedServerToolsMessage = takeDroppedServerToolsNoticeMessage();
+		if (droppedServerToolsMessage !== undefined) ctx.ui.notify(droppedServerToolsMessage, "warning");
 		const endpoint = getEffectiveEndpoint();
 		if (endpoint.region !== "global") {
 			const regionBase = resolveMistralRegionBaseUrl(endpoint);
