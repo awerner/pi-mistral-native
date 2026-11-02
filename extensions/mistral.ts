@@ -90,9 +90,16 @@ import { MISTRAL_BASE_URL } from "./mistral/api.js";
 import { getEffectiveEndpoint, getEffectiveMistralConfig, MISTRAL_REGION_BASE_URLS, refreshMistralConfig, resolveMistralRegionBaseUrl } from "./mistral/config.js";
 import type { MistralRegion } from "./mistral/config.js";
 import { registerKnowledgeTools as registerOcrKnowledgeTools } from "./mistral/knowledge.js";
-import { buildAgentsRequestBody, formatServerToolReport, parseServerToolsConfig, serverToolWireEntries } from "./mistral/server-tools.js";
-import type { ServerToolsConfig } from "./mistral/server-tools.js";
+import {
+	buildAgentsRequestBody,
+	chatCompletionsServerToolEntries,
+	formatServerToolReport,
+	parseServerToolsConfig,
+	unsupportedChatCompletionsServerTools,
+} from "./mistral/server-tools.js";
+import type { MistralServerToolType, ServerToolsConfig } from "./mistral/server-tools.js";
 import { registerKnowledgeTools } from "./tools/knowledge.js";
+import { registerWebSearchTools } from "./tools/web-search.js";
 import { registerConnectorTools } from "./tools/connectors.js";
 import { registerConnectorLoaderTools } from "./tools/loader.js";
 
@@ -151,10 +158,9 @@ export type MistralModel = MistralModelConfig;
  * Documented per-model output limits, checked most-specific-first like the
  * rate card: the first entry whose `match` string is a substring of the model
  * id applies. Mistral-native model pages document no per-model output limit
- * at all — the only documented constraint is that prompt plus completion
- * tokens must fit `max_context_length` — so the live mapping derives
- * `maxTokens` from the context window unless an entry here overrides it. The
- * hosted third-party models are the only ones with an officially documented
+ * at all, so the live mapping derives `maxTokens` from the wire-enforced
+ * completion ceiling unless an entry here overrides it. The hosted
+ * third-party models are the only ones with an officially documented
  * output token limit (128k).
  *
  * Update process: re-verify against the model pages on docs.mistral.ai and
@@ -174,11 +180,49 @@ export const DOCUMENTED_OUTPUT_LIMITS: readonly { match: string; maxOutputTokens
 ];
 
 /**
+ * Wire-enforced completion ceilings the model pages do not document,
+ * checked most-specific-first like the rate card: the first entry whose
+ * `match` string is a substring of the model id applies. Only wire-verified
+ * ceilings get entries; the conservative fallback
+ * (`COMPLETION_CEILING_FALLBACK`) applies to everything else — a too-small
+ * value merely caps output, a too-large one hard-fails requests with 400
+ * code 3058 (invalid_request_max_tokens).
+ *
+ * ADR 0017 — Documented max-output mapping over fixed clamp
+ */
+export const API_ENFORCED_COMPLETION_CEILINGS: readonly { match: string; completionCeiling: number }[] = [
+	// mistral-large-4 (and the -0 alias): 262144. Wire-probed 2026-11-03:
+	// POST /v1/chat/completions with an oversized max_tokens returns 400 code
+	// 3058 (invalid_request_max_tokens) whose message names the ceiling;
+	// max_tokens 262144 is accepted, 262145 is rejected.
+	{ match: "mistral-large-4", completionCeiling: 262144 },
+];
+
+/** Conservative completion-token ceiling for models without a wire-verified entry. */
+export const COMPLETION_CEILING_FALLBACK = 262144;
+
+/**
+ * Wire-enforced completion-token ceiling for one model id: the first
+ * matching `API_ENFORCED_COMPLETION_CEILINGS` entry, otherwise the
+ * conservative `COMPLETION_CEILING_FALLBACK`.
+ *
+ * ADR 0017 — Documented max-output mapping over fixed clamp
+ */
+export function completionCeilingForModel(id: string): number {
+	for (const entry of API_ENFORCED_COMPLETION_CEILINGS) {
+		if (id.includes(entry.match)) {
+			return entry.completionCeiling;
+		}
+	}
+	return COMPLETION_CEILING_FALLBACK;
+}
+
+/**
  * Maximum completion tokens for one model id: the documented output limit
- * when a `DOCUMENTED_OUTPUT_LIMITS` entry matches, otherwise the context
- * window — Mistral's only documented bound on completions for models
- * without a documented output limit. Capped at the context window, so a
- * stale override can never exceed it.
+ * when a `DOCUMENTED_OUTPUT_LIMITS` entry matches (documented limits are the
+ * tighter, sourced facts), otherwise the wire-enforced completion ceiling
+ * capped at the context window — the API rejects any larger max_tokens with
+ * 400 code 3058 (invalid_request_max_tokens).
  *
  * ADR 0017 — Documented max-output mapping over fixed clamp
  */
@@ -188,7 +232,7 @@ export function documentedMaxTokensForModel(id: string, contextWindow: number): 
 			return Math.min(entry.maxOutputTokens, contextWindow);
 		}
 	}
-	return contextWindow;
+	return Math.min(completionCeilingForModel(id), contextWindow);
 }
 
 /**
@@ -305,10 +349,11 @@ export interface MistralModelCard {
  * exists. Facts mirror the official model card (mistral-large-4): 1M-token
  * context, $0.70/$2.10/$0.07 per million tokens
  * (https://docs.mistral.ai/models/mistral-large-4-0, verified 2026-11-02).
- * `maxTokens` follows the same mapping as the live catalog — the context
- * window, since Mistral documents no per-model output limit for it
- * (`documentedMaxTokensForModel`). `thinkingLevelMap` and `compat` flags
- * mirror the verified wire behavior.
+ * `maxTokens` follows the same mapping as the live catalog — the
+ * wire-enforced completion ceiling, since the API rejects max_tokens
+ * above 262144 with 400 code 3058 (wire-verified 2026-11-03, see
+ * `API_ENFORCED_COMPLETION_CEILINGS`), capped at the context window.
+ * `thinkingLevelMap` and `compat` flags mirror the verified wire behavior.
  *
  * ADR 0017 — Documented max-output mapping over fixed clamp
  */
@@ -320,7 +365,7 @@ export const MODELS: MistralModelConfig[] = [
 		input: ["text", "image"],
 		cost: { input: 0.7, output: 2.1, cacheRead: 0.07, cacheWrite: 0 },
 		contextWindow: 1048576,
-		maxTokens: 1048576,
+		maxTokens: 262144,
 		api: MISTRAL_API,
 		thinkingLevelMap: {
 			off: "none",
@@ -551,11 +596,19 @@ function estimateContextTokens(messages: readonly Message[]): number {
 	return tokens;
 }
 
-/** Mirror of pi-ai's clampMaxTokensToContext (api/simple-options.ts). */
+/**
+ * Clamp max_tokens for the request path (mirrors pi-ai's
+ * clampMaxTokensToContext, api/simple-options.ts) extended with the
+ * wire-enforced completion ceiling: Mistral rejects a larger max_tokens with
+ * 400 code 3058 (invalid_request_max_tokens), so the ceiling also rescues
+ * STALE persisted snapshots (v0.1.0-era `maxTokens: 1048576` values) until
+ * the self-healing catalog refresh overwrites them.
+ */
 function clampMaxTokensToContext(model: Model<Api>, context: TranscriptContext, maxTokens: number): number {
-	if (model.contextWindow <= 0) return Math.max(MIN_MAX_TOKENS, maxTokens);
+	const ceiling = completionCeilingForModel(model.id);
+	if (model.contextWindow <= 0) return Math.min(ceiling, Math.max(MIN_MAX_TOKENS, maxTokens));
 	const available = model.contextWindow - estimateContextTokens(context.messages) - CONTEXT_SAFETY_TOKENS;
-	return Math.min(maxTokens, Math.max(MIN_MAX_TOKENS, available));
+	return Math.min(ceiling, maxTokens, Math.max(MIN_MAX_TOKENS, available));
 }
 
 function truncateText(text: string, maxChars: number): string {
@@ -872,13 +925,16 @@ function buildRequestBody(
 	}
 	if (options?.toolChoice !== undefined) params.tool_choice = options.toolChoice;
 	/*
-	 * Server-side tools: append web_search/image_generation/
-	 * code_interpreter/connector entries after the client function tools.
+	 * Server-side tools: append the entries the Chat Completions endpoint
+	 * accepts (image_generation + connectors; web_search, web_search_premium
+	 * and code_interpreter return 400 code 1800 there — wire-verified
+	 * 2026-11-03 — and are dropped with a visible warning).
 	 *
 	 * ADR 0007 — Server-side tools as opaque content
 	 */
 	if (serverTools.serverExecutionPossible && serverTools.agentId === undefined) {
-		const serverEntries = serverToolWireEntries(serverTools);
+		recordDroppedServerToolsNotice(unsupportedChatCompletionsServerTools(serverTools));
+		const serverEntries = chatCompletionsServerToolEntries(serverTools);
 		if (serverEntries.length > 0) {
 			params.tools = [...(tools.length > 0 ? tools.map(toolDefinition) : []), ...serverEntries];
 		}
@@ -1950,6 +2006,60 @@ function takeFallThroughNoticeMessage(): string | undefined {
 export const takeFallThroughNoticeForTests = takeFallThroughNoticeMessage;
 
 /**
+ * Server tools configured but not accepted by the Chat Completions endpoint
+ * (dropped from the request with a visible warning). Recorded once per chat
+ * request that actually drops tools; object identity is the surfaced-once
+ * dedup key, mirroring the fall-through notice.
+ */
+export interface DroppedServerToolsNotice {
+	/** Dropped server tool types, config order. */
+	tools: readonly MistralServerToolType[];
+	/** When the recording request recorded them (epoch ms). */
+	at: number;
+}
+
+/** Dropped-tools notice of the latest chat request that dropped server tools. */
+let droppedServerToolsNotice: DroppedServerToolsNotice | undefined;
+
+/** Read the dropped-tools notice recorded by the latest chat request (undefined when nothing was dropped). */
+export function lastDroppedServerToolsNotice(): DroppedServerToolsNotice | undefined {
+	return droppedServerToolsNotice;
+}
+
+/** The notice the session_start handler last surfaced (dedup guard by object identity). */
+let surfacedDroppedServerToolsNotice: DroppedServerToolsNotice | undefined;
+
+/**
+ * Record a dropped-tools notice; a fresh notice object per recording, so
+ * object identity (not the timestamp) is the surfaced-once dedup key. No-op
+ * when no tools were dropped.
+ */
+function recordDroppedServerToolsNotice(tools: readonly MistralServerToolType[]): void {
+	if (tools.length === 0) return;
+	droppedServerToolsNotice = { tools: [...tools], at: Date.now() };
+}
+
+/**
+ * Mark the current dropped-tools notice as surfaced and return its message;
+ * undefined when there is no notice or it was already surfaced. Called by
+ * the extension's `session_start` handler, which delivers the message via
+ * `ctx.ui.notify(message, "warning")`.
+ */
+function takeDroppedServerToolsNoticeMessage(): string | undefined {
+	if (droppedServerToolsNotice === undefined || surfacedDroppedServerToolsNotice === droppedServerToolsNotice) {
+		return undefined;
+	}
+	surfacedDroppedServerToolsNotice = droppedServerToolsNotice;
+	return (
+		`mistral-native: server tools unavailable in chat completions: ${droppedServerToolsNotice.tools.join(", ")}` +
+		" — web search is available as the mistral_web_search tool; code interpreter runs in hosted agent mode (see docs/server-tools.md)"
+	);
+}
+
+/** Test seam for `takeDroppedServerToolsNoticeMessage` (mirrors takeFallThroughNoticeForTests). */
+export const takeDroppedServerToolsNoticeForTests = takeDroppedServerToolsNoticeMessage;
+
+/**
  * Rates for one model id from the effective rate card.
  *
  * Region-surcharge hook: every dynamic-catalog cost flows through this
@@ -1979,7 +2089,9 @@ function modelListCards(data: unknown): MistralModelCard[] {
 
 /**
  * Map one model card to the pi chat-model config form. `maxTokens` follows
- * the documented max-output mapping (`documentedMaxTokensForModel`).
+ * the documented max-output mapping (`documentedMaxTokensForModel`): the
+ * documented output limit when one exists, otherwise the wire-enforced
+ * completion ceiling, capped at the context window.
  *
  * ADR 0017 — Documented max-output mapping over fixed clamp
  */
@@ -2305,8 +2417,10 @@ export default function (pi: ExtensionAPI) {
 	 * config warning via ctx.ui.notify — the provider keeps working in
 	 * env-only degraded mode either way. The fall-through notice of the
 	 * latest catalog refresh rides the same channel, surfaced at most once
-	 * per notice; the region notice is recomputed here after the refresh,
-	 * so project-scoped regions warn from the session that activates them.
+	 * per notice; the same applies to the dropped-server-tools notice of the
+	 * latest chat request that dropped unsupported tools; the region notice is
+	 * recomputed here after the refresh, so project-scoped regions warn from
+	 * the session that activates them.
 	 *
 	 * Decisions: ADR 0010 — Configuration via mistral-native.json aligned to
 	 * the pi ecosystem convention; ADR 0012 — Selectable region endpoint with
@@ -2317,6 +2431,8 @@ export default function (pi: ExtensionAPI) {
 		refreshMistralConfig(ctx.cwd, ctx.isProjectTrusted(), (message, type) => ctx.ui.notify(message, type));
 		const fallThroughMessage = takeFallThroughNoticeMessage();
 		if (fallThroughMessage !== undefined) ctx.ui.notify(fallThroughMessage, "warning");
+		const droppedServerToolsMessage = takeDroppedServerToolsNoticeMessage();
+		if (droppedServerToolsMessage !== undefined) ctx.ui.notify(droppedServerToolsMessage, "warning");
 		const endpoint = getEffectiveEndpoint();
 		if (endpoint.region !== "global") {
 			const regionBase = resolveMistralRegionBaseUrl(endpoint);
@@ -2331,6 +2447,9 @@ export default function (pi: ExtensionAPI) {
 
 	// Library/RAG knowledge tools: files, libraries, documents and RAG queries.
 	registerKnowledgeTools(pi);
+
+	// Web-search tools over stateless one-shot Conversations calls.
+	registerWebSearchTools(pi);
 
 	registerConnectorTools(pi);
 

@@ -38,13 +38,15 @@ builds on:
   `model`, `temperature` and `stream_options` are **not** allowed fields.
 - All replay strategies for folding the executed result back into the
   assistant turn were accepted by the live API.
-- On the current account/tier, `web_search`, `web_search_premium` and
-  `code_interpreter` return HTTP 400 code 1800 ("connector is not
-  supported"); mocked coverage is complete, `image_generation` was
-  verified live end-to-end, and a `web_search` live smoke test remains
-  pending an account/tier that enables it. Connector OAuth grants are
-  stored server-side at Mistral; nothing is stored locally and
-  `auth.json` stays untouched (ADR
+- Per-endpoint server-tool support is asymmetric (wire-verified
+  2026-11-03 on the chat completions endpoint, models mistral-large-4 and
+  zai-glm-5-3): `web_search`, `web_search_premium` and `code_interpreter`
+  entries return HTTP 400 code 1800 ("WebSearchTool connector is not
+  supported" etc.) — per-endpoint support, not account/tier related
+  (Mistral's docs mark them Conversations/Agents-API-only);
+  `image_generation` and `{type:"connector"}` entries are accepted, and
+  function tools work. Connector OAuth grants are stored server-side at
+  Mistral; nothing is stored locally and `auth.json` stays untouched (ADR
   [0004](0004-api-key-credential-chain-without-mistral-oauth.md)).
 
 ## Decision
@@ -74,6 +76,22 @@ builds on:
   never thrown), `MISTRAL_CONNECTORS`, `MISTRAL_AGENT_ID`. With none set,
   the stream behaves byte-for-byte as before; the folding logic is
   entirely gated on `serverExecutionPossible`.
+- **The chat-completions request path filters entries to the supported
+  set and warns about the rest.** `chatCompletionsServerToolEntries`
+  sends only `CHAT_COMPLETIONS_SERVER_TOOLS` (currently
+  `image_generation`) plus connector entries; the configured-but-
+  unsupported types (`unsupportedChatCompletionsServerTools`) are dropped
+  from the request and surface a once-per-session warning naming them and
+  pointing at the alternatives — web search via the model-callable
+  `mistral_web_search` pi tool, code interpreter via hosted agent mode.
+  Agent mode keeps the full tool set server-side and never drops or
+  warns. Web search is no longer a chat-completions entry at all: it
+  ships as the `mistral_web_search` pi tool (one-shot stateless
+  Conversations backend; configured search model `mistral-small-latest`,
+  because `mistral-large-4` refuses builtin connectors on
+  `/v1/conversations` with error 3004). A forthcoming sibling ADR owns
+  the search-tool design details. Code interpreter stays
+  Conversations/Agents-only for now.
 - **Agent mode posts a minimal body** to `{baseUrl}/agents/completions`:
   exactly `agent_id`, `messages`, `stream: true` and `max_tokens` (the
   context-clamped value). No model, temperature, stream_options, tools or
@@ -104,14 +122,17 @@ builds on:
 - Enabling server tools is a per-environment opt-in; nothing changes for
   existing users who set none of the three variables.
 - Limitations: `web_search`, `web_search_premium` and `code_interpreter`
-  could not be live-verified on the current account (HTTP 400 code 1800);
-  their request declaration and folding paths are covered by mocked
-  tests modeled on the recorded `image_generation` wire shape. Agent
-  mode does not merge sampling parameters or reasoning effort — an agent's
-  server-side configuration wins; revisit if the Agents API grows those
-  fields. Connector tool *invocations* happen server-side inside chat
-  completions (`{type:"connector"}` entries); the seven pi tools manage
-  connectors only.
+  are not sent to chat completions (HTTP 400 code 1800 there —
+  Conversations/Agents-API-only, per-endpoint support verified on two
+  models); their request declaration and folding paths remain covered by
+  mocked tests modeled on the recorded `image_generation` wire shape.
+  Web search moved to the `mistral_web_search` pi tool; code interpreter
+  runs in hosted agent mode. Agent mode does not merge sampling
+  parameters or reasoning effort — an agent's server-side configuration
+  wins; revisit if the Agents API grows those fields. Connector tool
+  *invocations* happen server-side inside chat completions
+  (`{type:"connector"}` entries); the seven pi tools manage connectors
+  only.
 
 - The same connectors also have a **client-side execution model**
   (ADR [0011](0011-client-side-connector-tools.md)): the loader tool

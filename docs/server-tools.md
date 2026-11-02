@@ -2,18 +2,23 @@
 
 ## What you can do
 
-**Let Mistral search the web, generate images or run code mid-chat —
-without any client-side glue.** One setting, and the model can call
-these tools server-side during a response:
+**Let Mistral generate images or run connectors mid-chat — and search
+the web via a dedicated tool — without any client-side glue.**
+One setting, and the model can call these tools server-side during a
+response:
 
 ```jsonc
-// mistral-native.json (or env: MISTRAL_SERVER_TOOLS=web_search,image_generation)
-{ "serverTools": ["web_search", "web_search_premium", "image_generation", "code_interpreter"] }
+// mistral-native.json (or env: MISTRAL_SERVER_TOOLS=image_generation)
+{ "serverTools": ["image_generation"] }
 ```
 
 ```bash
-MISTRAL_SERVER_TOOLS=web_search,image_generation pi -p "Search the web for the Mistral API changelog, then generate an image summarizing it."
+MISTRAL_SERVER_TOOLS=image_generation pi -p "Generate an image summarizing the Mistral API changelog."
 ```
+
+Web search stays available in the same release — as the model-callable
+`mistral_web_search` pi tool (see below), not as a chat-completions
+tool entry.
 
 **Use Mistral connectors — Outlook, SharePoint, Notion, Google Drive,
 … — as tools.** Grant access once; after that the agent can manage
@@ -41,12 +46,27 @@ agent you configured on La Plateforme:
 ## How it works
 
 Mistral can execute tools **server-side** inside one streamed chat
-response (web search, image generation, code interpreter), can call
-**custom connectors** (e.g. Notion, Google Drive), and offers hosted
-**agents** whose tool set runs entirely on Mistral's side.
-pi-mistral-native exposes all three: configured per session, folded into
-the chat stream as opaque content, and manageable through connector
-tools.
+response (image generation and custom connectors such as Notion or
+Google Drive), can offer hosted **agents** whose tool set runs entirely
+on Mistral's side, and — as of this release — exposes **web search** as a
+model-callable pi tool. pi-mistral-native exposes all of these: configured
+per session, folded into the chat stream as opaque content, and manageable
+through connector tools.
+
+Chat Completions supports only a subset of Mistral's server tools
+(wire-verified 2026-11-03 on mistral-large-4 and zai-glm-5-3):
+`image_generation` and `{type:"connector"}` entries are accepted;
+`web_search`, `web_search_premium` and `code_interpreter` are rejected
+with HTTP 400 code 1800 — Mistral marks them Conversations/Agents-API-only.
+The request builder therefore filters entries to the supported set and,
+when configured tools were dropped, surfaces a visible warning once per
+session pointing at the alternatives (web search: the `mistral_web_search`
+tool; code interpreter: hosted agent mode). Web search itself runs via
+`mistral_web_search`/`mistral_web_search_premium` pi tools over one-shot
+stateless Conversations calls, and code interpreter stays
+Conversations/Agents-only for now. The `mistral_web_search` tool is
+registered by default (no configuration) and the search model is
+configurable via `knowledge.searchModel`.
 
 ### Agent mode
 
@@ -62,14 +82,19 @@ overrides take precedence over `process.env`:
 
 - `MISTRAL_SERVER_TOOLS` — comma/space separated list of `web_search`,
   `web_search_premium`, `image_generation`, `code_interpreter`
-  (unknown values are ignored)
+  (unknown values are ignored). Only `image_generation` is sent to chat
+  completions — `web_search`, `web_search_premium` and `code_interpreter`
+  are not supported by that endpoint (HTTP 400 code 1800) and are dropped
+  from requests with a visible once-per-session warning. Web search is
+  available as the `mistral_web_search` pi tool instead; code interpreter
+  runs in hosted agent mode
 - `MISTRAL_CONNECTORS` — comma/space separated connector ids or names
   (e.g. `notion`); sent as `{type:"connector", connector_id:…}` entries
 - `MISTRAL_AGENT_ID` — a non-empty value switches requests to agent mode
   (see above)
 
 ```bash
-MISTRAL_SERVER_TOOLS=web_search,image_generation pi -p "Search the web for the Mistral API changelog, then generate an image summarizing it."
+MISTRAL_SERVER_TOOLS=image_generation pi -p "Generate an image summarizing the Mistral API changelog."
 ```
 
 ### How executed calls appear

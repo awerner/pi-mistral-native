@@ -41,12 +41,17 @@ Quick way: nothing beyond the Quickstart — the models just appear.
 ordinary pi tools your agent can call. Quick way:
 `mistral_connector_auth_url`, then `mistral_connector_load`.
 
-**Let Mistral search the web, generate images or run code mid-chat.**
+**Generate images mid-chat — and search the web via a dedicated tool.**
 One setting, no client-side glue:
 
 ```json
-{ "serverTools": ["web_search", "image_generation"] }
+{ "serverTools": ["image_generation"] }
 ```
+
+Web search ships as the model-callable `mistral_web_search` pi tool
+(see [docs/server-tools.md](docs/server-tools.md)) — registered by
+default, running under a search model that defaults to
+`mistral-small-latest` and is configurable via `knowledge.searchModel`.
 
 **Extract text from images and PDFs (OCR).** Point the agent at a
 screenshot, scan or PDF and get per-page markdown back.

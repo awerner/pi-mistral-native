@@ -228,7 +228,7 @@ test("mergeMistralFileConfigs: project wins per key; user keys survive otherwise
 		serverTools: ["web_search"],
 		agentId: "user-agent",
 		endpoint: { region: "eu" as const, baseUrl: undefined },
-		knowledge: { streaming: true },
+		knowledge: { streaming: true, searchModel: undefined },
 	};
 	const project = {
 		agentId: "project-agent",
@@ -241,7 +241,7 @@ test("mergeMistralFileConfigs: project wins per key; user keys survive otherwise
 	// Nested section merge: project region wins; user-only knowledge survives.
 	assert.equal(merged.endpoint?.region, "us");
 	assert.equal(merged.endpoint?.baseUrl, "https://eu.example/v1");
-	assert.deepEqual(merged.knowledge, { streaming: true });
+	assert.deepEqual(merged.knowledge, { streaming: true, searchModel: undefined });
 	assert.deepEqual(merged.rag, { streaming: false, defaultLibraryId: "lib-1" });
 });
 
@@ -365,8 +365,10 @@ test("stream carries the file config's serverTools and connectors in the request
 	try {
 		const { body } = await runCapturedStream([chunk({ role: "assistant", content: "hi" }), finalChunk("stop")]);
 		const tools = body.tools as { type: string; connector_id?: string }[];
+		// web_search is rejected by chat completions (400 code 1800,
+		// wire-verified 2026-11-03): the request carries only the supported
+		// entries — image_generation and the connector.
 		assert.deepEqual(tools, [
-			{ type: "web_search" },
 			{ type: "image_generation" },
 			{ type: "connector", connector_id: "notion" },
 		]);
@@ -392,8 +394,11 @@ test("stream: JSON serverTools wins over env when both are set", async () => {
 		const { body } = await runCapturedStream([chunk({ role: "assistant", content: "" }), finalChunk("stop")], {
 			env: { MISTRAL_SERVER_TOOLS: "web_search" },
 		});
-		const tools = body.tools as { type: string }[];
-		assert.deepEqual(tools, [{ type: "code_interpreter" }]);
+		// code_interpreter is Conversations/Agents-only (400 code 1800 on
+		// chat completions, wire-verified 2026-11-03): the JSON key still wins
+		// the config precedence, but its unsupported tool is not sent — no
+		// tools field at all.
+		assert.equal(body.tools, undefined);
 	} finally {
 		setMistralConfigForTests(null);
 	}
@@ -405,7 +410,10 @@ test("stream: null override forces today's env-only behavior", async () => {
 		const { body } = await runCapturedStream([chunk({ role: "assistant", content: "" }), finalChunk("stop")], {
 			env: { MISTRAL_SERVER_TOOLS: "web_search" },
 		});
-		assert.deepEqual(body.tools, [{ type: "web_search" }]);
+		// web_search is dropped from chat-completions requests (400 code
+		// 1800 on the wire, verified 2026-11-03): the env-only override still
+		// applies, but nothing unsupported is sent.
+		assert.equal(body.tools, undefined);
 	} finally {
 		setMistralConfigForTests(null);
 	}
@@ -587,7 +595,7 @@ test("validation: a complete valid file round-trips every section", () => {
 			rateCard: [{ match: "mistral-large", rates: { input: 0.68, output: 2.09, cacheRead: 0.07, cacheWrite: 0 } }],
 			fallThrough: true,
 		},
-		knowledge: { streaming: true },
+		knowledge: { streaming: true, searchModel: undefined },
 		rag: { streaming: false, defaultLibraryId: "lib-id" },
 		ocr: { defaultModel: "mistral-ocr-latest" },
 	};
@@ -603,7 +611,7 @@ test("validation: a complete valid file round-trips every section", () => {
 		rateCard: [{ match: "mistral-large", rates: { input: 0.68, output: 2.09, cacheRead: 0.07, cacheWrite: 0 } }],
 		fallThrough: true,
 	});
-	assert.deepEqual(config.knowledge, { streaming: true });
+	assert.deepEqual(config.knowledge, { streaming: true, searchModel: undefined });
 	assert.deepEqual(config.rag, { streaming: false, defaultLibraryId: "lib-id" });
 	assert.deepEqual(config.ocr, { defaultModel: "mistral-ocr-latest" });
 });
@@ -614,6 +622,45 @@ test("validation: absent keys stay undefined (unset), empty-after-trim agentId i
 	assert.equal(config.agentId, undefined);
 	assert.equal(config.serverTools, undefined);
 	assert.equal(config.endpoint, undefined);
+});
+
+test("validation: knowledge.searchModel parses as a string, trimmed", () => {
+	const { config, error } = validateMistralFileConfig({ knowledge: { searchModel: "  mistral-medium-latest  " } }, VALIDATION_PATH);
+	assert.equal(error, undefined);
+	assert.ok(config);
+	assert.equal(config.knowledge?.searchModel, "mistral-medium-latest", "trimmed");
+	assert.equal(config.knowledge?.streaming, undefined);
+});
+
+test("validation: knowledge.searchModel empty-after-trim is a validation error", () => {
+	const warning = validateWarning(json({ knowledge: { searchModel: "   " } }));
+	assert.equal(warning, `field "knowledge.searchModel" in ${VALIDATION_PATH} must not be empty; omit the key to leave it unset`);
+	// Non-strings are typed errors in the file's existing style.
+	const typeWarning = validateWarning(json({ knowledge: { searchModel: 42 } }));
+	assert.equal(typeWarning, `field "knowledge.searchModel" in ${VALIDATION_PATH} must be a string; got 42`);
+});
+
+test("validation: unknown model ids pass knowledge.searchModel validation", () => {
+	// Warn-on-unknown happens at use time (the tool's 3004-friendly error),
+	// not at config validation: an arbitrary id must validate fine.
+	const { config, error } = validateMistralFileConfig({ knowledge: { searchModel: "some-future-model" } }, VALIDATION_PATH);
+	assert.equal(error, undefined);
+	assert.ok(config);
+	assert.equal(config.knowledge?.searchModel, "some-future-model");
+});
+
+test("getEffectiveSearchModel: default, override, and unset-fallback", async () => {
+	const { getEffectiveSearchModel } = await import("../extensions/mistral/config.js");
+	// No file config → the default search model.
+	setMistralConfigForTests(null);
+	assert.equal(getEffectiveSearchModel(), "mistral-small-latest");
+	// File override wins.
+	setMistralConfigForTests({ knowledge: { streaming: undefined, searchModel: "mistral-medium-latest" } });
+	assert.equal(getEffectiveSearchModel(), "mistral-medium-latest");
+	// Explicit searchModel key absent from the section → default again.
+	setMistralConfigForTests({ knowledge: { streaming: true, searchModel: undefined } });
+	assert.equal(getEffectiveSearchModel(), "mistral-small-latest");
+	setMistralConfigForTests(null);
 });
 
 test("validation: endpoint with only baseUrl parses with region unset", () => {

@@ -28,6 +28,15 @@ import type { MistralFileConfig } from "./config.js";
 /** Server-side tool types accepted in a chat request's `tools` array. */
 export type MistralServerToolType = "web_search" | "web_search_premium" | "image_generation" | "code_interpreter";
 
+/**
+ * Server tool types the Chat Completions endpoint accepts
+ * (wire-verified 2026-11-03: web_search, web_search_premium and
+ * code_interpreter return 400 code 1800 there — they are
+ * Conversations/Agents-API-only; image_generation and connector entries
+ * are accepted).
+ */
+export const CHAT_COMPLETIONS_SERVER_TOOLS: readonly MistralServerToolType[] = ["image_generation"];
+
 /** Server-side tool configuration resolved from the environment. */
 export interface ServerToolsConfig {
 	/** Enabled Mistral built-in server-side tools. */
@@ -111,6 +120,42 @@ export function serverToolWireEntries(
 		entries.push({ type: "connector", connector_id: connectorId });
 	}
 	return entries;
+}
+
+/**
+ * Chat-request `tools` entries the Chat Completions endpoint accepts:
+ * built-ins filtered to `CHAT_COMPLETIONS_SERVER_TOOLS` plus connector
+ * entries (same entry shapes as `serverToolWireEntries`). The dropped
+ * built-ins are the complement — see `unsupportedChatCompletionsServerTools`.
+ */
+export function chatCompletionsServerToolEntries(
+	config: ServerToolsConfig,
+): Array<{ type: MistralServerToolType } | { type: "connector"; connector_id: string }> {
+	const entries: Array<{ type: MistralServerToolType } | { type: "connector"; connector_id: string }> = [];
+	for (const tool of config.serverTools) {
+		if ((CHAT_COMPLETIONS_SERVER_TOOLS as readonly string[]).includes(tool)) {
+			entries.push({ type: tool });
+		}
+	}
+	for (const connectorId of config.connectorIds) {
+		entries.push({ type: "connector", connector_id: connectorId });
+	}
+	return entries;
+}
+
+/**
+ * Configured server tool types the Chat Completions endpoint rejects
+ * (the complement of `CHAT_COMPLETIONS_SERVER_TOOLS`), deduped,
+ * config order preserved.
+ */
+export function unsupportedChatCompletionsServerTools(config: ServerToolsConfig): MistralServerToolType[] {
+	const dropped: MistralServerToolType[] = [];
+	for (const tool of config.serverTools) {
+		if (!(CHAT_COMPLETIONS_SERVER_TOOLS as readonly string[]).includes(tool) && !dropped.includes(tool)) {
+			dropped.push(tool);
+		}
+	}
+	return dropped;
 }
 
 /**

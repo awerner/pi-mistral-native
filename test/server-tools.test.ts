@@ -22,12 +22,17 @@ import {
 	MISTRAL_BASE_URL,
 	MODELS,
 	mistralStreamSimple,
+	takeDroppedServerToolsNoticeForTests,
+	lastDroppedServerToolsNotice,
 } from "../extensions/mistral.js";
 import {
 	buildAgentsRequestBody,
+	CHAT_COMPLETIONS_SERVER_TOOLS,
+	chatCompletionsServerToolEntries,
 	formatServerToolReport,
 	parseServerToolsConfig,
 	serverToolWireEntries,
+	unsupportedChatCompletionsServerTools,
 } from "../extensions/mistral/server-tools.js";
 import { createMistralClient } from "../extensions/tools/mistral-client.js";
 import { createConnectorTools } from "../extensions/tools/connectors.js";
@@ -242,11 +247,42 @@ test("serverToolWireEntries emits built-in entries then connector entries", () =
 	]);
 });
 
+test("CHAT_COMPLETIONS_SERVER_TOOLS is exactly [\"image_generation\"]", () => {
+	assert.deepEqual(CHAT_COMPLETIONS_SERVER_TOOLS, ["image_generation"]);
+});
+
+test("chatCompletionsServerToolEntries filters to the supported set (image_generation + connectors)", () => {
+	const config = parseServerToolsConfig({
+		MISTRAL_SERVER_TOOLS: "web_search, image_generation, code_interpreter",
+		MISTRAL_CONNECTORS: "notion",
+	});
+	assert.deepEqual(chatCompletionsServerToolEntries(config), [
+		{ type: "image_generation" },
+		{ type: "connector", connector_id: "notion" },
+	]);
+});
+
+test("unsupportedChatCompletionsServerTools returns the complement, deduped, order preserved", () => {
+	const config = parseServerToolsConfig({
+		MISTRAL_SERVER_TOOLS: "web_search, image_generation, code_interpreter, web_search",
+		MISTRAL_CONNECTORS: "notion",
+	});
+	assert.deepEqual(unsupportedChatCompletionsServerTools(config), ["web_search", "code_interpreter"]);
+	const supportedOnly = parseServerToolsConfig({
+		MISTRAL_SERVER_TOOLS: "image_generation",
+		MISTRAL_CONNECTORS: "notion",
+	});
+	assert.deepEqual(unsupportedChatCompletionsServerTools(supportedOnly), []);
+});
+
 // =============================================================================
 // Request mapping
 // =============================================================================
 
 test("MISTRAL_SERVER_TOOLS entries are appended after pi function tools", async () => {
+	// web_search is not sent to chat completions (400 code 1800,
+	// wire-verified 2026-11-03): only the function tool + image_generation
+	// reach the wire, and a dropped-tools notice is recorded.
 	const tool = {
 		name: "get_weather",
 		description: "Get the weather",
@@ -267,15 +303,36 @@ test("MISTRAL_SERVER_TOOLS entries are appended after pi function tools", async 
 		messages,
 	);
 	const tools = body.tools as { type: string; function?: { name: string }; connector_id?: string }[];
-	assert.equal(tools.length, 3);
+	assert.equal(tools.length, 2);
 	assert.equal(tools[0]!.type, "function");
 	assert.equal(tools[0]!.function!.name, "get_weather");
-	assert.deepEqual(tools[1], { type: "web_search" });
-	assert.deepEqual(tools[2], { type: "image_generation" });
+	assert.deepEqual(tools[1], { type: "image_generation" });
+	assert.deepEqual(lastDroppedServerToolsNotice()?.tools, ["web_search"]);
+	const noticeMessage = takeDroppedServerToolsNoticeForTests();
+	assert.ok(noticeMessage, "the dropped-tools notice must be surfaced once");
+	assert.match(noticeMessage, /web_search/);
+	assert.equal(takeDroppedServerToolsNoticeForTests(), undefined, "surfaced-once dedup: the same recording is taken once");
+});
+
+test("only-unsupported server tools: no tools field, normal completion, notice names them", async () => {
+	const { body, outcome } = await runCapturedStream(
+		[chunk({ role: "assistant", content: "Hello" }), finalChunk("stop")],
+		{ env: { MISTRAL_SERVER_TOOLS: "web_search,code_interpreter" } },
+	);
+	assert.equal(body.tools, undefined, "no supported entries and no function tools -> no tools array");
+	assert.equal(outcome.message.stopReason, "stop");
+	assert.deepEqual(lastDroppedServerToolsNotice()?.tools, ["web_search", "code_interpreter"]);
+	const noticeMessage = takeDroppedServerToolsNoticeForTests();
+	assert.ok(noticeMessage, "the dropped-tools notice must be recorded");
+	assert.match(noticeMessage, /web_search/);
+	assert.match(noticeMessage, /code_interpreter/);
 });
 
 test("MISTRAL_CONNECTORS maps to {type:\"connector\", connector_id} entries", async () => {
 	const uuid = "8b6b3f2e-9f4a-4a1e-9c1e-0a2b3c4d5e6f";
+	// Drain any pending notice, then assert none is recorded: connectors
+	// are supported in chat completions, nothing is dropped.
+	takeDroppedServerToolsNoticeForTests();
 	const { body } = await runCapturedStream([chunk({ role: "assistant", content: "" }), finalChunk("stop")], {
 		env: { MISTRAL_CONNECTORS: `notion,${uuid}` },
 	});
@@ -284,6 +341,17 @@ test("MISTRAL_CONNECTORS maps to {type:\"connector\", connector_id} entries", as
 		{ type: "connector", connector_id: "notion" },
 		{ type: "connector", connector_id: uuid },
 	]);
+	assert.equal(takeDroppedServerToolsNoticeForTests(), undefined, "connector entries are supported: no dropped-tools notice");
+});
+
+test("agent mode with server tools: no tools field and no dropped notice (full tool set runs server-side)", async () => {
+	takeDroppedServerToolsNoticeForTests();
+	const { url, body } = await runCapturedStream([chunk({ role: "assistant", content: "ok" }), finalChunk("stop")], {
+		env: { MISTRAL_AGENT_ID: "agent-123", MISTRAL_SERVER_TOOLS: "web_search" },
+	});
+	assert.equal(url, `${MISTRAL_BASE_URL}/agents/completions`);
+	assert.equal(body.tools, undefined);
+	assert.equal(takeDroppedServerToolsNoticeForTests(), undefined, "agent mode runs the full tool set: nothing is dropped");
 });
 
 test("unknown MISTRAL_SERVER_TOOLS values are ignored without throwing", async () => {
@@ -722,15 +790,16 @@ test("agent mode posts a minimal body to /v1/agents/completions", async () => {
 	assert.equal(body.max_tokens, 512);
 });
 
-test("agent mode without explicit maxTokens sends the context-clamped default", async () => {
+test("agent mode without explicit maxTokens sends the ceiling-clamped default", async () => {
 	// Without options.maxTokens the clamp falls back to the model's
-	// maxTokens (1048576, the context window under the documented max-output
-	// mapping) minus the estimated transcript tokens and the safety margin —
-	// here 15 estimated tokens + 4096 safety tokens.
+	// maxTokens (262144, the wire-enforced completion ceiling for
+	// mistral-large-4 under the documented max-output mapping). The prompt
+	// does not count against the completion ceiling, so the request sends
+	// exactly the ceiling.
 	const { body } = await runCapturedStream([chunk({ role: "assistant", content: "ok" }), finalChunk("stop")], {
 		env: { MISTRAL_AGENT_ID: "agent-123" },
 	});
-	assert.equal(body.max_tokens, 1048576 - 15 - 4096);
+	assert.equal(body.max_tokens, 262144);
 	assert.deepEqual(Object.keys(body).sort(), ["agent_id", "max_tokens", "messages", "stream"]);
 });
 

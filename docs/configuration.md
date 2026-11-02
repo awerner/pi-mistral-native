@@ -60,8 +60,10 @@ validation error, not "unset".
 
 ```jsonc
 {
-  // Enabled Mistral built-in server-side tools, by name.
-  "serverTools": ["web_search", "web_search_premium", "image_generation", "code_interpreter"],
+  // Enabled Mistral built-in server-side tools, by name. Only
+  // image_generation is sent to chat completions; the others are
+  // dropped with a visible warning (see docs/server-tools.md).
+  "serverTools": ["image_generation"],
   // Connector ids or names whose tools are sent with every request.
   "connectors": ["notion", "8b6b3f2e-9f4a-4a1e-9c1e-0a2b3c4d5e6f"],
   // Agent id that switches chat requests to Mistral's Agents API.
@@ -84,8 +86,9 @@ validation error, not "unset".
     "fallThrough": true
   },
   // "streaming" toggles the streamed RAG answer path for knowledge
-  // queries; applied per tool family.
-  "knowledge": { "streaming": true },
+  // queries; "searchModel" is the model the web-search tools use for
+  // their Conversations calls (default mistral-small-latest).
+  "knowledge": { "streaming": true, "searchModel": "mistral-small-latest" },
   // RAG document queries: "streaming" (default true) switches the query
   // tool between the streaming path and the legacy one-shot request;
   // "defaultLibraryId" is reserved.
@@ -100,7 +103,7 @@ resolved config, but **no behavior derives from them yet** — they are
 reserved for upcoming features. A file written today keeps validating
 when those features land.
 
-Five sections are **behavioral** now:
+Six sections/keys are **behavioral** now:
 
 - The `models` section drives the dynamic catalog's rate card —
   `rateCard` entries are checked **before** the built-in family rates
@@ -113,6 +116,10 @@ Five sections are **behavioral** now:
   streaming RAG path and the legacy one-shot request; `rag.streaming`
   wins over `knowledge.streaming`, which wins over
   `MISTRAL_RAG_STREAMING`.
+- The `knowledge.searchModel` key: the model the web-search tools
+  (`mistral_web_search`, `mistral_web_search_premium`) use for their
+  stateless one-shot Conversations calls — default
+  `mistral-small-latest`; see [knowledge-tools.md](knowledge-tools.md).
 - The `endpoint` section: `region`/`baseUrl` route chat completions and
   the model catalog to the regional endpoint — knowledge APIs,
   server-side tools, agent mode and connectors stay on the global
@@ -131,7 +138,7 @@ grab-bag would defeat that.
 
 | Key | Type | Default | Description | Env override |
 |---|---|---|---|---|
-| `serverTools` | string[] | unset | Enabled Mistral built-in server-side tools; one of `web_search`, `web_search_premium`, `image_generation`, `code_interpreter` (behavioral now) | `MISTRAL_SERVER_TOOLS` |
+| `serverTools` | string[] | unset | Enabled Mistral built-in server-side tools; one of `web_search`, `web_search_premium`, `image_generation`, `code_interpreter` (behavioral now). Only `image_generation` is sent to chat completions; the rest are dropped with a warning (see [server-tools.md](server-tools.md)) | `MISTRAL_SERVER_TOOLS` |
 | `connectors` | string[] | unset | Enabled connector ids or names, sent as `{type:"connector"}` entries (behavioral now) | `MISTRAL_CONNECTORS` |
 | `agentId` | string | unset | Agent id switching requests to `/v1/agents/completions`; trimmed, empty-after-trim = unset (behavioral now) | `MISTRAL_AGENT_ID` |
 | `endpoint.region` | `"global"` \| `"eu"` \| `"us"` | `"global"` (effective) | Mistral region: routes chat completions and the model catalog; unset in the file when the key is absent | `MISTRAL_REGION` — applies only when no JSON sets `region` |
@@ -141,6 +148,7 @@ grab-bag would defeat that.
 | `models.rateCard` | `[{match, rates:{input,output,cacheRead,cacheWrite}}]` | unset | Per-family cost overrides, USD per million tokens (behavioral); entries are checked **before** the built-in rate card — a same-`match` entry shadows the built-in, new match strings work; a `""` match applies to every model id and marks all costs approximate (use it deliberately as a full-card override); entry shape aligned with the built-in rate card in `extensions/mistral.ts` | — |
 | `models.fallThrough` | boolean | unset | Unpriced models fall through to the catch-all rate (behavioral); `false` gives them a zero-cost placeholder instead — still flagged approximate | — |
 | `knowledge.streaming` | boolean | unset | Knowledge tool streaming; applies to the RAG query when `rag.streaming` is unset (behavioral for RAG; other knowledge tools still one-shot) | — |
+| `knowledge.searchModel` | string | `mistral-small-latest` (effective) | Model used by the web-search tools' Conversations calls — `mistral-large-4` refuses builtin connectors there (error 3004); model ids are not validated at load time, an unsupported one surfaces at use time | — |
 | `rag.streaming` | boolean | `true` (effective) | RAG query streaming: `false` forces the legacy one-shot request | `MISTRAL_RAG_STREAMING` (`0`/`false`/`off`/`no` = off; applies only when neither JSON key is set) |
 | `rag.defaultLibraryId` | string | unset | Default library for RAG queries (RESERVED) | — |
 | `ocr.defaultModel` | string | unset | Default OCR model (RESERVED) | — |

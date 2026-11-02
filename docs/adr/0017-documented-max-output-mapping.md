@@ -1,7 +1,7 @@
 # 0017. Documented max-output mapping over fixed clamp
 
 - **Status**: Trial
-- **Date**: 2026-11-02
+- **Date**: 2026-11-03
 
 ## Context
 
@@ -23,47 +23,75 @@ completions is that prompt plus completion tokens must fit
 known-limitations page adds that exceeding the context window returns
 `400`). The hosted third-party models are the only ones with a documented
 output token limit (128k for zai-glm-5-3, zai-glm-5-3-flash and
-deepseek-v4-1-flash-1017). The 262144 figure for mistral-large-4 is not
-Mistral-documented today; it originates from pi-ai's own catalog. The
-owner decision for this mapping is **upstream wins**: the mapping follows
-Mistral's documented facts, not display parity with pi-ai's built-in
-catalog.
+deepseek-v4-1-flash-1017).
+
+Wire probing (2026-11-03) then revealed a constraint the model pages do
+not document at all: the API ALSO enforces per-model completion-token
+ceilings. A live request against mistral-large-4 failed with
+`400 invalid_request_max_tokens` (code 3058): "This model supports at most
+262144 completion tokens". The 262144 figure for mistral-large-4 —
+previously not Mistral-documented — is wire-enforced fact, not display
+parity with pi-ai's built-in catalog. "Documented facts" for this mapping
+now means documented **or wire-enforced** limits.
+
+Probe method (so future models can be sourced): send a
+`POST /v1/chat/completions` request with an oversized `max_tokens`
+(e.g. 9999999) and a 1-token prompt; the `400` response (code 3058,
+`invalid_request_max_tokens`) message names the true ceiling ("supports at
+most N completion tokens"). Verify N by an accepted N and a rejected N+1
+probe when feasible (for mistral-large-4: `max_tokens` 262144 is accepted,
+262145 is rejected).
 
 ## Decision
 
-`maxTokens` derives from documented facts only, in one shared mapping
-(`documentedMaxTokensForModel` + `DOCUMENTED_OUTPUT_LIMITS` in
-`extensions/mistral.ts`):
+`maxTokens` derives from documented or wire-enforced facts only, in one
+shared mapping (`documentedMaxTokensForModel` +
+`API_ENFORCED_COMPLETION_CEILINGS` in `extensions/mistral.ts`):
 
-1. **Context window by default:** for models without a documented output
-   limit (all Mistral-native families), `maxTokens` is the card's
-   `max_context_length` — the only documented bound on completions.
-2. **Documented overrides:** a small sourced table (checked
-   most-specific-first, mirroring the rate card of ADR
-   [0013](0013-rate-card-sourced-prices.md)) pins the documented 128k
-   output limits for the hosted `zai-glm` and `deepseek` models; each entry
-   carries a source URL and last-verified date as a code comment.
-3. **Context-capped:** the override is capped at the context window, so a
-   stale table entry can never exceed it.
+1. **Wire-enforced ceiling capped at the context window by default:** for
+   models without a documented output limit, `maxTokens` is
+   `min(completionCeiling(id), contextWindow)`. The completion-ceiling
+   table (`API_ENFORCED_COMPLETION_CEILINGS`, checked most-specific-first,
+   mirroring the rate card of ADR
+   [0013](0013-rate-card-sourced-prices.md)) holds only wire-verified
+   ceilings; today that is mistral-large-4 → 262144 (verified by the probe
+   method above, 2026-11-03).
+2. **Documented overrides win:** a small sourced table
+   (`DOCUMENTED_OUTPUT_LIMITS`) pins the documented 128k output limits for
+   the hosted `zai-glm` and `deepseek` models — documented limits are the
+   tighter, sourced facts; each entry carries a source URL and
+   last-verified date as a code comment.
+3. **Conservative fallback for unknown models:** ids without a
+   wire-verified entry get a conservative fallback
+   (`COMPLETION_CEILING_FALLBACK`, 262144) capped at the context window —
+   an oversized value hard-fails requests with 400 code 3058, while a
+   conservative one merely caps output.
 
 The request path keeps clamping `max_tokens` against the estimated
-transcript (pi-ai's clamp), so the mapping is a ceiling, not a promise of
-room. The static fallback catalog (`MODELS`) follows the same mapping —
-mistral-large-4 carries `maxTokens = contextWindow` — so the fallback and
-the live path never contradict each other.
+transcript (pi-ai's clamp) and additionally applies the completion
+ceiling, so STALE persisted snapshots from earlier versions (v0.1.0-era
+`maxTokens: 1048576` values) cannot reproduce the 400 before the
+self-healing catalog refresh overwrites them. The static fallback catalog
+(`MODELS`) follows the same mapping — mistral-large-4 carries
+`maxTokens = 262144` — so the fallback and the live path never contradict
+each other.
 
 ## Consequences
 
-- No fixed 32768 clamp: mistral-large-4's live row no longer under-reports
-  its usable output budget by 8×; conversely, `maxTokens` may now exceed
-  what the model will actually generate in practice — it is a documented
-  ceiling, not a guaranteed budget, and Mistral may end completions early
-  by its own discretion.
-- The override table is hand-curated and needs the same dated re-verification
-  process as the rate card; the update path is identical (source URL +
+- No fixed 32768 clamp and no context-window overshoot: `maxTokens` is now
+  a wire-accurate ceiling — the request path can never send a
+  `max_tokens` the API rejects with 400 code 3058, and mistral-large-4's
+  row no longer over-reports its usable output budget by 4×.
+- Unknown models may be conservatively under-reported until probed: the
+  fallback caps output below what a model might actually support. A
+  too-small value merely caps output; a too-large one hard-fails requests.
+- The ceiling table is hand-curated and needs the same dated
+  re-verification process as the rate card (`API_ENFORCED_COMPLETION_CEILINGS`
+  mirroring `DEFAULT_RATES`); the update path is identical (probe method +
   last-verified date per entry).
-- Where Mistral publishes per-model output limits later, the table grows
+- Where Mistral publishes per-model output limits later, the tables grow
   one entry per family; where the API grows a max-output field, the table
   defers to it.
 - Display parity with pi-ai's built-in Mistral catalog is deliberately
-  not a goal: this catalog reports Mistral's documented facts.
+  not a goal: this catalog reports Mistral's documented and wire-enforced
+  facts.

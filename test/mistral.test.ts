@@ -21,12 +21,15 @@ import type { Message, Model, ModelsStoreEntry, RefreshModelsContext, Transcript
 import type { ProviderModelConfig } from "@earendil-works/pi-coding-agent";
 
 import {
+	API_ENFORCED_COMPLETION_CEILINGS,
+	COMPLETION_CEILING_FALLBACK,
 	DEFAULT_RATES,
 	DOCUMENTED_OUTPUT_LIMITS,
 	MISTRAL_API,
 	MISTRAL_BASE_URL,
 	MODELS,
 	buildMistralNativeProvider,
+	completionCeilingForModel,
 	default as registerExtension,
 	fallThroughModelIds,
 	fetchMistralModels,
@@ -38,6 +41,7 @@ import {
 	setMistralFetch,
 	mistralStreamSimple,
 	takeFallThroughNoticeForTests,
+	takeDroppedServerToolsNoticeForTests,
 } from "../extensions/mistral.js";
 import type { MistralModelConfig } from "../extensions/mistral.js";
 import { setMistralConfigForTests } from "../extensions/mistral/config.js";
@@ -193,12 +197,13 @@ test("MODELS registers mistral-large-4 against the Mistral chat-completions endp
 	assert.equal(model.reasoning, true);
 	// Facts mirror the official model card: 1M-token context,
 	// $0.70/$2.10/$0.07 per million (the verified rate card,
-	// https://docs.mistral.ai/models/mistral-large-4-0). Mistral documents
-	// no per-model output limit, so maxTokens follows the same mapping as
-	// the live catalog: the context window.
+	// https://docs.mistral.ai/models/mistral-large-4-0). The API enforces a
+	// 262144 completion-token ceiling (wire-verified, 400 code 3058), so
+	// maxTokens follows the same mapping as the live catalog: the wire
+	// ceiling capped at the context window.
 	assert.deepEqual(model.cost, { input: 0.7, output: 2.1, cacheRead: 0.07, cacheWrite: 0 });
 	assert.equal(model.contextWindow, 1048576);
-	assert.equal(model.maxTokens, 1048576);
+	assert.equal(model.maxTokens, 262144);
 });
 
 test("compat flags record Mistral's wire differences", () => {
@@ -906,6 +911,84 @@ test("reasoning_effort maps from pi thinking levels through thinkingLevelMap", a
 		}
 		assert.equal(captured!.reasoning_effort, expected, `level=${level}`);
 	}
+});
+
+test("request without explicit maxTokens clamps to the wire-enforced completion ceiling", async () => {
+	// mistral-large-4 has a wire-enforced completion ceiling of 262144 (400
+	// code 3058 above it); without options.maxTokens the request path must
+	// derive max_tokens from that ceiling, not the 1M context window. The
+	// prompt does not count against the completion ceiling (the API accepts
+	// max_tokens 262144), so the clamp is exactly the ceiling here.
+	let captured: Record<string, unknown> | undefined;
+	const stream = mistralStreamSimple(makeModel() as never, CONTEXT, {
+		apiKey: "test-key",
+		fetch: async (_url: unknown, init?: RequestInit) => {
+			captured = JSON.parse(String(init!.body)) as Record<string, unknown>;
+			return sseResponse([chunk({ role: "assistant", content: "" }), finalChunk("stop")]);
+		},
+		maxRetries: 0,
+	} as never);
+	for await (const _event of stream) {
+		// drain
+	}
+	assert.ok(captured);
+	assert.equal(captured!.max_tokens, 262144);
+	assert.ok((captured!.max_tokens as number) <= 262144, "max_tokens exceeds the completion ceiling");
+});
+
+test("request path rescues a stale snapshot with an oversized maxTokens catalog value", async () => {
+	// A v0.1.0 persisted snapshot carried maxTokens 1048576 (the context
+	// window); the request-path clamp must still cap max_tokens at the
+	// wire-enforced ceiling so the request cannot hit 400 code 3058.
+	let captured: Record<string, unknown> | undefined;
+	const stream = mistralStreamSimple(
+		makeModel({ maxTokens: 1048576 }) as never,
+		CONTEXT,
+		{
+			apiKey: "test-key",
+			fetch: async (_url: unknown, init?: RequestInit) => {
+				captured = JSON.parse(String(init!.body)) as Record<string, unknown>;
+				return sseResponse([chunk({ role: "assistant", content: "" }), finalChunk("stop")]);
+			},
+			maxRetries: 0,
+		} as never,
+	);
+	for await (const _event of stream) {
+		// drain
+	}
+	assert.ok(captured);
+	assert.ok((captured!.max_tokens as number) <= 262144, "max_tokens exceeds the completion ceiling");
+	assert.equal(captured!.max_tokens, 262144);
+});
+
+test("request path keeps the context clamp under prompt pressure below the ceiling", async () => {
+	// With ~800k estimated transcript tokens the remaining context is far
+	// below the ceiling: the context clamp (not the ceiling) must bound
+	// max_tokens, but never below MIN_MAX_TOKENS.
+	let captured: Record<string, unknown> | undefined;
+	const messages: Message[] = [
+		{ role: "system", content: "You are a test harness.", timestamp: 1 },
+		{ role: "user", content: "x".repeat(2800000), timestamp: 2 },
+	];
+	const stream = mistralStreamSimple(makeModel() as never, { messages } as never, {
+		apiKey: "test-key",
+		fetch: async (_url: unknown, init?: RequestInit) => {
+			captured = JSON.parse(String(init!.body)) as Record<string, unknown>;
+			return sseResponse([chunk({ role: "assistant", content: "" }), finalChunk("stop")]);
+		},
+		maxRetries: 0,
+	} as never);
+	for await (const _event of stream) {
+		// drain
+	}
+	assert.ok(captured);
+	const maxTokens = captured!.max_tokens as number;
+	// Estimated transcript: 7 + ceil(2800000/3.5) = 800007 tokens, so the
+	// context clamp yields 1048576 - 800007 - 4096 = 244473 — the context
+	// (not the ceiling) is the binding constraint.
+	assert.equal(maxTokens, 244473);
+	assert.ok(maxTokens > 1, "max_tokens fell to MIN_MAX_TOKENS");
+	assert.ok(maxTokens <= 262144, "max_tokens exceeds the completion ceiling");
 });
 
 test("tool results and assistant tool calls replay in the request", async () => {
@@ -1623,8 +1706,8 @@ test("mapModelList filters, maps, and sorts the ModelList wire format", () => {
 	assert.deepEqual(large.input, ["text", "image"]);
 	assert.deepEqual(large.cost, { input: 0.7, output: 2.1, cacheRead: 0.07, cacheWrite: 0 });
 	assert.equal(large.contextWindow, 409600);
-	// No documented output limit: maxTokens follows the context window.
-	assert.equal(large.maxTokens, 409600);
+	// Wire-enforced ceiling (262144) capped at the context window.
+	assert.equal(large.maxTokens, 262144);
 
 	const codestral = models.find((m) => m.id === "codestral-latest");
 	assert.ok(codestral);
@@ -1648,20 +1731,22 @@ test("mapModelList filters, maps, and sorts the ModelList wire format", () => {
 	assert.equal(ministral.name, "ministral-8b-latest"); // missing name falls back to id
 	assert.deepEqual(ministral.cost, { input: 0.15, output: 0.15, cacheRead: 0.015, cacheWrite: 0 });
 	assert.equal(ministral.contextWindow, 32768); // default max_context_length
-	assert.equal(ministral.maxTokens, 32768); // same rule: the context window
+	assert.equal(ministral.maxTokens, 32768); // ceiling capped at the context window
 });
 
-test("maxTokens mapping: context window when no documented output limit exists", () => {
-	// Mistral-native models document no per-model output limit; the context
-	// window is the only documented bound on completions.
-	assert.equal(documentedMaxTokensForModel("mistral-large-4", 1048576), 1048576);
+test("maxTokens mapping: wire-enforced completion ceiling caps the context window when no documented output limit exists", () => {
+	// The API enforces a per-model completion-token ceiling the model pages
+	// do not document (400 code 3058 when exceeded); unknown models get the
+	// conservative fallback, capped at the context window.
+	assert.equal(documentedMaxTokensForModel("mistral-large-4", 1048576), 262144);
 	assert.equal(documentedMaxTokensForModel("mistral-small-2603", 262144), 262144);
 	assert.equal(documentedMaxTokensForModel("ministral-3-8b-2512", 262144), 262144);
 });
 
 test("maxTokens mapping: documented output limit wins and is capped at the context window", () => {
 	// Hosted third-party models are the only ones with a documented output
-	// token limit (128k on docs.mistral.ai, verified 2026-11-02).
+	// token limit (128k on docs.mistral.ai, verified 2026-11-02) — the
+	// documented limit wins over the wire-enforced ceiling.
 	assert.equal(documentedMaxTokensForModel("zai-glm-5-3", 1048576), 131072);
 	assert.equal(documentedMaxTokensForModel("zai-glm-5-3-flash", 1048576), 131072);
 	assert.equal(documentedMaxTokensForModel("deepseek-v4-1-flash-1017", 1048576), 131072);
@@ -1670,6 +1755,21 @@ test("maxTokens mapping: documented output limit wins and is capped at the conte
 	// DOCUMENTED_OUTPUT_LIMITS is checked most-specific-first (mirrors the rate card).
 	for (const entry of DOCUMENTED_OUTPUT_LIMITS) {
 		assert.ok(entry.maxOutputTokens > 0);
+	}
+});
+
+test("completion ceiling table maps wire-verified ceilings and falls back conservatively", () => {
+	// mistral-large-4 (and the -0 alias) is the wire-verified entry: 262144
+	// (400 code 3058 message names the ceiling, probed 2026-11-03).
+	assert.equal(completionCeilingForModel("mistral-large-4"), 262144);
+	assert.equal(completionCeilingForModel("mistral-large-4-0"), 262144);
+	// Unknown ids get the conservative fallback: a too-small value merely
+	// caps output, a too-large one hard-fails requests with 400 code 3058.
+	assert.equal(completionCeilingForModel("mistral-medium-latest"), COMPLETION_CEILING_FALLBACK);
+	assert.equal(completionCeilingForModel("codestral-2508"), COMPLETION_CEILING_FALLBACK);
+	assert.equal(COMPLETION_CEILING_FALLBACK, 262144);
+	for (const entry of API_ENFORCED_COMPLETION_CEILINGS) {
+		assert.ok(entry.completionCeiling > 0);
 	}
 });
 
@@ -1691,6 +1791,13 @@ test("mapModelList applies the documented max-output mapping to live cards", () 
 				max_context_length: 262144,
 				type: "base",
 			},
+			{
+				id: "mistral-large-4",
+				capabilities: { completion_chat: true },
+				name: "Mistral Large 4",
+				max_context_length: 1048576,
+				type: "base",
+			},
 		],
 	});
 	const glm = models.find((m) => m.id === "zai-glm-5-3");
@@ -1699,7 +1806,10 @@ test("mapModelList applies the documented max-output mapping to live cards", () 
 	assert.equal(glm.maxTokens, 131072, "documented 128k limit overrides the context window");
 	const small = models.find((m) => m.id === "mistral-small-2603");
 	assert.ok(small);
-	assert.equal(small.maxTokens, 262144, "no documented limit: maxTokens follows the context window");
+	assert.equal(small.maxTokens, 262144, "unknown model: conservative fallback capped at the context window");
+	const large = models.find((m) => m.id === "mistral-large-4");
+	assert.ok(large);
+	assert.equal(large.maxTokens, 262144, "wire-enforced ceiling caps the 1M context window");
 });
 
 test("mapModelList ignores the deprecation filter when every eligible model is deprecated", () => {
@@ -2537,6 +2647,10 @@ test("session_start warns once, as a warning, when the effective region is non-g
 		process.env.HOME = join(dir, "home");
 		try {
 			setMistralConfigForTests({ endpoint: { region: "eu", baseUrl: undefined } });
+			// A prior test's stream may have left a dropped-tools notice; the
+			// session_start handler would surface it here. Drain it so the
+			// count pins the region notice alone.
+			takeDroppedServerToolsNoticeForTests();
 			const notifications = await fireSessionStart();
 			assert.equal(notifications.length, 1, "exactly one notify");
 			const notice = notifications[0]!;
@@ -2580,6 +2694,7 @@ test("session_start warns from the MISTRAL_REGION env layer when no JSON is pres
 			process.env.HOME = join(dir, "home");
 			try {
 				setMistralConfigForTests(null);
+				takeDroppedServerToolsNoticeForTests();
 				const notifications = await fireSessionStart();
 				assert.equal(notifications.length, 1, "exactly one notify");
 				const notice = notifications[0]!;
