@@ -80,10 +80,8 @@ const capabilities = [
 >
   <Fragment slot="default">
     <p>
-      A Mistral-specific, optimized integration for the
-      <a href="https://github.com/earendil-works/pi">pi coding agent</a> — not just chat.
-      pi-mistral-native registers the native <code>mistral-native</code>
-      provider and exposes Mistral's full feature surface as first-class pi
+      A Mistral-specific, optimized integration for the <a href="https://github.com/earendil-works/pi">pi coding agent</a> — not just chat.
+      pi-mistral-native registers the native <code>mistral-native</code> provider and exposes Mistral's full feature surface as first-class pi
       capabilities.
     </p>
 
@@ -94,8 +92,7 @@ const capabilities = [
     <pre class="astro-code"><code>{quickstart}</code></pre>
 
     <p>
-      The guided login prompts for an
-      <a href="https://console.mistral.ai/api-keys">API key</a> and the API
+      The guided login prompts for an <a href="https://console.mistral.ai/api-keys">API key</a> and the API
       region — and that's it: the provider is registered, the model catalog
       refreshes from Mistral's live model list, and the knowledge, OCR and
       connector tools are available in every session.
@@ -122,8 +119,7 @@ const capabilities = [
     <h2 id="install">Install</h2>
 
     <p>
-      The package installs as a pi package; Node.js ≥ 22 is required. See the
-      <a href={withBase('/development/')}>development docs</a> for building from a local
+      The package installs as a pi package; Node.js ≥ 22 is required. See the <a href={withBase('/development/')}>development docs</a> for building from a local
       checkout.
     </p>
   </Fragment>
@@ -142,8 +138,10 @@ const capabilities = [
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    border: 1px solid var(--sl-color-gray-3);
-    background: var(--sl-color-gray-1);
+    /* Panel chrome in theme-relative tokens: bg-nav is the elevated panel
+       background, gray-5 the border, gray-3 the secondary foreground. */
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-bg-nav);
     padding: 1rem 1.25rem;
     text-decoration: none;
     transition: box-shadow 150ms ease-in-out;
@@ -157,6 +155,6 @@ const capabilities = [
   }
   .capability-text {
     font-size: 0.9rem;
-    color: var(--sl-color-gray-6);
+    color: var(--sl-color-gray-3);
   }
 </style>
