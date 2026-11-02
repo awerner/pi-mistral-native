@@ -1,0 +1,162 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { Card, CardGrid, Icon } from '@astrojs/starlight/components';
+
+// Site-authored landing page, derived from the repository README: one-line
+// value proposition, quickstart and the capability cards. The README itself
+// stays the single source of truth for the feature pages this links to.
+//
+// GitHub Pages serves the site under a subpath; Astro rewrites its own URLs
+// but not hand-written hrefs, so site-absolute routes gain the base here
+// (BASE_URL is '/' in dev and '/pi-mistral-native/' in the build).
+const base = import.meta.env.BASE_URL;
+// Guaranteed trailing slash, so a base without one can never yield a
+// double-segment path ('/pi-mistral-native' + '/stream/' → '/pi-mistral-native//stream/').
+const baseDir = base.endsWith('/') ? base : `${base}/`;
+
+function withBase(route) {
+  return `${baseDir}${route.slice(1)}`;
+}
+
+const quickstart = `pi install npm:pi-mistral-native
+pi /login mistral-native`;
+
+const capabilities = [
+  {
+    title: 'Chat with Mistral models — including reasoning',
+    href: withBase('/stream/'),
+    text: 'Pick any `mistral-native/…` model and chat as usual: thinking streams into proper thinking blocks, tool calls execute, usage and cost are shown.',
+  },
+  {
+    title: 'Use Mistral connectors as tools',
+    href: withBase('/server-tools/'),
+    text: 'Outlook, SharePoint, Notion, Google Drive, … — grant access once; the connector\u2019s MCP tools become ordinary pi tools your agent can call.',
+  },
+  {
+    title: 'Run server-side tools mid-chat',
+    href: withBase('/server-tools/'),
+    text: 'Web search, image generation and code execution with one setting — no client-side glue.',
+  },
+  {
+    title: 'Extract text from images and PDFs (OCR)',
+    href: withBase('/knowledge-tools/'),
+    text: 'Point the agent at a screenshot, scan or PDF and get per-page markdown back with `mistral_ocr`.',
+  },
+  {
+    title: 'Search your own documents (RAG)',
+    href: withBase('/knowledge-tools/'),
+    text: 'Upload a file once, then ask questions about it — answers come back with citations linking to the source passages.',
+  },
+  {
+    title: 'An always-current model list with real prices',
+    href: withBase('/catalog/'),
+    text: 'New and retired Mistral models show up (or disappear) without a package update, each priced from a sourced rate card.',
+  },
+  {
+    title: 'Check and shape content',
+    href: withBase('/knowledge-tools/'),
+    text: 'Moderations (policy flags with scores), embeddings, and classification against your fine-tuned models — all as tools.',
+  },
+  {
+    title: 'Route through the EU or US region',
+    href: withBase('/auth/'),
+    text: 'Data-residency routing with one key (or one prompt during `/login`).',
+  },
+  {
+    title: 'Configure everything without leaving pi',
+    href: withBase('/configuration/'),
+    text: 'The `/mistral` command family shows every effective setting, writes user-scope keys and checks the live connection.',
+  },
+];
+---
+
+<StarlightPage
+  frontmatter={{
+    title: 'Welcome',
+    description:
+      'A Mistral-specific, optimized integration for the pi coding agent — not just chat.',
+    template: 'splash',
+  }}
+>
+  <Fragment slot="default">
+    <p>
+      A Mistral-specific, optimized integration for the
+      <a href="https://github.com/earendil-works/pi">pi coding agent</a> — not just chat.
+      pi-mistral-native registers the native <code>mistral-native</code>
+      provider and exposes Mistral's full feature surface as first-class pi
+      capabilities.
+    </p>
+
+    <h2 id="quickstart">Quickstart</h2>
+
+    <p>Install the package, log in once, and pick a model:</p>
+
+    <pre class="astro-code"><code>{quickstart}</code></pre>
+
+    <p>
+      The guided login prompts for an
+      <a href="https://console.mistral.ai/api-keys">API key</a> and the API
+      region — and that's it: the provider is registered, the model catalog
+      refreshes from Mistral's live model list, and the knowledge, OCR and
+      connector tools are available in every session.
+    </p>
+
+    <h2 id="what-you-can-do">What you can do</h2>
+
+    <p>
+      Everything below works inside your normal pi session — no separate
+      client, no context switching.
+    </p>
+
+    <div class="capability-grid">
+      {
+        capabilities.map((cap) => (
+          <a class="capability-card" href={cap.href}>
+            <span class="capability-title">{cap.title}</span>
+            <span class="capability-text" set:html={cap.text.replaceAll('`', '')} />
+          </a>
+        ))
+      }
+    </div>
+
+    <h2 id="install">Install</h2>
+
+    <p>
+      The package installs as a pi package; Node.js ≥ 22 is required. See the
+      <a href={withBase('/development/')}>development docs</a> for building from a local
+      checkout.
+    </p>
+  </Fragment>
+</StarlightPage>
+
+<style>
+  .capability-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .capability-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border: 1px solid var(--sl-color-gray-3);
+    background: var(--sl-color-gray-1);
+    padding: 1rem 1.25rem;
+    text-decoration: none;
+    transition: box-shadow 150ms ease-in-out;
+  }
+  .capability-card:hover {
+    box-shadow: 0 4px 12px rgba(20, 60, 140, 0.12);
+  }
+  .capability-title {
+    font-weight: 600;
+    color: var(--sl-color-text-accent);
+  }
+  .capability-text {
+    font-size: 0.9rem;
+    color: var(--sl-color-gray-6);
+  }
+</style>

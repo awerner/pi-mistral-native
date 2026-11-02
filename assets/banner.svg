@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" width="1200" height="400" role="img" aria-label="pi-mistral-native banner: a pi symbol built from blue blocks">
+  <title>pi-mistral-native</title>
+  <desc>Native Mistral AI provider for the pi coding agent — banner with a pi mark built from blue blocks on an ink background.</desc>
+  <style>
+    /* ============================================================
+       pi-mistral-native README banner (Variant A, accepted #31)
+       Blue block system: cool-hue mapping of Mistral's five-step
+       logo ramp. Motion is progressive enhancement: every element
+       carries its final state as base style, so stripping the
+       animations (or static rasterization) leaves a complete still.
+       ============================================================ */
+
+    /* Block fall-in with settle overshoot (Mistral-style entrance):
+       500ms ease-in, 60ms per-block stagger. */
+    .blk {
+      transform-box: fill-box;
+      transform-origin: 50% 100%;
+      animation: fall 0.5s ease-in backwards;
+      animation-delay: calc(var(--i) * 60ms);
+    }
+    @keyframes fall {
+      0%   { transform: translate(0px, -46px); opacity: 0; }
+      50%  { transform: translate(0px, 0px);   opacity: 1; }
+      65%  { transform: translate(0px, 0px) scale(1, 0.95); }
+      80%  { transform: translate(0px, 0px) scale(1, 1.02); }
+      100% { transform: translate(0px, 0px) scale(1, 1); }
+    }
+
+    /* Pi dot: pop-in with overshoot easing, then the pulse.
+       Faithful port of the proposal's box-shadow ring:
+       box-shadow: 0 0 0 Npx #4CC9FF on a square element — the ring is
+       block-geometric (sharp square outline expanding outward from the
+       dot). Emulated exactly by a centered stroke on the dot's own rect:
+       the outward half is the visible ring; the inward half is invisible
+       over the same-color fill. */
+    .dot {
+      stroke: #4CC9FF;
+      stroke-width: 0;
+      transform-box: fill-box;
+      transform-origin: 50% 50%;
+      animation:
+        popIn 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) 0.45s backwards,
+        dotPulse 3s ease-out 1.2s infinite;
+    }
+    @keyframes popIn {
+      from { transform: scale(0) translate(0px, 10px); opacity: 0; }
+      to   { transform: scale(1); opacity: 1; }
+    }
+    /* Proposal: 0% spread 0 alpha .55 -> 70% spread 12px alpha 0 -> 100% spread 0 alpha 0.
+       Spread 12px = stroke-width 24 centered on the square edge. */
+    @keyframes dotPulse {
+      0%   { stroke-width: 0;  stroke-opacity: 0.55; }
+      70%  { stroke-width: 24px; stroke-opacity: 0; }
+      100% { stroke-width: 0;  stroke-opacity: 0; }
+    }
+
+    /* Copy entrances: directional slides with staggered delays. */
+    .eyebrow { animation: fromLeft 0.5s cubic-bezier(0.2, 0, 0, 1) 0.15s backwards; }
+    .title   { animation: riseIn  0.5s cubic-bezier(0.2, 0, 0, 1) 0.25s backwards; }
+    .tagline { animation: riseIn  0.5s cubic-bezier(0.2, 0, 0, 1) 0.35s backwards; }
+    .ramp    { animation: fromLeft 0.5s cubic-bezier(0.2, 0, 0, 1) 0.45s backwards; }
+    @keyframes fromLeft { from { transform: translate(-40px, 0px); opacity: 0; } }
+    @keyframes riseIn   { from { transform: translate(0px, 20px);   opacity: 0; } }
+
+    /* Ambient blue wash: faithful port of the proposal's wash layer.
+       The proposal's layer is position:absolute; inset:-30% on the
+       1200x400 banner -> a 1920x640 element at (-360,-120), rotated about
+       its center (= banner center, 600,200) with scale(1.15), 64s linear. */
+    .wash {
+      transform-box: view-box;
+      transform-origin: 50% 50%;
+      animation: washSpin 64s linear infinite;
+    }
+    @keyframes washSpin {
+      from { transform: rotate(0deg) scale(1.15); }
+      to   { transform: rotate(360deg) scale(1.15); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .blk, .dot, .eyebrow, .title, .tagline, .ramp, .wash {
+        animation: none !important;
+      }
+    }
+  </style>
+
+  <defs>
+    <!-- Wash gradients: centers are 72%/28% and 26%/82% of the proposal's
+         1920x640 inset:-30% wash layer (see .wash comment above). -->
+    <radialGradient id="washPrimary" gradientUnits="userSpaceOnUse" cx="1022.4" cy="59.2" r="620">
+      <stop offset="0"    stop-color="#0B7FE0" stop-opacity="0.32"/>
+      <stop offset="0.62" stop-color="#0B7FE0" stop-opacity="0"/>
+      <stop offset="1"    stop-color="#0B7FE0" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="washAzure" gradientUnits="userSpaceOnUse" cx="139.2" cy="404.8" r="540">
+      <stop offset="0"    stop-color="#1FA7FF" stop-opacity="0.16"/>
+      <stop offset="0.62" stop-color="#1FA7FF" stop-opacity="0"/>
+      <stop offset="1"    stop-color="#1FA7FF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Ink background: the banner carries its own surface, so one asset
+       reads correctly on light (#ffffff) and dark (#171e26) READMEs. -->
+  <rect width="1200" height="400" fill="#101826"/>
+  <g class="wash">
+    <rect x="-360" y="-120" width="1920" height="640" fill="url(#washAzure)"/>
+    <rect x="-360" y="-120" width="1920" height="640" fill="url(#washPrimary)"/>
+  </g>
+
+  <!-- Pi block mark: 5x4 grid, 20px cells, 6px gaps (124x98),
+       pi dot in sky blue at the baseline. -->
+  <g transform="translate(64,151)">
+    <!-- top bar: primary blue, the signature wide bar -->
+    <rect class="blk" style="--i:0"  x="0"   y="0"  width="20" height="20" fill="#0B7FE0"/>
+    <rect class="blk" style="--i:1"  x="26"  y="0"  width="20" height="20" fill="#0B7FE0"/>
+    <rect class="blk" style="--i:2"  x="52"  y="0"  width="20" height="20" fill="#0B7FE0"/>
+    <rect class="blk" style="--i:3"  x="78"  y="0"  width="20" height="20" fill="#0B7FE0"/>
+    <rect class="blk" style="--i:4"  x="104" y="0"  width="20" height="20" fill="#0B7FE0"/>
+    <!-- legs: azure -->
+    <rect class="blk" style="--i:5"  x="0"   y="26" width="20" height="20" fill="#1FA7FF"/>
+    <rect class="blk" style="--i:6"  x="104" y="26" width="20" height="20" fill="#1FA7FF"/>
+    <!-- legs: deep blue -->
+    <rect class="blk" style="--i:7"  x="0"   y="52" width="20" height="20" fill="#0A5BD0"/>
+    <rect class="blk" style="--i:8"  x="104" y="52" width="20" height="20" fill="#0A5BD0"/>
+    <!-- feet: ultramarine -->
+    <rect class="blk" style="--i:9"  x="0"   y="78" width="46" height="20" fill="#0B3FB0"/>
+    <rect class="blk" style="--i:10" x="78"  y="78" width="46" height="20" fill="#0B3FB0"/>
+    <!-- pi dot: sky blue; its own stroke is the block-geometric pulse ring -->
+    <rect class="dot" x="140" y="78" width="20" height="20" fill="#4CC9FF"/>
+  </g>
+
+  <!-- Wordmark and tagline -->
+  <text class="eyebrow" x="280" y="133" fill="#1FA7FF"
+        font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace"
+        font-size="13" font-weight="600" letter-spacing="2.6">PI PACKAGE &#183; MISTRAL ECOSYSTEM</text>
+  <text class="title" x="280" y="193" fill="#FFFFFF"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif"
+        font-size="58" font-weight="700" letter-spacing="-1.45">pi-mistral-native</text>
+  <text class="tagline" x="280" y="237" fill="#93A8C4"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif"
+        font-size="19">Native Mistral AI provider for the pi coding agent</text>
+
+  <!-- Five-step blue ramp. Positioning lives on the outer group so the
+       animated .ramp group's underlying transform is the identity: CSS
+       transform animations replace the transform attribute, and a
+       transform attribute here would make the fromLeft entrance run from
+       the canvas origin (top-left) diagonally toward the target instead of
+       the proposal's pure horizontal translateX(-40px) entrance. -->
+  <g transform="translate(280,266)">
+    <g class="ramp">
+      <rect x="0"   width="68" height="10" fill="#4CC9FF"/>
+      <rect x="68"  width="68" height="10" fill="#1FA7FF"/>
+      <rect x="136" width="68" height="10" fill="#0B7FE0"/>
+      <rect x="204" width="68" height="10" fill="#0A5BD0"/>
+      <rect x="272" width="68" height="10" fill="#0B3FB0"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<!--
+  Design source for assets/banner.svg + assets/banner.png.
+  Variant A ("animated block hero") of the 2026-10 README banner design
+  tour — accepted by the owner 2026-10-31 without iteration.
+  Self-contained: open directly in a browser, no build step, no
+  external dependencies. Keep in-repo for future iterations: the three
+  variants, the dark/light README contexts, the palette strip and the
+  motion tokens live here. Note: this file shows the design study
+  (context frames, replay button, token swatches); the shipped banner
+  is the clean export in assets/banner.svg.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>pi-mistral-native — banner design source</title>
+<style>
+  /* ============================================================
+     pi-mistral-native — README banner design tour
+     Blue block system: cool-hue mapping of Mistral's five-step
+     logo ramp (yellow->red becomes sky->ultramarine).
+     ============================================================ */
+  :root{
+    --b1:#4CC9FF;            /* sky       — accent, dots, highlights   */
+    --b2:#1FA7FF;            /* azure     — eyebrows, secondary accent */
+    --b3:#0B7FE0;            /* primary   — the signature blue         */
+    --b4:#0A5BD0;            /* deep      — ramp step 4                */
+    --b5:#0B3FB0;            /* ultramarine — ramp step 5, dark base   */
+    --ink:#101826;           /* dark surface / text on light           */
+    --ivory:#F2F7FF;         /* light surface (cool ivory)             */
+    --on-dark:#E8F0FA;       /* text on dark surfaces                  */
+    --ease:cubic-bezier(.2,0,0,1);
+    --pop:cubic-bezier(.68,-.55,.27,1.55);
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+       background:#e7ebf1;color:var(--ink);padding:48px 28px 90px}
+  .page{max-width:1240px;margin:0 auto}
+
+  /* ---------- page chrome ---------- */
+  .pagehead h1{font-size:34px;font-weight:700;letter-spacing:-.02em}
+  .pagehead .sub{color:#5a6b80;margin-top:8px;font-size:15px;max-width:80ch}
+  .ramp{display:flex;height:8px;width:280px;margin-top:18px}
+  .ramp span{flex:1}
+  .s1{background:var(--b1)} .s2{background:var(--b2)} .s3{background:var(--b3)}
+  .s4{background:var(--b4)} .s5{background:var(--b5)}
+
+  section.variant{margin-top:64px}
+  .vhead h2{font-size:22px;font-weight:700}
+  .rationale{color:#5a6b80;font-size:14px;margin-top:6px;max-width:95ch}
+  .chips{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .chip{font:600 11px/1 var(--mono);text-transform:uppercase;letter-spacing:.08em;
+        color:#44546b;background:#dde4ee;padding:7px 10px}
+  .replay{font:600 11px/1 var(--mono);text-transform:uppercase;letter-spacing:.08em;
+          color:#fff;background:var(--b3);border:0;padding:8px 12px;cursor:pointer}
+  .replay:hover{background:var(--b4)}
+
+  /* ---------- simulated README contexts ---------- */
+  .contexts{margin-top:18px}
+  .ctx{padding:26px;border:1px solid #c9d2de}
+  .ctx+.ctx{margin-top:18px}
+  .ctx.dark{background:#0d1117;border-color:#0d1117}   /* GitHub dark canvas */
+  .ctx.light{background:#ffffff}                       /* GitHub light canvas */
+  .ctx-label{font:600 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px}
+  .ctx.dark .ctx-label{color:#7f93ab}
+  .ctx.light .ctx-label{color:#8b98a8}
+  .readme{margin-top:22px}
+  .readme h3{font-size:22px;font-weight:600}
+  .readme p{font-size:14.5px;margin-top:8px;max-width:75ch}
+  .ctx.dark .readme h3{color:#e2e8ee}
+  .ctx.dark .readme p{color:#a8b6c4}
+  .ctx.light .readme h3{color:#1f2328}
+  .ctx.light .readme p{color:#57606a}
+
+  /* ---------- shared banner canvas: 1200 x 400 (3:1) ---------- */
+  .banner{position:relative;width:100%;height:400px;overflow:hidden;
+          display:flex;align-items:center;padding:0 64px}
+
+  /* ---------- shared entrance motion (Mistral-style) ---------- */
+  @keyframes fall{
+    0%  {transform:translateY(-46px) scaleY(1);opacity:0}
+    50% {transform:translateY(0) scaleY(1);opacity:1}
+    65% {transform:translateY(0) scaleY(.95)}
+    80% {transform:translateY(0) scaleY(1.02)}
+    100%{transform:translateY(0) scaleY(1)}
+  }
+  @keyframes popIn{from{transform:scale(0) translateY(10px);opacity:0}
+                   to  {transform:scale(1);opacity:1}}
+  @keyframes riseIn{from{transform:translateY(20px);opacity:0}}
+  @keyframes fromLeft{from{transform:translateX(-40px);opacity:0}}
+  @keyframes washSpin{from{transform:rotate(0) scale(1.15)}
+                      to  {transform:rotate(360deg) scale(1.15)}}
+  @keyframes dotPulse{
+    0%  {box-shadow:0 0 0 0 rgba(76,201,255,.55)}
+    70% {box-shadow:0 0 0 12px rgba(76,201,255,0)}
+    100%{box-shadow:0 0 0 0 rgba(76,201,255,0)}
+  }
+
+  /* ============ Variant A — animated block hero ============ */
+  .banner-a{background:var(--ink)}
+  .wash{position:absolute;inset:-30%;pointer-events:none;
+        background:
+          radial-gradient(620px 620px at 72% 28%, rgba(11,127,224,.32), transparent 62%),
+          radial-gradient(540px 540px at 26% 82%, rgba(31,167,255,.16), transparent 62%);
+        animation:washSpin 64s linear infinite}
+  .markwrap{position:relative;z-index:1;display:flex;align-items:flex-end;gap:16px}
+  .mark{display:grid;grid-template-columns:repeat(5,20px);grid-auto-rows:20px;gap:6px}
+  .blk{transform-origin:50% 100%;
+       transition:transform .25s var(--ease) calc(var(--i)*18ms)}
+  .banner-a:hover .blk{transform:translateY(-4px)}
+  .run .blk{animation:fall .5s ease-in calc(var(--i)*60ms) backwards}
+  .bp{background:var(--b3)} .ba{background:var(--b2)}
+  .bd{background:var(--b4)} .bu{background:var(--b5)}
+  .leg-r{grid-column:5}
+  .foot-l{grid-column:1 / span 2}
+  .foot-r{grid-column:4 / span 2}
+  .pidot{width:20px;height:20px;background:var(--b1)}
+  .run .pidot{animation:popIn .5s var(--pop) .45s backwards,
+                         dotPulse 3s ease-out 1.2s infinite}
+  .copyA{position:relative;z-index:1;margin-left:56px}
+  .eyebrow{font:600 13px/1 var(--mono);text-transform:uppercase;
+           letter-spacing:.2em;color:var(--b2)}
+  .titleA{font-size:58px;font-weight:700;letter-spacing:-.025em;line-height:1;
+          color:#fff;margin-top:14px}
+  .taglineA{font-size:19px;color:#93a8c4;margin-top:14px}
+  .rampA{display:flex;width:340px;height:10px;margin-top:24px}
+  .rampA span{flex:1}
+  .run .eyebrow {animation:fromLeft .5s var(--ease) .15s backwards}
+  .run .titleA  {animation:riseIn  .5s var(--ease) .25s backwards}
+  .run .taglineA{animation:riseIn  .5s var(--ease) .35s backwards}
+  .run .rampA   {animation:fromLeft .5s var(--ease) .45s backwards}
+
+  /* ============ Variant B — static geometric composition ============ */
+  .banner-b{background:var(--ivory)}
+  .banner-b.darkv{background:var(--ink)}
+  .copyB{position:relative;z-index:1;max-width:560px}
+  .titleB{font-size:56px;font-weight:700;letter-spacing:-.025em;line-height:1;
+          color:var(--ink);margin-top:14px}
+  .taglineB{font-size:18px;margin-top:14px;color:#4a5a72}
+  .darkv .titleB{color:#fff}
+  .darkv .taglineB{color:#93a8c4}
+  .bart{position:relative;margin-left:auto;width:480px;height:230px;flex:none}
+  .bart i{position:absolute;display:block}
+  .bart .r-p{left:0;top:0;width:240px;height:108px;background:var(--b3)}
+  .bart .r-u{left:256px;top:0;width:224px;height:108px;background:var(--b5)}
+  .bart .r-a{left:0;top:124px;width:120px;height:106px;background:var(--b2)}
+  .bart .r-d{left:136px;top:124px;width:176px;height:106px;background:var(--b4)}
+  .bart .r-s{left:328px;top:124px;width:152px;height:106px;background:var(--b1)}
+
+  /* ============ Variant C — typography-forward card ============ */
+  .banner-c{background:var(--ivory)}
+  .pi-glyph{font-size:230px;font-weight:700;line-height:.9;color:var(--b3);
+            letter-spacing:-.02em;margin-right:60px;flex:none}
+  .copyC{position:relative;z-index:1}
+  .c-eyebrow{font:600 13px/1 var(--mono);text-transform:uppercase;
+             letter-spacing:.2em;color:var(--b4)}
+  .titleC{font-size:62px;font-weight:700;letter-spacing:-.025em;line-height:1;
+          color:var(--ink);margin-top:14px}
+  .c-tag{font:500 16px/1.6 var(--mono);color:#4a5a72;margin-top:18px}
+  .rampC{position:absolute;left:0;right:0;bottom:0;height:14px;display:flex}
+  .rampC span{flex:1}
+
+  /* ---------- design tokens section ---------- */
+  .swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+            gap:14px;margin-top:18px}
+  .swatch{border:1px solid #c9d2de;background:#fff;padding:14px}
+  .swatch .sw{display:block;height:64px;margin-bottom:10px}
+  .swatch b{display:block;font-size:14px}
+  .swatch code{font:600 12px var(--mono);color:var(--b4)}
+  .swatch small{display:block;color:#5a6b80;font-size:12px;margin-top:6px;line-height:1.4}
+  #tokens h3{font-size:16px;margin-top:30px}
+
+  footer{margin-top:70px;color:#5a6b80;font-size:13px;max-width:90ch;line-height:1.6}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important;transition:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="pagehead">
+    <h1>pi-mistral-native — README banner proposals</h1>
+    <p class="sub">
+      Three variants on a 1200 × 400 (3:1) canvas, each shown inside a simulated
+      README on a dark (<code>#0d1117</code>, GitHub dark) and a light
+      (<code>#ffffff</code>, GitHub light) canvas. Mistral's block
+      language — discrete hard-edged rectangles, near-zero radius, staggered
+      entrances — with their orange ramp remapped to a five-step blue ramp.
+      Motion is an enhancement: every variant reads complete as a static image.
+    </p>
+    <div class="ramp"><span class="s1"></span><span class="s2"></span><span class="s3"></span><span class="s4"></span><span class="s5"></span></div>
+  </header>
+
+  <!-- ================= VARIANT A ================= -->
+  <section class="variant">
+    <div class="vhead">
+      <h2>Variant A — Animated block hero</h2>
+      <button class="replay" data-target="banner-a-dark">↻ Replay</button>
+    </div>
+    <p class="rationale">
+      Rationale: the block-π mark (π built from discrete Mistral-style blocks,
+      signature blue as the widest top bar) falls in with Mistral's staggered
+      settle animation; a slow ambient blue wash and a pulsing sky dot keep the
+      canvas alive. One dark asset with its own background, so the identical
+      banner works on light and dark READMEs.
+    </p>
+    <div class="chips">
+      <span class="chip">SVG · 1200 × 400 · 3:1</span>
+      <span class="chip">Own background — one asset, theme-safe</span>
+      <span class="chip">Motion: fall-in · stagger 60ms · ambient wash 64s</span>
+    </div>
+
+    <div class="contexts">
+      <div class="ctx dark">
+        <div class="ctx-label">README context · dark (#171e26)</div>
+        <div class="banner banner-a run" id="banner-a-dark">
+          <div class="wash"></div>
+          <div class="markwrap">
+            <div class="mark">
+              <span class="blk bp" style="--i:0"></span><span class="blk bp" style="--i:1"></span><span class="blk bp" style="--i:2"></span><span class="blk bp" style="--i:3"></span><span class="blk bp" style="--i:4"></span>
+              <span class="blk ba" style="--i:5"></span><span class="blk ba leg-r" style="--i:6"></span>
+              <span class="blk bd" style="--i:7"></span><span class="blk bd leg-r" style="--i:8"></span>
+              <span class="blk bu foot-l" style="--i:9"></span><span class="blk bu foot-r" style="--i:10"></span>
+            </div>
+            <span class="pidot"></span>
+          </div>
+          <div class="copyA">
+            <div class="eyebrow">Pi package · Mistral ecosystem</div>
+            <div class="titleA">pi-mistral-native</div>
+            <div class="taglineA">Native Mistral AI provider for the pi coding agent</div>
+            <div class="rampA"><span class="s1"></span><span class="s2"></span><span class="s3"></span><span class="s4"></span><span class="s5"></span></div>
+          </div>
+        </div>
+        <div class="readme">
+          <h3>pi-mistral-native</h3>
+          <p>Native Mistral AI provider for the pi coding agent: block-array
+             thinking, a dynamic model catalog, knowledge APIs and server-side
+             tools — one pi package.</p>
+        </div>
+      </div>
+
+      <div class="ctx light">
+        <div class="ctx-label">README context · light (#ffffff)</div>
+        <div class="banner banner-a" id="banner-a-light">
+          <div class="wash"></div>
+          <div class="markwrap">
+            <div class="mark">
+              <span class="blk bp" style="--i:0"></span><span class="blk bp" style="--i:1"></span><span class="blk bp" style="--i:2"></span><span class="blk bp" style="--i:3"></span><span class="blk bp" style="--i:4"></span>
+              <span class="blk ba" style="--i:5"></span><span class="blk ba leg-r" style="--i:6"></span>
+              <span class="blk bd" style="--i:7"></span><span class="blk bd leg-r" style="--i:8"></span>
+              <span class="blk bu foot-l" style="--i:9"></span><span class="blk bu foot-r" style="--i:10"></span>
+            </div>
+            <span class="pidot"></span>
+          </div>
+          <div class="copyA">
+            <div class="eyebrow">Pi package · Mistral ecosystem</div>
+            <div class="titleA">pi-mistral-native</div>
+            <div class="taglineA">Native Mistral AI provider for the pi coding agent</div>
+            <div class="rampA"><span class="s1"></span><span class="s2"></span><span class="s3"></span><span class="s4"></span><span class="s5"></span></div>
+          </div>
+        </div>
+        <div class="readme">
+          <h3>pi-mistral-native</h3>
+          <p>Native Mistral AI provider for the pi coding agent: block-array
+             thinking, a dynamic model catalog, knowledge APIs and server-side
+             tools — one pi package.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= VARIANT B ================= -->
+  <section class="variant">
+    <div class="vhead">
+      <h2>Variant B — Static geometric composition</h2>
+    </div>
+    <p class="rationale">
+      Rationale: no motion at all — a flat bento of the five ramp blues offset
+      against generous whitespace. Exports as a trivially clean static SVG.
+      Shown theme-tuned: an ivory card for light canvases and an ink card for
+      dark canvases, demonstrating the <code>#gh-dark-mode-only</code> /
+      <code>#gh-light-mode-only</code> image pair (supported by GitHub markup).
+    </p>
+    <div class="chips">
+      <span class="chip">SVG · 1200 × 400 · 3:1</span>
+      <span class="chip">Theme-tuned pair (gh-dark-mode-only strategy)</span>
+      <span class="chip">Motion: none — pure geometry</span>
+    </div>
+
+    <div class="contexts">
+      <div class="ctx light">
+        <div class="ctx-label">README context · light (#ffffff) — light-tuned asset</div>
+        <div class="banner banner-b">
+          <div class="copyB">
+            <div class="eyebrow">Native provider</div>
+            <div class="titleB">pi-mistral-native</div>
+            <div class="taglineB">Block-array thinking, knowledge APIs and server-side tools — all native to pi.</div>
+          </div>
+          <div class="bart"><i class="r-p"></i><i class="r-u"></i><i class="r-a"></i><i class="r-d"></i><i class="r-s"></i></div>
+        </div>
+        <div class="readme">
+          <h3>pi-mistral-native</h3>
+          <p>Native Mistral AI provider for the pi coding agent.</p>
+        </div>
+      </div>
+
+      <div class="ctx dark">
+        <div class="ctx-label">README context · dark (#171e26) — dark-tuned asset</div>
+        <div class="banner banner-b darkv">
+          <div class="copyB">
+            <div class="eyebrow">Native provider</div>
+            <div class="titleB">pi-mistral-native</div>
+            <div class="taglineB">Block-array thinking, knowledge APIs and server-side tools — all native to pi.</div>
+          </div>
+          <div class="bart"><i class="r-p"></i><i class="r-u"></i><i class="r-a"></i><i class="r-d"></i><i class="r-s"></i></div>
+        </div>
+        <div class="readme">
+          <h3>pi-mistral-native</h3>
+          <p>Native Mistral AI provider for the pi coding agent.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= VARIANT C ================= -->
+  <section class="variant">
+    <div class="vhead">
+      <h2>Variant C — Typography-forward card</h2>
+    </div>
+    <p class="rationale">
+      Rationale: a single giant π in the signature blue carries the identity;
+      wordmark, mono eyebrow and mono tagline do the rest. The five-step ramp
+      survives only as a hairline strip on the bottom edge. One light card on
+      both canvases — quiet, but unmistakably "π × Mistral".
+    </p>
+    <div class="chips">
+      <span class="chip">SVG · 1200 × 400 · 3:1</span>
+      <span class="chip">Single light card on both canvases</span>
+      <span class="chip">Motion: none — type is the hero</span>
+    </div>
+
+    <div class="contexts">
+      <div class="ctx light">
+        <div class="ctx-label">README context · light (#ffffff)</div>
+        <div class="banner banner-c">
+          <div class="pi-glyph">&#960;</div>
+          <div class="copyC">
+            <div class="c-eyebrow">Native Mistral provider</div>
+            <div class="titleC">pi-mistral-native</div>
+            <div class="c-tag">block-array thinking &#183; knowledge apis &#183; server-side tools</div>
+          </div>
+          <div class="rampC"><span class="s1"></span><span class="s2"></span><span class="s3"></span><span class="s4"></span><span class="s5"></span></div>
+        </div>
+        <div class="readme">
+          <h3>pi-mistral-native</h3>
+          <p>Native Mistral AI provider for the pi coding agent.</p>
+        </div>
+      </div>
+
+      <div class="ctx dark">
+        <div class="ctx-label">README context · dark (#171e26)</div>
+        <div class="banner banner-c">
+          <div class="pi-glyph">&#960;</div>
+          <div class="copyC">
+            <div class="c-eyebrow">Native Mistral provider</div>
+            <div class="titleC">pi-mistral-native</div>
+            <div class="c-tag">block-array thinking &#183; knowledge apis &#183; server-side tools</div>
+          </div>
+          <div class="rampC"><span class="s1"></span><span class="s2"></span><span class="s3"></span><span class="s4"></span><span class="s5"></span></div>
+        </div>
+        <div class="readme">
+          <h3>pi-mistral-native</h3>
+          <p>Native Mistral AI provider for the pi coding agent.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= DESIGN TOKENS ================= -->
+  <section class="variant" id="tokens">
+    <h2>Design tokens — blue block system</h2>
+    <p class="rationale">
+      Derived by cool-hue mapping Mistral's five-step logo ramp
+      (<code>#FFAF01 &#8594; #C4001D</code>) while preserving the lightness
+      descent and the "one wide signature bar" structure. These tokens are the
+      handoff for the documentation website (Astro/Starlight).
+    </p>
+    <div class="swatches">
+      <div class="swatch"><span class="sw" style="background:#4CC9FF"></span><b>Sky</b><code>#4CC9FF</code><small>Accent — dots, highlights, lightest ramp step</small></div>
+      <div class="swatch"><span class="sw" style="background:#1FA7FF"></span><b>Azure</b><code>#1FA7FF</code><small>Eyebrows, links, secondary accent</small></div>
+      <div class="swatch"><span class="sw" style="background:#0B7FE0"></span><b>Primary</b><code>#0B7FE0</code><small>The signature blue — widest bar, π glyph</small></div>
+      <div class="swatch"><span class="sw" style="background:#0A5BD0"></span><b>Deep</b><code>#0A5BD0</code><small>Ramp step 4, hover state of primary</small></div>
+      <div class="swatch"><span class="sw" style="background:#0B3FB0"></span><b>Ultramarine</b><code>#0B3FB0</code><small>Dark ramp base, feet blocks</small></div>
+      <div class="swatch"><span class="sw" style="background:#101826"></span><b>Ink</b><code>#101826</code><small>Dark surface, text on light (harmonizes with GitHub dark #0d1117)</small></div>
+      <div class="swatch"><span class="sw" style="background:#F2F7FF;border-bottom:1px solid #c9d2de"></span><b>Cool ivory</b><code>#F2F7FF</code><small>Light surface for cards and banners</small></div>
+      <div class="swatch"><span class="sw" style="background:#E8F0FA;border-bottom:1px solid #c9d2de"></span><b>Text on dark</b><code>#E8F0FA</code><small>Body text on ink surfaces</small></div>
+    </div>
+
+    <h3>Motion tokens</h3>
+    <div class="chips">
+      <span class="chip">fall-in 500ms ease-in &#183; stagger 60ms</span>
+      <span class="chip">settle overshoot scaleY .95 &#8594; 1.02 &#8594; 1</span>
+      <span class="chip">pop-in cubic-bezier(.68,-.55,.27,1.55)</span>
+      <span class="chip">base ease cubic-bezier(.2,0,0,1) &#183; 200ms</span>
+      <span class="chip">hover lift 250ms &#183; 18ms stagger</span>
+      <span class="chip">ambient wash 64s linear</span>
+      <span class="chip">dot pulse 3s</span>
+      <span class="chip">prefers-reduced-motion respected</span>
+    </div>
+
+    <h3>Platform canvases (verified)</h3>
+    <div class="chips">
+      <span class="chip">GitHub light #ffffff</span>
+      <span class="chip">GitHub dark #0d1117</span>
+      <span class="chip">#gh-dark-mode-only works on GitHub</span>
+      <span class="chip">README body max-width 1012px</span>
+    </div>
+  </section>
+
+  <footer>
+    Note: README image proxies (GitHub camo) may drop SVG-embedded animation —
+    every variant is designed to read complete as a static image first; motion
+    is progressive enhancement, verified at integration time. Next step after
+    the design pick: export as SVG (+PNG fallback), no README/ADR changes in
+    this phase.
+  </footer>
+</div>
+
+<script>
+(function () {
+  document.querySelectorAll('.replay').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var t = document.getElementById(btn.dataset.target);
+      if (!t) return;
+      t.classList.remove('run');
+      void t.offsetWidth; /* force reflow so the animation restarts */
+      t.classList.add('run');
+    });
+  });
+  /* the light copy of variant A runs its entrance when scrolled into view */
+  var light = document.getElementById('banner-a-light');
+  if (light && 'IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          light.classList.remove('run');
+          void light.offsetWidth;
+          light.classList.add('run');
+          io.disconnect();
+        }
+      });
+    }, { threshold: 0.4 });
+    io.observe(light);
+  }
+})();
+</script>
+</body>
+</html>

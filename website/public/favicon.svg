@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Blue block favicon, consistent with the site design tokens -->
+  <rect width="64" height="64" fill="#101826"/>
+  <rect x="8" y="12" width="48" height="8" fill="#4CC9FF"/>
+  <rect x="8" y="24" width="34" height="8" fill="#1FA7FF"/>
+  <rect x="8" y="36" width="48" height="8" fill="#0B7FE0"/>
+  <rect x="8" y="48" width="20" height="8" fill="#0B3FB0"/>
+</svg>
