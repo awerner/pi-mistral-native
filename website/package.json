@@ -1,5 +1,5 @@
 {
-  "name": "@agentic/pi-mistral-native-website",
+  "name": "pi-mistral-native-website",
   "version": "0.1.0",
   "private": true,
   "type": "module",

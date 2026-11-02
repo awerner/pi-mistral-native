@@ -7,9 +7,10 @@ import path from 'node:path';
 const docsRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../docs');
 
 export default defineConfig({
-  // Required for the sitemap integration and canonical URLs; the K3s sample
-  // deployment serves the site under this host.
-  site: 'https://pi-mistral-native.local',
+  // Required for the sitemap integration and canonical URLs; GitHub Pages
+  // serves the site under this host and the /pi-mistral-native/ subpath.
+  site: 'https://awerner.github.io',
+  base: '/pi-mistral-native/',
   integrations: [
     starlight({
       title: 'pi-mistral-native',
@@ -26,7 +27,7 @@ export default defineConfig({
         ContentPanel: './src/components/AdrStatusContentPanel.astro',
       },
       social: [
-        { icon: 'github', label: 'Forgejo', href: 'https://git.techlex.space/agentic/pi-mistral-native' },
+        { icon: 'github', label: 'GitHub', href: 'https://github.com/awerner/pi-mistral-native' },
       ],
       sidebar: sidebarConfig(),
     }),
@@ -62,10 +63,6 @@ function sidebarConfig() {
         {
           label: 'Architecture ADRs',
           items: [entry('adr', 'Index'), ...adrEntries(docsRoot, 'adr')],
-        },
-        {
-          label: 'Process ADRs',
-          items: [entry('adr/process', 'Index'), ...adrEntries(docsRoot, 'adr/process')],
         },
       ],
     },

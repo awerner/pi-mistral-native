@@ -195,12 +195,12 @@ test('rewriteLinks strips non-.md relative links that resolve above the docs tre
     'Vendored OpenAPI spec, ADR [0003](/adr/0003-vendored-openapi-spec/).',
   );
   assert.equal(
-    rewriteLinks('[ci](../.forgejo/workflows/ci.yaml)', 'docs/development.md'),
+    rewriteLinks('[ci](../.github/workflows/ci.yml)', 'docs/development.md'),
     'ci',
   );
   assert.equal(
-    rewriteLinks('[manifests](../deploy/website.yaml)', 'docs/development.md'),
-    'manifests',
+    rewriteLinks('[config](../website/astro.config.mjs)', 'docs/development.md'),
+    'config',
   );
   assert.equal(
     rewriteLinks('[badge](../../workflow/badge.svg)', 'docs/adr/0002-x.md'),

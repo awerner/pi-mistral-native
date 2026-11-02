@@ -38,6 +38,9 @@ export function docsLoader() {
   return {
     name: 'pi-mistral-native-docs-loader',
     async load({ config, store, logger, renderMarkdown, parseData, generateDigest }) {
+      // Full re-scan on every load: clear the store so docs removed from the
+      // repository never survive as stale site pages.
+      store.clear();
       const entries = [];
       for await (const filePath of walkMarkdown(DOCS_ROOT)) {
         entries.push(filePath);
