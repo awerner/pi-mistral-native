@@ -3,12 +3,8 @@
 - **Status**: Trial | Accepted | Superseded by NNNN
 - **Date**: YYYY-MM-DD
 
-Pick the series by the taxonomy (process
-[0007](process/0007-adr-taxonomy.md)): architecture (`docs/adr/`) for
-decisions about the shipped software's shape and behavior; process
-(`docs/adr/process/`) for decisions about how the project is developed.
-Number sequentially within the series and add the record to that series'
-index.
+Architecture ADRs live in `docs/adr/`, numbered sequentially and
+indexed in [README.md](README.md).
 
 Status legend:
 
@@ -36,8 +32,7 @@ accept as risk?
 
 - The record describes the **current state** of the decision. Never append
   dated update blocks; integrate changes into the sections above (the
-  evolution lives in git history). Reference discipline: process
-  [0008](process/0008-reference-discipline.md).
+  evolution lives in git history).
 - Self-contained: no issue/tracker references, no "see issue #N" — the
   Context/Decision/Consequences must stand alone.
 - Cross-ADR references cite number and title: `ADR NNNN — Title`.

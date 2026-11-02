@@ -3,10 +3,6 @@
 This directory holds the **target-architecture** ADR series for
 pi-mistral-native: short, dated records of *why* a decision about the
 software's architecture was made, kept next to the code they explain.
-Development-process decisions (platform, language, branching, testing,
-documentation, release) live in [process/](process/README.md); the
-classification rules are
-[process/0007](process/0007-adr-taxonomy.md).
 
 ## When to write one
 
@@ -21,9 +17,9 @@ Write a new ADR when a decision:
 Everyday version bumps, dependency updates, and bug fixes do **not** get an
 ADR — those are just commits.
 
-Copy [`template.md`](template.md), give it the next number in the right
-series, add it to that series' index, and keep it to about one page. Create
-the new ADR with status `Trial`; never set `Accepted` — promotion is the
+Copy [`template.md`](template.md), give it the next number in the series,
+add it to the index, and keep it to about one page. Create the
+new ADR with status `Trial`; never set `Accepted` — promotion is the
 project owner's decision alone.
 
 ## Lifecycle

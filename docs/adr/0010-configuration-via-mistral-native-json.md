@@ -10,8 +10,8 @@ pi's own `settings.json` schema is closed — extensions cannot register
 settings pages or keys in it (verified against pi-coding-agent 1.4.0: no
 extension hook exists in `ExtensionAPI`) — so each pi package owns a
 JSON file in the agent dir. The ecosystem pattern was researched and
-verified live against installed pi packages (pi-herdsman,
-pi-web-access, pi-permission-system, billion-context):
+verified live against installed pi packages (pi-web-access,
+pi-permission-system, billion-context):
 
 1. pi's settings.json schema is closed → each package owns a JSON file
    in the agent dir.
@@ -44,7 +44,7 @@ sections: `endpoint`, `connectorTools`, `models`, `knowledge`/`rag`,
 exposed on the resolved config, but no behavior derives from them yet —
 files written today keep validating when those features land.
 
-- **Strict validation with named-path errors** (herdsman +
+- **Strict validation with named-path errors** (the
   pi-web-access pattern): `unknown field "X" in <exact path>; known
   fields: …`, invalid values name key, file and valid options.
 - **Never crash**: no file → defaults + env (today's behavior);

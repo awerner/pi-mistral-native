@@ -38,8 +38,7 @@ review concluded against adoption, for five reasons:
    incidents.
 4. **Wire stability.** The chat-completions API is OpenAI-compatible and
    stable; drift is covered by the vendored OpenAPI spec (ADR
-   [0003](0003-vendored-openapi-spec.md)) and the mocked-SSE test suite
-   (ADR [0004](process/0004-mocked-sse-test-suite.md)).
+   [0003](0003-vendored-openapi-spec.md)) and the mocked-SSE test suite.
 5. **Escape hatch.** If Mistral adds endpoints where the SDK would be
    materially more convenient (batch, realtime, multipart upload), that
    decision is made per endpoint — see the rule below.
