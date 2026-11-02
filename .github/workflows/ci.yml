@@ -50,3 +50,6 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Verify built site
+        run: npm run test:dist
