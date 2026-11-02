@@ -722,15 +722,16 @@ test("agent mode posts a minimal body to /v1/agents/completions", async () => {
 	assert.equal(body.max_tokens, 512);
 });
 
-test("agent mode without explicit maxTokens sends the context-clamped default", async () => {
+test("agent mode without explicit maxTokens sends the ceiling-clamped default", async () => {
 	// Without options.maxTokens the clamp falls back to the model's
-	// maxTokens (1048576, the context window under the documented max-output
-	// mapping) minus the estimated transcript tokens and the safety margin —
-	// here 15 estimated tokens + 4096 safety tokens.
+	// maxTokens (262144, the wire-enforced completion ceiling for
+	// mistral-large-4 under the documented max-output mapping). The prompt
+	// does not count against the completion ceiling, so the request sends
+	// exactly the ceiling.
 	const { body } = await runCapturedStream([chunk({ role: "assistant", content: "ok" }), finalChunk("stop")], {
 		env: { MISTRAL_AGENT_ID: "agent-123" },
 	});
-	assert.equal(body.max_tokens, 1048576 - 15 - 4096);
+	assert.equal(body.max_tokens, 262144);
 	assert.deepEqual(Object.keys(body).sort(), ["agent_id", "max_tokens", "messages", "stream"]);
 });
 

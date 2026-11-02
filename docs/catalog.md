@@ -133,25 +133,38 @@ window; costs come from the effective family rate card above.
 
 #### Max output tokens
 
-`maxTokens` follows Mistral's documented facts: the API returns no
-per-model max-output field, and Mistral-native model pages document no
-output limit — the only documented constraint is that prompt plus
-completion tokens must fit `max_context_length`. So `maxTokens` is the
-context window by default, with one override table for the models where
-Mistral documents an explicit output token limit (checked
-most-specific-first, mirroring the rate card):
+`maxTokens` follows Mistral's documented and wire-enforced facts: the
+API returns no per-model max-output field, but it enforces a per-model
+completion-token ceiling that the model pages do not document — a request
+with a larger `max_tokens` fails with `400 invalid_request_max_tokens`
+(code 3058), and the error message names the true ceiling. So `maxTokens`
+is `min(completion ceiling, context window)` by default, with two
+override tables (checked most-specific-first, mirroring the rate card):
+a wire-enforced ceiling table for probed models, and a documented-limits
+table for the models where Mistral documents an explicit output token
+limit (documented limits win — they are the tighter, sourced facts):
+
+| Model family | Completion ceiling | Context | Source |
+|---|---|---|---|
+| mistral-large-4 (incl. -0 alias) | 262144 | 1M | Wire probe, 2026-11-03 |
 
 | Model family | Documented output limit | Context |
 |---|---|---|
 | zai-glm (zai-glm-5-3, zai-glm-5-3-flash) | 128k | 1M |
 | deepseek (deepseek-v4-1-flash-1017) | 128k | 1M |
 
+Models without a wire-verified entry use a conservative fallback
+(262144, capped at the context window): an oversized value hard-fails
+requests with 400 code 3058, while a conservative one merely caps output.
+New ceilings are sourced by probing (see ADR 0017 for the method).
+
 The static fallback catalog follows the same mapping, so the fallback and
 the live path never contradict each other.
 
-Last verified: **2026-11-02** against the model pages on
-[docs.mistral.ai](https://docs.mistral.ai/models); re-verify per entry
-when updating the override table.
+Last verified: **2026-11-03** — documented limits against the model
+pages on [docs.mistral.ai](https://docs.mistral.ai/models), the
+mistral-large-4 ceiling against the live API (probe, see ADR 0017);
+re-verify per entry when updating either table.
 
 *Decisions: [ADR 0017 — Documented max-output mapping over fixed clamp](adr/0017-documented-max-output-mapping.md)*
 

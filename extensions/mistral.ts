@@ -151,10 +151,9 @@ export type MistralModel = MistralModelConfig;
  * Documented per-model output limits, checked most-specific-first like the
  * rate card: the first entry whose `match` string is a substring of the model
  * id applies. Mistral-native model pages document no per-model output limit
- * at all — the only documented constraint is that prompt plus completion
- * tokens must fit `max_context_length` — so the live mapping derives
- * `maxTokens` from the context window unless an entry here overrides it. The
- * hosted third-party models are the only ones with an officially documented
+ * at all, so the live mapping derives `maxTokens` from the wire-enforced
+ * completion ceiling unless an entry here overrides it. The hosted
+ * third-party models are the only ones with an officially documented
  * output token limit (128k).
  *
  * Update process: re-verify against the model pages on docs.mistral.ai and
@@ -174,11 +173,49 @@ export const DOCUMENTED_OUTPUT_LIMITS: readonly { match: string; maxOutputTokens
 ];
 
 /**
+ * Wire-enforced completion ceilings the model pages do not document,
+ * checked most-specific-first like the rate card: the first entry whose
+ * `match` string is a substring of the model id applies. Only wire-verified
+ * ceilings get entries; the conservative fallback
+ * (`COMPLETION_CEILING_FALLBACK`) applies to everything else — a too-small
+ * value merely caps output, a too-large one hard-fails requests with 400
+ * code 3058 (invalid_request_max_tokens).
+ *
+ * ADR 0017 — Documented max-output mapping over fixed clamp
+ */
+export const API_ENFORCED_COMPLETION_CEILINGS: readonly { match: string; completionCeiling: number }[] = [
+	// mistral-large-4 (and the -0 alias): 262144. Wire-probed 2026-11-03:
+	// POST /v1/chat/completions with an oversized max_tokens returns 400 code
+	// 3058 (invalid_request_max_tokens) whose message names the ceiling;
+	// max_tokens 262144 is accepted, 262145 is rejected.
+	{ match: "mistral-large-4", completionCeiling: 262144 },
+];
+
+/** Conservative completion-token ceiling for models without a wire-verified entry. */
+export const COMPLETION_CEILING_FALLBACK = 262144;
+
+/**
+ * Wire-enforced completion-token ceiling for one model id: the first
+ * matching `API_ENFORCED_COMPLETION_CEILINGS` entry, otherwise the
+ * conservative `COMPLETION_CEILING_FALLBACK`.
+ *
+ * ADR 0017 — Documented max-output mapping over fixed clamp
+ */
+export function completionCeilingForModel(id: string): number {
+	for (const entry of API_ENFORCED_COMPLETION_CEILINGS) {
+		if (id.includes(entry.match)) {
+			return entry.completionCeiling;
+		}
+	}
+	return COMPLETION_CEILING_FALLBACK;
+}
+
+/**
  * Maximum completion tokens for one model id: the documented output limit
- * when a `DOCUMENTED_OUTPUT_LIMITS` entry matches, otherwise the context
- * window — Mistral's only documented bound on completions for models
- * without a documented output limit. Capped at the context window, so a
- * stale override can never exceed it.
+ * when a `DOCUMENTED_OUTPUT_LIMITS` entry matches (documented limits are the
+ * tighter, sourced facts), otherwise the wire-enforced completion ceiling
+ * capped at the context window — the API rejects any larger max_tokens with
+ * 400 code 3058 (invalid_request_max_tokens).
  *
  * ADR 0017 — Documented max-output mapping over fixed clamp
  */
@@ -188,7 +225,7 @@ export function documentedMaxTokensForModel(id: string, contextWindow: number): 
 			return Math.min(entry.maxOutputTokens, contextWindow);
 		}
 	}
-	return contextWindow;
+	return Math.min(completionCeilingForModel(id), contextWindow);
 }
 
 /**
@@ -305,10 +342,11 @@ export interface MistralModelCard {
  * exists. Facts mirror the official model card (mistral-large-4): 1M-token
  * context, $0.70/$2.10/$0.07 per million tokens
  * (https://docs.mistral.ai/models/mistral-large-4-0, verified 2026-11-02).
- * `maxTokens` follows the same mapping as the live catalog — the context
- * window, since Mistral documents no per-model output limit for it
- * (`documentedMaxTokensForModel`). `thinkingLevelMap` and `compat` flags
- * mirror the verified wire behavior.
+ * `maxTokens` follows the same mapping as the live catalog — the
+ * wire-enforced completion ceiling, since the API rejects max_tokens
+ * above 262144 with 400 code 3058 (wire-verified 2026-11-03, see
+ * `API_ENFORCED_COMPLETION_CEILINGS`), capped at the context window.
+ * `thinkingLevelMap` and `compat` flags mirror the verified wire behavior.
  *
  * ADR 0017 — Documented max-output mapping over fixed clamp
  */
@@ -320,7 +358,7 @@ export const MODELS: MistralModelConfig[] = [
 		input: ["text", "image"],
 		cost: { input: 0.7, output: 2.1, cacheRead: 0.07, cacheWrite: 0 },
 		contextWindow: 1048576,
-		maxTokens: 1048576,
+		maxTokens: 262144,
 		api: MISTRAL_API,
 		thinkingLevelMap: {
 			off: "none",
@@ -551,11 +589,19 @@ function estimateContextTokens(messages: readonly Message[]): number {
 	return tokens;
 }
 
-/** Mirror of pi-ai's clampMaxTokensToContext (api/simple-options.ts). */
+/**
+ * Clamp max_tokens for the request path (mirrors pi-ai's
+ * clampMaxTokensToContext, api/simple-options.ts) extended with the
+ * wire-enforced completion ceiling: Mistral rejects a larger max_tokens with
+ * 400 code 3058 (invalid_request_max_tokens), so the ceiling also rescues
+ * STALE persisted snapshots (v0.1.0-era `maxTokens: 1048576` values) until
+ * the self-healing catalog refresh overwrites them.
+ */
 function clampMaxTokensToContext(model: Model<Api>, context: TranscriptContext, maxTokens: number): number {
-	if (model.contextWindow <= 0) return Math.max(MIN_MAX_TOKENS, maxTokens);
+	const ceiling = completionCeilingForModel(model.id);
+	if (model.contextWindow <= 0) return Math.min(ceiling, Math.max(MIN_MAX_TOKENS, maxTokens));
 	const available = model.contextWindow - estimateContextTokens(context.messages) - CONTEXT_SAFETY_TOKENS;
-	return Math.min(maxTokens, Math.max(MIN_MAX_TOKENS, available));
+	return Math.min(ceiling, maxTokens, Math.max(MIN_MAX_TOKENS, available));
 }
 
 function truncateText(text: string, maxChars: number): string {
@@ -1979,7 +2025,9 @@ function modelListCards(data: unknown): MistralModelCard[] {
 
 /**
  * Map one model card to the pi chat-model config form. `maxTokens` follows
- * the documented max-output mapping (`documentedMaxTokensForModel`).
+ * the documented max-output mapping (`documentedMaxTokensForModel`): the
+ * documented output limit when one exists, otherwise the wire-enforced
+ * completion ceiling, capped at the context window.
  *
  * ADR 0017 — Documented max-output mapping over fixed clamp
  */
