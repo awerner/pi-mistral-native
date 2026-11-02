@@ -13,6 +13,9 @@ const docs = defineCollection({
     extend: z.object({
       adrStatus: z.enum(['trial', 'accepted', 'superseded']).optional(),
       supersededBy: z.string().optional(),
+      // HTML-escaped inline form of the title (code spans etc.); the plain
+      // title drives sidebar labels, <title> and og:title.
+      titleHtml: z.string().optional(),
     }),
   }),
 });

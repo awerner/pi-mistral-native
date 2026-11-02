@@ -2,8 +2,8 @@
 //
 // The repository docs (docs/**/*.md) are the single source of truth and
 // carry no frontmatter; everything here transforms file content IN MEMORY
-// (frontmatter injection, ADR status parsing, .md link rewriting) without
-// ever writing back to disk.
+// (frontmatter injection, title processing, ADR status parsing, first-H1
+// drop, .md link rewriting) without ever writing back to disk.
 //
 // Import surfaces:
 //   - Node tests import from './src/loader/helpers.js' directly.
@@ -37,12 +37,48 @@ export function docsPathToSlug(docsPath) {
 }
 
 /**
- * Extract the page title: the text content of the first `# ` heading.
- * Returns null when the document has no level-1 heading.
+ * Extract the page title: the text content of the first `# ` heading
+ * outside fenced code blocks. Returns null when the document has no
+ * level-1 heading.
  */
 export function extractTitle(body) {
-  const match = body.match(/^#\s+(.+)$/m);
-  return match ? match[1].trim() : null;
+  let inFence = false;
+  for (const line of body.split('\n')) {
+    if (line.trimStart().startsWith('```')) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+    const match = line.match(/^#\s+(.+)$/);
+    if (match) return match[1].trim();
+  }
+  return null;
+}
+
+/**
+ * Remove the first level-1 heading line from a markdown body (fence-aware:
+ * a `# ` line inside a fenced code block is content, not a heading). The
+ * ingested doc's title also renders as the Starlight page title, so the
+ * body's own first H1 is dropped in memory to avoid a duplicate title on
+ * the page. Only that one line is removed; everything else stays
+ * byte-identical. A body with no level-1 heading is returned unchanged.
+ */
+export function dropFirstH1(body) {
+  let inFence = false;
+  const lines = body.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trimStart().startsWith('```')) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+    if (/^#\s/.test(line)) {
+      lines.splice(i, 1);
+      return lines.join('\n');
+    }
+  }
+  return body;
 }
 
 /**
@@ -59,6 +95,31 @@ export function stripInlineMarkdown(text) {
     .replace(/\*([^*]+)\*/g, '$1')
     // `code spans`
     .replace(/`([^`]+)`/g, '$1')
+    .trim();
+}
+
+/**
+ * Convert a raw heading title to the inline HTML the PageTitle override
+ * renders: HTML-escaped first, then the same inline-markdown constructs
+ * `stripInlineMarkdown` handles become HTML elements — [`code`](target) and
+ * [label](target) keep the label text, **bold** → <strong>, *em* → <em>,
+ * `code` → <code>. Sidebar labels, <title> and og:title use the plain
+ * stripped title; only the page H1 renders this HTML form.
+ */
+export function formatTitleHtml(text) {
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+  return escaped
+    // [`code`](target) and [label](target) keep the label only
+    .replace(/\[([^\]]*)\]\(([^)]*)\)/g, '$1')
+    // **bold** and *italic*
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    // `code spans`
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
     .trim();
 }
 
@@ -242,8 +303,10 @@ function normalize(path) {
  * `body` is the raw markdown (without frontmatter).
  */
 export function buildFrontmatter(docsPath, body) {
+  const rawTitle = extractTitle(body) ?? docsPathToSlug(docsPath);
   const frontmatter = {
-    title: extractTitle(body) ?? docsPathToSlug(docsPath),
+    title: stripInlineMarkdown(rawTitle),
+    titleHtml: formatTitleHtml(rawTitle),
     description: extractDescription(body) ?? undefined,
   };
   if (isAdrPage(docsPath)) {
@@ -260,12 +323,13 @@ export function buildFrontmatter(docsPath, body) {
 
 /**
  * Full in-memory transformation for one docs file: returns the frontmatter
- * object and the transformed markdown body (links rewritten, `base` passed
+ * object and the transformed markdown body (first H1 dropped — the frontmatter
+ * title renders it as the page H1 — and links rewritten, `base` passed
  * through to the link rewriter).
  */
 export function transformDocsFile(docsPath, body, base = '/') {
   return {
     frontmatter: buildFrontmatter(docsPath, body),
-    body: rewriteLinks(body, docsPath, base),
+    body: rewriteLinks(dropFirstH1(body), docsPath, base),
   };
 }

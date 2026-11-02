@@ -25,6 +25,9 @@ export default defineConfig({
         // Renders the ADR lifecycle badge (Trial/Accepted/Superseded) above
         // the page body; a plain ContentPanel is kept for non-ADR pages.
         ContentPanel: './src/components/AdrStatusContentPanel.astro',
+        // Renders the page H1 from the loader-provided titleHtml so inline
+        // markdown (code spans) in ingested doc titles keeps its formatting.
+        PageTitle: './src/components/PageTitle.astro',
       },
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/awerner/pi-mistral-native' },

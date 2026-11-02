@@ -57,3 +57,53 @@ test('built site keeps every absolute href under the deployment base', {
   // scheme or anchor, or sits under the base — no domain-root 404s.
   assert.deepEqual(escapees, [], `hrefs escaping ${JSON.stringify(basePrefix)}:\n${escapees.join('\n')}`);
 });
+
+test('every built page renders exactly one h1', {
+  skip: !existsSync(distDir) && process.env.REQUIRE_DIST !== '1' &&
+    'dist/ not built yet — run npm run build first',
+}, async () => {
+  assert.ok(existsSync(distDir), 'dist/ not built — run npm run build before this check');
+
+  const files = await walkHtml(distDir);
+  assert.ok(files.length > 0, 'no built HTML pages found under dist/');
+
+  const wrong = [];
+  for (const file of files) {
+    const html = await fs.readFile(file, 'utf8');
+    const count = [...html.matchAll(/<h1[\s>]/g)].length;
+    if (count !== 1) {
+      wrong.push(`${path.relative(websiteRoot, file)}: ${count} h1 elements`);
+    }
+  }
+  // The Starlight page title renders the h1; the ingested doc's own first
+  // H1 is dropped by the loader, so a doc page must never carry two.
+  assert.deepEqual(wrong, [], `pages without exactly one h1:\n${wrong.join('\n')}`);
+});
+
+test('rendered sidebar labels contain no literal backticks', {
+  skip: !existsSync(distDir) && process.env.REQUIRE_DIST !== '1' &&
+    'dist/ not built yet — run npm run build first',
+}, async () => {
+  assert.ok(existsSync(distDir), 'dist/ not built — run npm run build before this check');
+
+  const files = await walkHtml(distDir);
+  assert.ok(files.length > 0, 'no built HTML pages found under dist/');
+
+  const offenders = [];
+  for (const file of files) {
+    const html = await fs.readFile(file, 'utf8');
+    const nav = html.match(/<nav class="sidebar[\s\S]*?<\/nav>/);
+    // Starlight's PageFrame ships the mobile-menu popover <script> inside
+    // the sidebar nav; its compiled code uses template literals, so scripts
+    // are stripped — the check targets the rendered labels, not Starlight's
+    // own code.
+    const labels = nav && nav[0].replace(/<script\b[\s\S]*?<\/script>/g, '');
+    if (labels && labels.includes('`')) {
+      offenders.push(path.relative(websiteRoot, file));
+    }
+  }
+  // Sidebar labels are plain text (the frontmatter title has inline
+  // markdown stripped); a literal backtick means a raw title leaked
+  // through unstripped.
+  assert.deepEqual(offenders, [], `sidebar backticks in:\n${offenders.join('\n')}`);
+});

@@ -1,6 +1,7 @@
 // Starlight docs-collection loader that ingests the repository documentation
 // from ../../../docs (single source of truth). The ingested files are never
-// modified on disk: frontmatter injection, ADR status parsing and .md link
+// modified on disk: frontmatter injection, title processing, first-H1 drop
+// (the frontmatter title already renders as the page H1) and .md link
 // rewriting all happen in memory here.
 //
 // Route mapping:
@@ -21,6 +22,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   buildFrontmatter,
   docsPathToSlug,
+  dropFirstH1,
   rewriteLinks,
 } from './helpers.js';
 
@@ -55,7 +57,10 @@ export function docsLoader() {
         const posixPath = filePath.split(path.sep).join('/');
         const docsPath = posixPath.slice(posixPath.indexOf('/docs/') + 1);
         const raw = await fs.readFile(filePath, 'utf8');
-        const body = rewriteLinks(raw, docsPath, config.base);
+        // The body drops the ingested first H1 (the frontmatter title renders
+        // as the page H1) before link rewriting; frontmatter and digest stay
+        // raw-based, so title generation and invalidation are unchanged.
+        const body = rewriteLinks(dropFirstH1(raw), docsPath, config.base);
         const frontmatter = buildFrontmatter(docsPath, raw);
         const slug = docsPathToSlug(docsPath);
 
