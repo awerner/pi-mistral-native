@@ -1,0 +1,21 @@
+{
+  "name": "@agentic/pi-mistral-native-website",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Astro + Starlight documentation site for pi-mistral-native. The site ingests the repository docs as a content collection; docs/**/*.md and README.md remain the single source of truth.",
+  "scripts": {
+    "sync:assets": "node scripts/sync-assets.mjs",
+    "dev": "npm run sync:assets && astro dev",
+    "build": "npm run sync:assets && astro build",
+    "preview": "npm run sync:assets && astro preview",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.42.8",
+    "astro": "^7.4.4"
+  }
+}

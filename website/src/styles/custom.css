@@ -1,0 +1,59 @@
+/* Blue block design tokens (docs/design-tokens.md), mapped onto Starlight's
+   CSS custom properties for both light and dark modes. */
+
+:root {
+  --sl-color-sky: #4cc9ff;
+  --sl-color-azure: #1fa7ff;
+  --sl-color-primary: #0b7fe0;
+  --sl-color-deep: #0a5bd0;
+  --sl-color-ultramarine: #0b3fb0;
+  --sl-color-ink: #101826;
+  --sl-color-ivory: #f2f7ff;
+  --sl-color-text-on-dark: #e8f0fa;
+  --sl-shadow-blue: rgba(20, 60, 140, 0.12);
+
+  /* Light mode */
+  --sl-color-white: #ffffff;
+  --sl-color-gray-1: #f2f7ff;
+  --sl-color-gray-2: #e3ecf7;
+  --sl-color-gray-3: #b9cbe2;
+  --sl-color-gray-4: #7a93b4;
+  --sl-color-gray-5: #52688a;
+  --sl-color-gray-6: #33465f;
+  --sl-color-black: #101826;
+
+  --sl-color-text: var(--sl-color-black);
+  --sl-color-text-accent: var(--sl-color-primary);
+  --sl-color-text-invert: var(--sl-color-white);
+  --sl-color-bg: var(--sl-color-white);
+  --sl-color-bg-nav: var(--sl-color-gray-1);
+  --sl-color-bg-sidebar: var(--sl-color-gray-1);
+  --sl-color-bg-inline-code: var(--sl-color-gray-2);
+  --sl-color-border: var(--sl-color-gray-3);
+  --sl-color-heading-hover: var(--sl-color-deep);
+  --sl-color-accent-low: var(--sl-color-ultramarine);
+  --sl-color-accent: var(--sl-color-primary);
+  --sl-color-accent-high: var(--sl-color-sky);
+  --sl-color-shadow-opacity: 0.12;
+}
+
+:root[data-theme='dark'] {
+  --sl-color-gray-1: #060a12;
+  --sl-color-gray-2: #0b1220;
+  --sl-color-gray-3: #1a2536;
+  --sl-color-gray-4: #45586f;
+  --sl-color-gray-5: #7d94b2;
+  --sl-color-gray-6: #a9c0dc;
+  --sl-color-white: #101826;
+  --sl-color-black: #f2f7ff;
+
+  --sl-color-text: var(--sl-color-text-on-dark);
+  --sl-color-text-accent: var(--sl-color-azure);
+  --sl-color-heading-hover: var(--sl-color-sky);
+  --sl-color-accent-low: var(--sl-color-azure);
+  --sl-color-accent: var(--sl-color-sky);
+  --sl-color-accent-high: var(--sl-color-primary);
+}
+
+/* The landing-page capability cards are styled scoped in
+   src/pages/index.astro. */
