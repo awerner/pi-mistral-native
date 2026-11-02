@@ -20,9 +20,9 @@ import {
 	defineTool,
 } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionToolContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { StringEnum } from "@earendil-works/pi-ai";
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 
+import { stringEnum } from "./string-enum.js";
 import { getEffectiveRagStreaming } from "../mistral/config.js";
 import type { MistralClient, QueryContentChunk } from "./mistral-client.js";
 import { createMistralClient } from "./mistral-client.js";
@@ -217,7 +217,7 @@ export function createKnowledgeTools(deps: KnowledgeToolsDeps): AnyToolDefinitio
 			// Optional + execute fallback: pi's validation never applies JSON-Schema
 			// defaults, so a required-with-default property would fail when omitted.
 			purpose: Type.Optional(
-				StringEnum(["ocr", "batch", "fine-tune", "agentic_safety"] as const, {
+				stringEnum(["ocr", "batch", "fine-tune", "agentic_safety"] as const, {
 					description: "Intended purpose of the uploaded file (defaults to ocr)",
 					default: "ocr",
 				}),
@@ -228,7 +228,7 @@ export function createKnowledgeTools(deps: KnowledgeToolsDeps): AnyToolDefinitio
 			// The API defaults visibility to "workspace" (shared with everyone in the
 			// workspace); we default to "user" so uploads stay private unless shared.
 			visibility: Type.Optional(
-				StringEnum(["user", "workspace"] as const, {
+				stringEnum(["user", "workspace"] as const, {
 					description: "Who can see the file: user = only the uploader, workspace = shared with the workspace (defaults to user)",
 					default: "user",
 				}),
@@ -475,7 +475,7 @@ export function createKnowledgeTools(deps: KnowledgeToolsDeps): AnyToolDefinitio
 			// Optional + execute fallback: pi's validation never applies JSON-Schema
 			// defaults, so a required-with-default property would fail when omitted.
 			kind: Type.Optional(
-				StringEnum(["document", "extracted-text"] as const, {
+				stringEnum(["document", "extracted-text"] as const, {
 					description: "Which artifact to fetch: the original document or the extracted text (defaults to document)",
 					default: "document",
 				}),

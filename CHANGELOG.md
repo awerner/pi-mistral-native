@@ -27,6 +27,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   skipped and can be retried — distinct from "no results found", which
   now only appears when the search genuinely ran and the hit map was
   empty.
+- **pi 1.5.0 host compatibility for tool parameter typing.**
+  `StringEnum` from `@earendil-works/pi-ai` changed its return type in
+  1.5.0 from a typebox-branded schema to a plain JSON-Schema object, which
+  left the affected tool-parameter fields typed `unknown` in development
+  checkouts resolved against 1.5. The string-enum schemas now come from a
+  local `Type.Unsafe`-branded helper with byte-identical JSON-Schema
+  output (`{ type: "string", enum: [...] }`), so the package type-checks
+  and passes its full suite against both 1.4.x and 1.5.0 hosts; the wire
+  schema and runtime behavior are unchanged (the full test suite was run
+  against a 1.5.0 host install to confirm).
 - **README banner switched to the static PNG.** The repository README now
   shows `assets/banner.png` — renderers outside GitHub (notably the pi
   package gallery) do not display SVG — while the animated SVG stays in
