@@ -791,6 +791,16 @@ export function createMistralClient(options: MistralClientOptions): MistralClien
 			// Wire-verified 2026-11-03: the Conversations endpoint takes `inputs`
 			// (NOT `messages`, which it rejects as extra_forbidden) and accepts
 			// `store: false` for a stateless one-shot call.
+			//
+			// The top-level `instructions` field forces the server-side agent to
+			// run the search tool. It is declared in the vendored
+			// ConversationRequestBase and wire-verified effective on the live
+			// endpoint, while hard forcing is not available: tool_choice "any"
+			// and "required" are 422-rejected on this endpoint (the live endpoint
+			// is narrower than the spec's ToolChoiceEnum; "required" is explicitly
+			// forbidden for builtin connectors), making instructions the only
+			// forcing lever.
+			const instructions = `Always use the ${toolType} tool to search the web before answering. Never answer from memory.`;
 			const text = await doRequest("POST", "/conversations", {
 				json: {
 					inputs: [{ role: "user", content: query }],
@@ -798,6 +808,7 @@ export function createMistralClient(options: MistralClientOptions): MistralClien
 					tools: [{ type: toolType }],
 					stream: false,
 					store: false,
+					instructions,
 				},
 				signal,
 			});
