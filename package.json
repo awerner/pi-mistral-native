@@ -1,6 +1,6 @@
 {
   "name": "pi-mistral-native",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Native Mistral provider extension for the pi coding agent: chat completions with block-array thinking, model catalog, server-side tools and knowledge APIs",
   "license": "MIT",
   "repository": {

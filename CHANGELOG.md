@@ -87,9 +87,25 @@ endpoints, all as first-class pi capabilities.
   through to the live process environment when resolving config paths,
   the region or RAG streaming.
 
+## [0.1.1] - 2026-11-03
+
+### Fixed
+
+- **Truthful completion-token ceilings.** Chat requests against
+  mistral-large-4 (and models with 1M contexts) failed with
+  `400 invalid_request_max_tokens` (code 3058) because the catalog
+  derived `maxTokens` from the full context window while the API enforces
+  a per-model completion ceiling the model pages do not document (262144
+  for mistral-large-4, wire-verified by probing). `maxTokens` is now
+  `min(completion ceiling, context window)`, and the request path clamps
+  to the ceiling too, so stale persisted snapshots from earlier versions
+  cannot reproduce the 400 before the self-healing catalog refresh
+  overwrites them.
+
 ## [unreleased]
 
-Nothing yet beyond 0.1.0.
+Nothing yet beyond 0.1.1.
 
-[unreleased]: https://github.com/awerner/pi-mistral-native/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/awerner/pi-mistral-native/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/awerner/pi-mistral-native/releases/tag/v0.1.1
 [0.1.0]: https://github.com/awerner/pi-mistral-native/releases/tag/v0.1.0
