@@ -15,21 +15,21 @@
 import { Type } from "typebox";
 
 /** Options accepted by {@link stringEnum}: schema annotations only. */
-export interface StringEnumOptions {
+export interface StringEnumOptions<T extends readonly string[]> {
 	/** What the field means; shown to the model alongside the tool. */
 	readonly description?: string;
 	/**
 	 * Default value annotation. pi's validation never inserts it — every
 	 * tool must still apply its own fallback in `execute`.
 	 */
-	readonly default?: string;
+	readonly default?: T[number];
 }
 
 /**
  * A typebox schema for a closed set of strings: `{ type: "string", enum: [...] }`
  * with the static type `T[number]`, so `params.<field>` is the literal union.
  */
-export function stringEnum<const T extends readonly string[]>(values: T, options: StringEnumOptions = {}) {
+export function stringEnum<const T extends readonly string[]>(values: T, options: StringEnumOptions<T> = {}) {
 	return Type.Unsafe<T[number]>({
 		type: "string",
 		enum: values,

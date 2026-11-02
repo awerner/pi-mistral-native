@@ -2,8 +2,9 @@
 
 Runbook for publishing `pi-mistral-native` to npmjs.org (public, owner-executed).
 The package publishes under the unscoped name `pi-mistral-native` with a
-minimal-surface tarball: only the compiled extension, README, and license,
-with `pi-package` in `keywords` so pi's package gallery can list it.
+minimal-surface tarball: the compiled extension, README, changelog, banner
+image, and license, with `pi-package` in `keywords` so pi's package gallery
+can list it.
 
 Publishing is an owner action. Agents and CI never publish; they document
 this runbook, keep the pipeline green, and verify everything short of the
@@ -66,6 +67,14 @@ points (`pi.extensions: ["dist/extensions/*.js"]`):
 
    ```bash
    npm version patch      # or minor / major / prerelease
+   ```
+
+   When the bump already landed via a release branch (as in a chore wave),
+   `npm version` cannot be used — it would bump past the shipped version.
+   Create the tag explicitly at the publish point instead:
+
+   ```bash
+   git tag v<version> && git push origin v<version>
    ```
 
    Do not bump versions ahead of time; the version in `package.json` is the
