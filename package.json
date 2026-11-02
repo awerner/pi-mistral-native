@@ -1,8 +1,16 @@
 {
-  "name": "@agentic/pi-mistral-native",
+  "name": "pi-mistral-native",
   "version": "0.1.0",
   "description": "Native Mistral provider extension for the pi coding agent: chat completions with block-array thinking, model catalog, server-side tools and knowledge APIs",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/awerner/pi-mistral-native.git"
+  },
+  "homepage": "https://awerner.github.io/pi-mistral-native/",
+  "bugs": {
+    "url": "https://github.com/awerner/pi-mistral-native/issues"
+  },
   "type": "module",
   "main": "dist/extensions/mistral.js",
   "files": [
