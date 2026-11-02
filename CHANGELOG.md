@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2026-11-02
 
 Initial public release: a native Mistral AI provider for the
-[pi coding agent](https://pi.dev) — chat with reasoning, knowledge/RAG, OCR,
+[pi coding agent](https://github.com/earendil-works/pi) — chat with reasoning, knowledge/RAG, OCR,
 connectors, server-side tools, a live model catalog with pricing, and regional
 endpoints, all as first-class pi capabilities.
 
