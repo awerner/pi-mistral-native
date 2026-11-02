@@ -64,7 +64,9 @@ session pointing at the alternatives (web search: the `mistral_web_search`
 tool; code interpreter: hosted agent mode). Web search itself runs via
 `mistral_web_search`/`mistral_web_search_premium` pi tools over one-shot
 stateless Conversations calls, and code interpreter stays
-Conversations/Agents-only for now.
+Conversations/Agents-only for now. The `mistral_web_search` tool is
+registered by default (no configuration) and the search model is
+configurable via `knowledge.searchModel`.
 
 ### Agent mode
 

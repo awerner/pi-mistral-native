@@ -99,6 +99,7 @@ import {
 } from "./mistral/server-tools.js";
 import type { MistralServerToolType, ServerToolsConfig } from "./mistral/server-tools.js";
 import { registerKnowledgeTools } from "./tools/knowledge.js";
+import { registerWebSearchTools } from "./tools/web-search.js";
 import { registerConnectorTools } from "./tools/connectors.js";
 import { registerConnectorLoaderTools } from "./tools/loader.js";
 
@@ -2446,6 +2447,9 @@ export default function (pi: ExtensionAPI) {
 
 	// Library/RAG knowledge tools: files, libraries, documents and RAG queries.
 	registerKnowledgeTools(pi);
+
+	// Web-search tools over stateless one-shot Conversations calls.
+	registerWebSearchTools(pi);
 
 	registerConnectorTools(pi);
 

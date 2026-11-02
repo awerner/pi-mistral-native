@@ -287,6 +287,20 @@ export interface MistralClient {
 		arguments: Record<string, unknown>;
 		signal?: AbortSignal | undefined;
 	}): Promise<Record<string, unknown>>;
+	/**
+	 * Stateless one-shot Conversations call: a fresh POST /v1/conversations
+	 * with `store: false`; the returned conversation_id is discarded by the
+	 * caller. Thin transport method — response parsing lives in the tool
+	 * module.
+	 *
+	 * ADR 0018 — Web search as a Conversations-backed tool.
+	 */
+	createConversation(args: {
+		model: string;
+		toolType: "web_search" | "web_search_premium";
+		query: string;
+		signal?: AbortSignal | undefined;
+	}): Promise<unknown>;
 	getConnectorAuthUrl(args: {
 		connectorIdOrName: string;
 		appReturnUrl?: string | undefined;
@@ -772,6 +786,22 @@ export function createMistralClient(options: MistralClientOptions): MistralClien
 				signal,
 			});
 			return parseJsonObject(text) as unknown as ChatCompletionResponse;
+		},
+		async createConversation({ model, toolType, query, signal }) {
+			// Wire-verified 2026-11-03: the Conversations endpoint takes `inputs`
+			// (NOT `messages`, which it rejects as extra_forbidden) and accepts
+			// `store: false` for a stateless one-shot call.
+			const text = await doRequest("POST", "/conversations", {
+				json: {
+					inputs: [{ role: "user", content: query }],
+					model,
+					tools: [{ type: toolType }],
+					stream: false,
+					store: false,
+				},
+				signal,
+			});
+			return JSON.parse(text) as unknown;
 		},
 		async *queryLibraryStream({ model, libraryIds, query, maxTokens, signal }) {
 			/*

@@ -37,6 +37,9 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 
+/** Default model for the web-search tools' Conversations calls (wire-verified 2026-11-03: mistral-large-4 refuses builtin connectors on /v1/conversations, error 3004; mistral-small-latest runs the search tool). */
+export const DEFAULT_SEARCH_MODEL = "mistral-small-latest";
+
 /** Name of the config file in every scope (user and project). */
 export const CONFIG_FILE_NAME = "mistral-native.json";
 
@@ -93,9 +96,11 @@ export interface ModelsRateCardConfig {
 	fallThrough: boolean | undefined;
 }
 
-/** `knowledge` section (RESERVED). */
+/** `knowledge` section (RESERVED — `searchModel` is behavioral for the web-search tools). */
 export interface KnowledgeConfig {
 	streaming: boolean | undefined;
+	/** Model used by the web-search tools' Conversations calls; undefined → the DEFAULT_SEARCH_MODEL. */
+	searchModel: string | undefined;
 }
 
 /** `rag` section (RESERVED). */
@@ -521,11 +526,25 @@ export function validateMistralFileConfig(
 	if (root.knowledge !== undefined) {
 		const section = sectionObject(root.knowledge, "knowledge", path);
 		if ("error" in section) return { error: section.error };
-		const unknown = rejectUnknownSectionKeys(section.object, ["streaming"], "knowledge", path);
+		const unknown = rejectUnknownSectionKeys(section.object, ["streaming", "searchModel"], "knowledge", path);
 		if (unknown !== undefined) return { error: unknown };
 		const streaming = optionalBoolean(section.object, "streaming", "knowledge", path);
 		if (streaming.error !== undefined) return { error: streaming.error };
-		knowledge = { streaming: streaming.value };
+		// searchModel: a non-empty string after trim (model ids are NOT
+		// validated here — an unknown id surfaces at use time as the tool's
+		// 3004-friendly error, not a config validation failure).
+		let searchModel: string | undefined;
+		if (section.object.searchModel !== undefined) {
+			if (typeof section.object.searchModel !== "string") {
+				return { error: `field "knowledge.searchModel" in ${path} must be a string; got ${JSON.stringify(section.object.searchModel) ?? String(section.object.searchModel)}` };
+			}
+			const trimmed = section.object.searchModel.trim();
+			if (trimmed.length === 0) {
+				return { error: `field "knowledge.searchModel" in ${path} must not be empty; omit the key to leave it unset` };
+			}
+			searchModel = trimmed;
+		}
+		knowledge = { streaming: streaming.value, searchModel };
 	}
 
 	let rag: RagConfig | undefined;
@@ -1013,4 +1032,24 @@ export function getEffectiveRagStreaming(
 		return true;
 	}
 	return true;
+}
+
+// =============================================================================
+// Resolved knowledge.searchModel (behavioral)
+// =============================================================================
+
+/**
+ * The effective search model for the web-search tools' Conversations
+ * calls: `knowledge.searchModel` from the merged file config (project >
+ * user via getEffectiveMistralConfig), else DEFAULT_SEARCH_MODEL
+ * ("mistral-small-latest"). Config-file only in this wave — there is no
+ * env var; warn-on-unknown model ids happens at use time (the tool's
+ * 3004-friendly error), not here. Pure over the given inputs; never logs.
+ *
+ * ADR 0018 — Web search as a Conversations-backed tool.
+ */
+export function getEffectiveSearchModel(
+	fileConfig: MistralFileConfig | undefined = getEffectiveMistralConfig(),
+): string {
+	return fileConfig?.knowledge?.searchModel ?? DEFAULT_SEARCH_MODEL;
 }

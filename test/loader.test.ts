@@ -211,6 +211,12 @@ interface LoaderHarness {
 /** The pi built-in tool names a realistic session already has registered. */
 const PI_BUILTINS = ["read", "bash", "powershell", "edit", "write", "grep", "find", "ls"];
 
+/** The extension's own tool names a realistic session also has registered (web search: extensions/tools/web-search.ts). */
+const EXTENSION_TOOLS = ["mistral_web_search", "mistral_web_search_premium"];
+
+/** The realistic session registry: pi built-ins plus this extension's tools. */
+const SESSION_TOOLS = [...PI_BUILTINS, ...EXTENSION_TOOLS];
+
 /**
  * Builds a loader harness: one loader session bound to recording deps, with
  * the registry primed through the session_start discovery path (the realistic
@@ -244,7 +250,7 @@ async function buildLoader(
 		},
 		...(options.getAllTools !== undefined
 			? { getAllTools: options.getAllTools }
-			: { getAllTools: () => PI_BUILTINS.map((name) => ({ name })) }),
+			: { getAllTools: () => SESSION_TOOLS.map((name) => ({ name })) }),
 	});
 	await session.onSessionStart(stubCtx(notifications), options.reason ?? "startup");
 	return {
@@ -331,7 +337,7 @@ async function driveSessionStart(options: {
 		setActiveTools: (names: string[]) => {
 			active = [...names];
 		},
-		getAllTools: () => PI_BUILTINS.map((name) => ({ name })),
+		getAllTools: () => SESSION_TOOLS.map((name) => ({ name })),
 	} as never;
 	registerConnectorLoaderTools(stubPi as never);
 	const handler = handlers["session_start"];
@@ -590,7 +596,7 @@ test("rename target is re-checked: a held <original>__<connector> name bumps to 
 	// Simulate another extension/MCP tool already holding the suffixed name
 	// `search_mail__outlook`, plus a loaded connector holding `search_mail`.
 	const harness = await buildLoader(createMockFetch(), {
-		getAllTools: () => [{ name: "search_mail__outlook" }, ...PI_BUILTINS.map((name) => ({ name }))],
+		getAllTools: () => [{ name: "search_mail__outlook" }, ...SESSION_TOOLS.map((name) => ({ name }))],
 	});
 	// Load sharepoint_mcp first: it takes `search_mail`.
 	harness.mock.respond(200, [
@@ -1172,7 +1178,7 @@ test("session-start loader drives a full load/call/unload cycle", async () => {
 		setActiveTools: (names: string[]) => {
 			active = [...names];
 		},
-		getAllTools: () => PI_BUILTINS.map((name) => ({ name })),
+		getAllTools: () => SESSION_TOOLS.map((name) => ({ name })),
 	} as never;
 	registerConnectorLoaderTools(stubPi as never);
 	// Discovery response must be queued before the session_start handler runs.

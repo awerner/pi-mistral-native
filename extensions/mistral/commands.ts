@@ -32,6 +32,7 @@ import { parseServerToolsConfig, unsupportedChatCompletionsServerTools } from ".
 import { readFileSync, writeFileSync, renameSync, mkdirSync, unlinkSync } from "node:fs";
 import { dirname } from "node:path";
 import type { MistralFileConfig, MistralRegion } from "./config.js";
+import { DEFAULT_SEARCH_MODEL } from "./config.js";
 import { connectorToolsEnabled } from "../tools/loader.js";
 
 
@@ -90,6 +91,7 @@ const SET_KEYS: Record<string, SetKeySpec> = {
 	"connectorTools.autoLoad": { kind: "list", description: "Connectors auto-loaded at session start (comma-separated)" },
 	"models.fallThrough": { kind: "boolean", description: "Unpriced models fall through to catch-all rates" },
 	"knowledge.streaming": { kind: "boolean", description: "Knowledge tool streaming" },
+	"knowledge.searchModel": { kind: "string", description: "Web search model for the mistral_web_search tools" },
 	"rag.streaming": { kind: "boolean", description: "RAG query streaming" },
 	"rag.defaultLibraryId": { kind: "string", description: "Default library for RAG queries" },
 	"ocr.defaultModel": { kind: "string", description: "Default OCR model" },
@@ -140,6 +142,7 @@ function defaultDisplayFor(key: string, merged: MistralFileConfig | undefined, e
 	if (key === "endpoint.region") return getEffectiveEndpoint(env, merged).region;
 	if (key === "connectorTools.enabled") return String(connectorToolsEnabled(env, merged));
 	if (key === "rag.streaming" || key === "knowledge.streaming") return String(getEffectiveRagStreaming(env, merged));
+	if (key === "knowledge.searchModel") return merged?.knowledge?.searchModel ?? DEFAULT_SEARCH_MODEL;
 	return "unset";
 }
 
@@ -276,6 +279,7 @@ export function buildStatusCard(
 		["connectorTools.autoLoad", "Connector auto-load", undefined, undefined],
 		["models.fallThrough", "Rate-card fall-through", undefined, undefined],
 		["knowledge.streaming", "Knowledge streaming", undefined, undefined],
+		["knowledge.searchModel", "Web search model", undefined, undefined],
 		["rag.streaming", "RAG streaming", "MISTRAL_RAG_STREAMING", ragStreamingEnvHonored],
 		["rag.defaultLibraryId", "RAG default library", undefined, undefined],
 		["ocr.defaultModel", "OCR model", undefined, undefined],

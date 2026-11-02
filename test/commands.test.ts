@@ -281,6 +281,36 @@ test("status card shows provenance per source layer", () => {
 	assert.match(card, /\(web_search do not run in chat completions — use the mistral_web_search tool for web search; see docs\/server-tools\.md\)/);
 });
 
+test("status card shows the Web search model row with default provenance", () => {
+	const fs = emptyFs();
+	const env = { ...memoryEnv(fs, HOME), MISTRAL_REGION: "" };
+	const user = { value: undefined, path: undefined, warning: undefined };
+	const project = { value: undefined, path: undefined, warning: undefined };
+	const card = buildStatusCard({ user, project }, undefined, true, env);
+	// No file sets the key: the effective default shows with default provenance.
+	assert.match(card, /Web search model: mistral-small-latest  \[default\]/);
+});
+
+test("status card: a user-file knowledge.searchModel shows with file provenance; /mistral set writes it", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	// Status card: user-file provenance.
+	const user = { value: { knowledge: { streaming: undefined, searchModel: "mistral-medium-latest" } }, path: "/u/mistral-native.json", warning: undefined };
+	const project = { value: undefined, path: undefined, warning: undefined };
+	const card = buildStatusCard({ user, project }, undefined, true, { ...env, MISTRAL_REGION: "" });
+	assert.match(card, /Web search model: mistral-medium-latest  \[user file \/u\/mistral-native\.json\]/);
+	// Set-map: the key is settable as a string kind (mirrors rag.defaultLibraryId).
+	const target = setUserConfigTargetPath(env, memoryExists(fs));
+	setUserConfigKey("knowledge.searchModel", "mistral-medium-latest", env, {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	const written = JSON.parse(fs.files.get(target)!) as { knowledge: { searchModel: string } };
+	assert.equal(written.knowledge.searchModel, "mistral-medium-latest");
+	// Completion offers the key.
+	const items = mistralArgumentCompletions("set knowledge.");
+	assert.ok(items.some((item) => item.value === "knowledge.searchModel"), "key must be offered");
+});
+
 test("status card: no server-tools footnote when the configured set is supported", () => {
 	const fs = emptyFs();
 	const env = {

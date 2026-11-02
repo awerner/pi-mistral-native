@@ -24,6 +24,15 @@ fine-tuned model.** `mistral_moderate` (fixed policy categories with
 scores), `mistral_embed` (vectors), `mistral_classify` (your model's
 training-time targets).
 
+**Search the web.** `mistral_web_search` (and the pay-per-use premium
+variant) runs a web search and returns the hits (url, title,
+description, snippets) — registered by default, no configuration:
+
+```text
+mistral_web_search            mistral_web_search_premium  (premium costs
+                                                          extra per call)
+```
+
 **Manage the document store.** Create libraries, list documents, get
 short-lived download URLs, re-index after fixing a source file:
 
@@ -39,10 +48,11 @@ No configuration needed — the tools register automatically.
 
 ## Tool reference
 
-The extension registers **13 pi tools** covering Mistral's
+The extension registers **15 pi tools** covering Mistral's
 knowledge-side APIs: the four document-intelligence tools (OCR,
-embeddings, moderations, classifications) and the nine library/RAG
-tools for files, libraries, documents and streaming RAG queries.
+embeddings, moderations, classifications), the nine library/RAG
+tools for files, libraries, documents and streaming RAG queries, and
+the two web-search tools.
 
 All tools resolve the API key per call through the chain in
 [auth.md](auth.md) and stay on the **global** `api.mistral.ai`
@@ -140,6 +150,25 @@ identical to the one-shot path: retrieved text chunks plus citations
 [configuration.md](configuration.md).
 
 *Decisions: [ADR 0006 — Knowledge API tools](adr/0006-knowledge-api-tools.md); [ADR 0015 — Streaming RAG document query](adr/0015-streaming-rag-document-query.md)*
+
+### Web search
+
+**`mistral_web_search`** / **`mistral_web_search_premium`** — `query`
+(required, the only parameter). Each call is a **stateless one-shot
+Conversations API request** (`store: false`, nothing persisted, no
+conversation continued): the search runs under a dedicated **search
+model** — `mistral-small-latest` by default, independent of the chat
+model — and the hits (url, title, description, snippets) come back to
+the model as the tool result. Zero hits (the backend decided not to
+search) is an ordinary empty result, not an error. The **premium**
+variant delivers premium search quality and is **pay-per-use** — it
+costs extra per call, so the caller opts in deliberately by using it.
+The search model is configurable via the `knowledge.searchModel`
+config key (see [configuration.md](configuration.md)); a model that
+refuses builtin connectors there (mistral-large-4, error 3004) is
+reported with a friendly fix hint.
+
+*Decisions: [ADR 0018 — Web search as a Conversations-backed tool](adr/0018-web-search-as-conversations-backed-tool.md)*
 
 ## Security and privacy rules
 

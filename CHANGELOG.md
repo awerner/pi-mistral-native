@@ -89,7 +89,23 @@ endpoints, all as first-class pi capabilities.
 
 ## [0.1.1] - 2026-11-03
 
+### Added
+
+- **Web search as model-callable pi tools.** `mistral_web_search` and
+  `mistral_web_search_premium` run web searches via stateless one-shot
+  Conversations calls and return the hits to the model; the search model
+  defaults to `mistral-small-latest` and is configurable via
+  `knowledge.searchModel`.
+
 ### Fixed
+
+- **Chat-completions server tools that the endpoint rejects are now
+  dropped with a visible warning instead of failing every request.**
+  Configured `serverTools` entries that Chat Completions does not support
+  (`web_search`, `web_search_premium`, `code_interpreter` — 400 code
+  1800) are filtered from requests and surface a once-per-session warning
+  naming them and pointing at the alternatives; web search moved to the
+  `mistral_web_search`/`mistral_web_search_premium` tools.
 
 - **Truthful completion-token ceilings.** Chat requests against
   mistral-large-4 (and models with 1M contexts) failed with

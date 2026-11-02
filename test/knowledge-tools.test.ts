@@ -131,7 +131,7 @@ async function formDataText(body: unknown): Promise<string> {
 	return parts.join(";");
 }
 
-test("registerKnowledgeTools registers all nine knowledge tools", async () => {
+test("the extension registers the knowledge, web-search and connector tools", async () => {
 	const { default: mistralExtension } = await import("../extensions/mistral.js");
 	const registeredProviders: { name: string }[] = [];
 	const registeredTools: { name: string }[] = [];
@@ -152,7 +152,8 @@ test("registerKnowledgeTools registers all nine knowledge tools", async () => {
 	assert.equal(registeredProviders[0]?.name, "mistral-native");
 	// Main carries the OCR/embeddings/moderation/classification tools
 	// (extensions/mistral/knowledge.ts); below them ride the nine
-	// library/RAG tools and the seven connector tools.
+	// library/RAG tools, the two web-search tools and the seven
+	// connector tools.
 	/*
 	 * ADR 0005 — OCR, embeddings, moderations/classifications as pi tools;
 	 * ADR 0007 — Server-side tools as opaque content
@@ -171,6 +172,8 @@ test("registerKnowledgeTools registers all nine knowledge tools", async () => {
 		"mistral_document_signed_url",
 		"mistral_document_reprocess",
 		"mistral_document_query",
+		"mistral_web_search",
+		"mistral_web_search_premium",
 		"mistral_connector_list",
 		"mistral_connector_tools",
 		"mistral_connector_auth_url",
@@ -982,18 +985,18 @@ test("config precedence: rag.streaming wins over knowledge.streaming; env applie
 	delete process.env.MISTRAL_RAG_STREAMING;
 	assert.equal(getEffectiveRagStreaming(), true); // default
 	// knowledge.streaming applies when rag.streaming is unset.
-	setMistralConfigForTests({ knowledge: { streaming: false } });
+	setMistralConfigForTests({ knowledge: { streaming: false, searchModel: undefined } });
 	assert.equal(getEffectiveRagStreaming(), false);
-	setMistralConfigForTests({ knowledge: { streaming: true } });
+	setMistralConfigForTests({ knowledge: { streaming: true, searchModel: undefined } });
 	assert.equal(getEffectiveRagStreaming(), true);
 	// rag.streaming wins over knowledge.streaming (both set).
 	setMistralConfigForTests({
-		knowledge: { streaming: true },
+		knowledge: { streaming: true, searchModel: undefined },
 		rag: { streaming: false, defaultLibraryId: undefined },
 	});
 	assert.equal(getEffectiveRagStreaming(), false);
 	setMistralConfigForTests({
-		knowledge: { streaming: false },
+		knowledge: { streaming: false, searchModel: undefined },
 		rag: { streaming: true, defaultLibraryId: undefined },
 	});
 	assert.equal(getEffectiveRagStreaming(), true);

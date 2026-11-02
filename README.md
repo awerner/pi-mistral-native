@@ -49,7 +49,9 @@ One setting, no client-side glue:
 ```
 
 Web search ships as the model-callable `mistral_web_search` pi tool
-(see [docs/server-tools.md](docs/server-tools.md)).
+(see [docs/server-tools.md](docs/server-tools.md)) — registered by
+default, running under a search model that defaults to
+`mistral-small-latest` and is configurable via `knowledge.searchModel`.
 
 **Extract text from images and PDFs (OCR).** Point the agent at a
 screenshot, scan or PDF and get per-page markdown back.
