@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import {
   buildFrontmatter,
   docsPathToSlug,
+  dropFirstH1,
   extractAdrStatus,
   extractDescription,
   extractTitle,
+  formatTitleHtml,
   isAdrPage,
   rewriteLinks,
   stripInlineMarkdown,
@@ -32,6 +34,21 @@ test('extractTitle returns the first level-1 heading text', () => {
   assert.equal(extractTitle('# Chat streaming (`mistral-chat`)\n\nbody'), 'Chat streaming (`mistral-chat`)');
   assert.equal(extractTitle('## Not a title\n\n# Real title'), 'Real title');
   assert.equal(extractTitle('no heading here'), null);
+});
+
+test('extractTitle skips level-1 headings inside fenced code blocks', () => {
+  const body = [
+    '# Real title',
+    '',
+    '```markdown',
+    '# not a title',
+    '```',
+    '',
+    'Body text.',
+  ].join('\n');
+  assert.equal(extractTitle(body), 'Real title');
+  // A fenced `# ` line before any real heading is not the title either.
+  assert.equal(extractTitle('```text\n# not a title\n```\n\n# The real one'), 'The real one');
 });
 
 test('stripInlineMarkdown removes emphasis, code spans and link syntax', () => {
@@ -115,6 +132,12 @@ test('buildFrontmatter injects title and description', () => {
   assert.equal(fm.title, 'Chat streaming');
   assert.equal(fm.description, 'First paragraph of the doc.');
   assert.equal(fm.adrStatus, undefined);
+});
+
+test('buildFrontmatter strips inline markdown from the title and emits matching titleHtml', () => {
+  const fm = buildFrontmatter('docs/stream.md', '# Chat streaming (`mistral-chat`)\n\nBody.');
+  assert.equal(fm.title, 'Chat streaming (mistral-chat)');
+  assert.equal(fm.titleHtml, 'Chat streaming (<code>mistral-chat</code>)');
 });
 
 test('buildFrontmatter adds ADR status fields only for ADR pages', () => {
@@ -332,4 +355,68 @@ test('transformDocsFile flows the base through to the link rewriter', () => {
   const result = transformDocsFile('docs/adr/process/0007-adr-taxonomy.md', raw, '/pi-mistral-native/');
   assert.equal(result.frontmatter.adrStatus, 'trial');
   assert.ok(result.body.includes('](/pi-mistral-native/adr/process/0008-reference-discipline/)'));
+});
+
+test('formatTitleHtml converts inline markdown to inline HTML', () => {
+  assert.equal(formatTitleHtml('**bold** title'), '<strong>bold</strong> title');
+  assert.equal(formatTitleHtml('*em* title'), '<em>em</em> title');
+  assert.equal(formatTitleHtml('[label](target.md) title'), 'label title');
+  assert.equal(formatTitleHtml('Chat streaming (`mistral-chat`)'), 'Chat streaming (<code>mistral-chat</code>)');
+});
+
+test('formatTitleHtml HTML-escapes before converting markdown', () => {
+  assert.equal(formatTitleHtml('a < b & "c"'), 'a &lt; b &amp; &quot;c&quot;');
+  // A code span containing markup stays escaped inside the <code> element.
+  assert.equal(formatTitleHtml('Use `<x>` here'), 'Use <code>&lt;x&gt;</code> here');
+  // No constructs, no escapes needed: plain text passes through.
+  assert.equal(formatTitleHtml('Plain title'), 'Plain title');
+});
+
+test('dropFirstH1 removes only the first level-1 heading line', () => {
+  const body = '# First\n\nBody line.\n\n# Second\n\nTail.';
+  assert.equal(dropFirstH1(body), '\nBody line.\n\n# Second\n\nTail.');
+  // The remaining H1 survives as a heading line.
+  assert.match(dropFirstH1(body), /^#\s/m);
+});
+
+test('dropFirstH1 leaves a body without a level-1 heading unchanged', () => {
+  const body = '## Only an H2\n\nBody.';
+  assert.equal(dropFirstH1(body), body);
+});
+
+test('dropFirstH1 never drops a level-1 heading inside a fenced code block', () => {
+  const body = [
+    '```markdown',
+    '# not a heading',
+    '```',
+    '',
+    '# Real heading',
+    '',
+    'Body.',
+  ].join('\n');
+  const result = dropFirstH1(body);
+  assert.ok(result.includes('# not a heading'), 'fenced line is content and stays');
+  assert.ok(!result.includes('# Real heading'), 'the real H1 outside the fence is dropped');
+  // Everything except the dropped line is byte-identical.
+  assert.equal(result, body.split('\n').toSpliced(4, 1).join('\n'));
+});
+
+test('dropFirstH1 keeps every other line byte-identical', () => {
+  const body = '#  Title with odd spacing  \n\n\n- item\n| a | b |\n> quote';
+  const result = dropFirstH1(body);
+  assert.equal(result, '\n\n- item\n| a | b |\n> quote');
+});
+
+test('transformDocsFile drops the first H1 from the body but keeps it in the title', () => {
+  const raw = '# Chat streaming (`mistral-chat`)\n\nSee [configuration.md](configuration.md) for details.';
+  const result = transformDocsFile('docs/stream.md', raw);
+  assert.ok(!result.body.includes('# Chat streaming'), 'no level-1 heading line remains in the body');
+  assert.ok(!/^#[^#]/m.test(result.body), 'no level-1 heading line remains in the body');
+  assert.equal(result.frontmatter.title, 'Chat streaming (mistral-chat)');
+  assert.equal(result.frontmatter.titleHtml, 'Chat streaming (<code>mistral-chat</code>)');
+  assert.equal(
+    result.body,
+    '\nSee [configuration.md](/configuration/) for details.',
+    'links are still rewritten after the H1 drop',
+  );
 });

@@ -1,0 +1,23 @@
+---
+// PageTitle override: Starlight renders the page title as plain text, but the
+// ingested docs carry inline markdown in their titles (e.g. `code` spans), so
+// the loader provides an HTML-escaped titleHtml alongside the plain-text
+// title (which still drives the sidebar, <title> and og:title). The `_top`
+// anchor id is a Starlight constant (not exported as a public subpath)
+// targeted by the skip link and the ToC heading selector — keep it.
+const { entry } = Astro.locals.starlightRoute;
+const { titleHtml } = entry.data;
+---
+{titleHtml ? <h1 id="_top" set:html={titleHtml} /> : <h1 id="_top">{entry.data.title}</h1>}
+
+<style>
+  @layer starlight.core {
+    h1 {
+      margin-top: 1rem;
+      font-size: var(--sl-text-h1);
+      line-height: var(--sl-line-height-headings);
+      font-weight: 600;
+      color: var(--sl-color-white);
+    }
+  }
+</style>
