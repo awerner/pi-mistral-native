@@ -57,9 +57,11 @@ const badgeVariant = adrStatus === 'accepted' ? 'success' : adrStatus === 'trial
     border-color: color-mix(in srgb, #1fa7ff 40%, transparent);
   }
   .adr-badge-caution {
-    /* Superseded — kept for the record, replaced by a newer ADR. */
+    /* Superseded — kept for the record, replaced by a newer ADR. Uses the
+       theme-relative text and border tokens (gray-6 is a panel background
+       token, not a legible text color). */
     background: color-mix(in srgb, #101826 8%, transparent);
-    color: var(--sl-color-gray-6);
+    color: var(--sl-color-text);
     border-color: var(--sl-color-gray-3);
   }
 </style>

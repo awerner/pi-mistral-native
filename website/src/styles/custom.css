@@ -1,7 +1,20 @@
 /* Blue block design tokens (docs/design-tokens.md), mapped onto Starlight's
-   CSS custom properties for both light and dark modes. */
+   CSS custom properties for both light and dark modes.
+
+   Starlight's color tokens are THEME-RELATIVE, not literal colors:
+   --sl-color-white is the strongest FOREGROUND color of the active theme
+   (near-black in light mode, near-white in dark mode) and --sl-color-black
+   is the page BACKGROUND — the names flip with the theme. The gray ramp runs
+   the same way: gray-1 is the strongest foreground, gray-6 the most
+   elevated panel background. Components (Hero, Select, Footer, Sidebar,
+   Search, …) rely on those semantics, so a literal white/black mapping
+   inverts every assumption and hides the hero title, footer and theme
+   selector text. Values derive from the blue block palette: Ink #101826
+   (light-theme foreground, dark-theme surface), cool ivory #F2F7FF and
+   text-on-dark #E8F0FA (dark-theme foreground). */
 
 :root {
+  /* Blue block palette (docs/design-tokens.md). */
   --sl-color-sky: #4cc9ff;
   --sl-color-azure: #1fa7ff;
   --sl-color-primary: #0b7fe0;
@@ -12,48 +25,59 @@
   --sl-color-text-on-dark: #e8f0fa;
   --sl-shadow-blue: rgba(20, 60, 140, 0.12);
 
-  /* Light mode */
-  --sl-color-white: #ffffff;
-  --sl-color-gray-1: #f2f7ff;
-  --sl-color-gray-2: #e3ecf7;
-  --sl-color-gray-3: #b9cbe2;
-  --sl-color-gray-4: #7a93b4;
-  --sl-color-gray-5: #52688a;
-  --sl-color-gray-6: #33465f;
+  /* Dark mode (Starlight's :root defaults are dark): white = strongest
+     foreground (ivory), black = page background (Ink); the gray ramp runs
+     from foreground-strongest (gray-1) to most-elevated panel (gray-6). */
+  --sl-color-white: #f2f7ff;
+  --sl-color-gray-1: #e8f0fa;
+  --sl-color-gray-2: #b9cbe2;
+  --sl-color-gray-3: #7a93b4;
+  --sl-color-gray-4: #52688a;
+  --sl-color-gray-5: #33465f;
+  --sl-color-gray-6: #1a2536;
   --sl-color-black: #101826;
-
-  --sl-color-text: var(--sl-color-black);
-  --sl-color-text-accent: var(--sl-color-primary);
-  --sl-color-text-invert: var(--sl-color-white);
-  --sl-color-bg: var(--sl-color-white);
-  --sl-color-bg-nav: var(--sl-color-gray-1);
-  --sl-color-bg-sidebar: var(--sl-color-gray-1);
-  --sl-color-bg-inline-code: var(--sl-color-gray-2);
-  --sl-color-border: var(--sl-color-gray-3);
-  --sl-color-heading-hover: var(--sl-color-deep);
-  --sl-color-accent-low: var(--sl-color-ultramarine);
-  --sl-color-accent: var(--sl-color-primary);
-  --sl-color-accent-high: var(--sl-color-sky);
-  --sl-color-shadow-opacity: 0.12;
-}
-
-:root[data-theme='dark'] {
-  --sl-color-gray-1: #060a12;
-  --sl-color-gray-2: #0b1220;
-  --sl-color-gray-3: #1a2536;
-  --sl-color-gray-4: #45586f;
-  --sl-color-gray-5: #7d94b2;
-  --sl-color-gray-6: #a9c0dc;
-  --sl-color-white: #101826;
-  --sl-color-black: #f2f7ff;
 
   --sl-color-text: var(--sl-color-text-on-dark);
   --sl-color-text-accent: var(--sl-color-azure);
+  --sl-color-text-invert: var(--sl-color-black);
+  --sl-color-bg: var(--sl-color-black);
+  --sl-color-bg-nav: var(--sl-color-gray-6);
+  --sl-color-bg-sidebar: var(--sl-color-gray-6);
+  --sl-color-bg-inline-code: var(--sl-color-gray-5);
+  --sl-color-border: var(--sl-color-gray-5);
   --sl-color-heading-hover: var(--sl-color-sky);
   --sl-color-accent-low: var(--sl-color-azure);
   --sl-color-accent: var(--sl-color-sky);
   --sl-color-accent-high: var(--sl-color-primary);
+  --sl-shadow-opacity: 0.12;
+}
+
+:root[data-theme='light'] {
+  /* Light mode: white = strongest foreground (Ink), black = page
+     background; the gray ramp flips to run dark (gray-1) to light
+     (gray-6), keeping every component assumption intact. */
+  --sl-color-white: #101826;
+  --sl-color-gray-1: #101826;
+  --sl-color-gray-2: #33465f;
+  --sl-color-gray-3: #52688a;
+  --sl-color-gray-4: #7a93b4;
+  --sl-color-gray-5: #b9cbe2;
+  --sl-color-gray-6: #e3ecf7;
+  --sl-color-black: #ffffff;
+
+  --sl-color-text: var(--sl-color-ink);
+  --sl-color-text-accent: var(--sl-color-primary);
+  --sl-color-text-invert: var(--sl-color-black);
+  --sl-color-bg: var(--sl-color-black);
+  --sl-color-bg-nav: var(--sl-color-ivory);
+  --sl-color-bg-sidebar: var(--sl-color-ivory);
+  --sl-color-bg-inline-code: var(--sl-color-gray-6);
+  --sl-color-heading-hover: var(--sl-color-deep);
+  --sl-color-accent-low: var(--sl-color-ultramarine);
+  --sl-color-accent: var(--sl-color-primary);
+  --sl-color-accent-high: var(--sl-color-sky);
 }
 
 /* The landing-page capability cards are styled scoped in
-   src/pages/index.astro. */
+   src/pages/index.astro; they use the panel (bg-nav) and foreground
+   (gray-3, text-accent) tokens above. */

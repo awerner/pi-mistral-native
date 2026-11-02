@@ -138,8 +138,10 @@ const capabilities = [
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    border: 1px solid var(--sl-color-gray-3);
-    background: var(--sl-color-gray-1);
+    /* Panel chrome in theme-relative tokens: bg-nav is the elevated panel
+       background, gray-5 the border, gray-3 the secondary foreground. */
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-bg-nav);
     padding: 1rem 1.25rem;
     text-decoration: none;
     transition: box-shadow 150ms ease-in-out;
@@ -153,6 +155,6 @@ const capabilities = [
   }
   .capability-text {
     font-size: 0.9rem;
-    color: var(--sl-color-gray-6);
+    color: var(--sl-color-gray-3);
   }
 </style>
