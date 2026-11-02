@@ -237,12 +237,12 @@ function withTempAgentDir<T>(fn: (dir: string) => T | Promise<T>): Promise<T> {
 
 /**
  * A fully-pinned env bag for the region write's path resolution. The config
- * layer resolves EVERY chain key with `env?.[name] || process.env[name]`, so
- * a partially-injected bag leaks `PI_CODING_AGENT_DIR`/`XDG_CONFIG_HOME`/
- * `HOME` from process.env — on a dev machine with `XDG_CONFIG_HOME` set and
- * an existing `…/pi/mistral-native.json`, a region-write test would then
- * write "endpoint.region" into the REAL user config. Zero-length values are
- * the code's "unset" marker, so pinning to "" fully controls the chain.
+ * layer resolves each chain key with `env?.[name] ?? process.env[name]`: a
+ * bag-present value wins over process.env — including the empty string,
+ * which is the code's "unset" marker. Without the pin, a machine that
+ * exports `XDG_CONFIG_HOME` system-wide (e.g. the Ubuntu 26.04 runner
+ * image) would leak into the chain and a region-write test could write
+ * "endpoint.region" into the REAL user config.
  */
 function pinnedRegionEnv(overrides: Record<string, string>): Record<string, string | undefined> {
 	return {

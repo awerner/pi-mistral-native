@@ -48,6 +48,12 @@ import { setMistralConfigForTests } from "../extensions/mistral/config.js";
 // mistral-native.json.
 setMistralConfigForTests(null);
 
+// The suite's cost assertions pin the global rate card: an ambient
+// MISTRAL_REGION (e.g. on a machine that exports one) would flip the
+// region surcharge on every dynamic-catalog cost. Delete it for the whole
+// process (the region-specific tests set it explicitly via withEnv).
+delete process.env.MISTRAL_REGION;
+
 /**
  * Snapshot + restore helper for process.env keys (per-test, unlike the
  * module-top config override). Async: env stays applied until the awaited

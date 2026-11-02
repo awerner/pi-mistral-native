@@ -167,7 +167,7 @@ type TemplatePart = { type: "literal"; value: string } | { type: "env"; name: st
 
 /** Whether an env value counts as set (mirrors pi: empty string = unset). */
 function readEnv(env: Record<string, string | undefined> | undefined, name: string): string | undefined {
-	return env?.[name] || process.env[name] || undefined;
+	return env?.[name] ?? process.env[name] ?? undefined;
 }
 
 /** Parse a non-command value into literal and `$VAR`/`${VAR}` template parts (with `$$`/`$!` escapes). */
@@ -573,13 +573,13 @@ export function validateMistralFileConfig(
 
 /** The user's home directory: `HOME` from the given env when set, else the OS home. */
 function homeDir(env: Record<string, string | undefined> | undefined): string {
-	const fromEnv = env?.HOME || process.env.HOME;
+	const fromEnv = env?.HOME ?? process.env.HOME;
 	return fromEnv !== undefined && fromEnv.length > 0 ? fromEnv : homedir();
 }
 
 /** The default pi agent directory: `PI_CODING_AGENT_DIR` when set, else `~/.pi/agent`. */
 export function defaultAgentDir(env: Record<string, string | undefined> | undefined = process.env): string {
-	const explicit = env?.PI_CODING_AGENT_DIR || process.env.PI_CODING_AGENT_DIR;
+	const explicit = env?.PI_CODING_AGENT_DIR ?? process.env.PI_CODING_AGENT_DIR;
 	return explicit !== undefined && explicit.length > 0 ? explicit : join(homeDir(env), ".pi", "agent");
 }
 
@@ -597,7 +597,7 @@ export function defaultAgentDir(env: Record<string, string | undefined> | undefi
  * the chain is kept as ordered. Pure.
  */
 export function userConfigPaths(env: Record<string, string | undefined> | undefined = process.env): string[] {
-	const read = (name: string): string | undefined => env?.[name] || process.env[name] || undefined;
+	const read = (name: string): string | undefined => env?.[name] ?? process.env[name] ?? undefined;
 	const paths: string[] = [];
 	const piDir = read("PI_CODING_AGENT_DIR");
 	if (piDir !== undefined && piDir.length > 0) paths.push(join(piDir, CONFIG_FILE_NAME));
@@ -901,7 +901,7 @@ export function getEffectiveEndpoint(
 	if (jsonRegion !== undefined) {
 		return { region: jsonRegion, baseUrl: fileConfig?.endpoint?.baseUrl };
 	}
-	const envRegion = env?.MISTRAL_REGION || process.env.MISTRAL_REGION;
+	const envRegion = env?.MISTRAL_REGION ?? process.env.MISTRAL_REGION;
 	if (envRegion === "eu" || envRegion === "us" || envRegion === "global") {
 		return { region: envRegion, baseUrl: fileConfig?.endpoint?.baseUrl };
 	}
@@ -1005,7 +1005,7 @@ export function getEffectiveRagStreaming(
 	if (ragStreaming !== undefined) return ragStreaming;
 	const knowledgeStreaming = fileConfig?.knowledge?.streaming;
 	if (knowledgeStreaming !== undefined) return knowledgeStreaming;
-	const envValue = env?.MISTRAL_RAG_STREAMING || process.env.MISTRAL_RAG_STREAMING;
+	const envValue = env?.MISTRAL_RAG_STREAMING ?? process.env.MISTRAL_RAG_STREAMING;
 	if (envValue === "false" || envValue === "0" || envValue === "off" || envValue === "no") {
 		return false;
 	}

@@ -130,9 +130,11 @@ test("userConfigPaths: ordered chain with PI_CODING_AGENT_DIR, XDG and agent-dir
 });
 
 test("userConfigPaths: XDG default and legacy hops when env is unset", () => {
+	// Bag-present empty strings pin both vars to "unset": machines that
+	// export XDG_CONFIG_HOME system-wide must not leak into the chain.
 	const paths = userConfigPaths({
-		PI_CODING_AGENT_DIR: undefined,
-		XDG_CONFIG_HOME: undefined,
+		PI_CODING_AGENT_DIR: "",
+		XDG_CONFIG_HOME: "",
 		HOME: HOME_PLACEHOLDER,
 	});
 	assert.deepEqual(paths, [
@@ -144,7 +146,7 @@ test("userConfigPaths: XDG default and legacy hops when env is unset", () => {
 
 test("defaultAgentDir: PI_CODING_AGENT_DIR wins, else ~/.pi/agent", () => {
 	assert.equal(defaultAgentDir({ PI_CODING_AGENT_DIR: "/x", HOME: HOME_PLACEHOLDER }), "/x");
-	assert.equal(defaultAgentDir({ PI_CODING_AGENT_DIR: undefined, HOME: HOME_PLACEHOLDER }), join(HOME_PLACEHOLDER, ".pi", "agent"));
+	assert.equal(defaultAgentDir({ PI_CODING_AGENT_DIR: "", HOME: HOME_PLACEHOLDER }), join(HOME_PLACEHOLDER, ".pi", "agent"));
 });
 
 test("loadUserMistralConfig: first existing file in the chain wins", () => {
@@ -554,7 +556,9 @@ test("validation: JSON null is an error, not unset", () => {
 
 test("loader: validation and read errors surface as warnings, never throw", () => {
 	const file = join(HOME_PLACEHOLDER, ".pi", "mistral-native.json");
-	const env = { HOME: HOME_PLACEHOLDER, PI_CODING_AGENT_DIR: undefined, XDG_CONFIG_HOME: undefined };
+	// Bag-present empty strings pin the chain so a machine-wide
+	// XDG_CONFIG_HOME export cannot leak into the first-hop expectation.
+	const env = { HOME: HOME_PLACEHOLDER, PI_CODING_AGENT_DIR: "", XDG_CONFIG_HOME: "" };
 	// Read error other than ENOENT: the first hop that throws aborts the
 	// chain with a warning (the chain does not skip unreadable hops —
 	// a broken file must be visible, not silently bypassed).
@@ -689,7 +693,7 @@ test("resolveMistralRegionBaseUrl: an explicit baseUrl wins over the region mapp
 test("resolveMistralRegionBaseUrl: a default getEffectiveEndpoint result resolves the global URL", () => {
 	// getEffectiveEndpoint defaults region to "global" and leaves baseUrl
 	// undefined — the resolver must return the global URL.
-	const endpoint = getEffectiveEndpoint({ MISTRAL_REGION: undefined }, undefined);
+	const endpoint = getEffectiveEndpoint({ MISTRAL_REGION: "" }, undefined);
 	assert.deepEqual(endpoint, { region: "global", baseUrl: undefined });
 	assert.equal(resolveMistralRegionBaseUrl(endpoint), "https://api.mistral.ai/v1");
 });

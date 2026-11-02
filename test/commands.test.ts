@@ -72,19 +72,19 @@ const HOME = "/home/test-user";
 // --- target resolution ----------------------------------------------------
 
 test("set target: no file exists -> chain head (agent dir with PI_CODING_AGENT_DIR)", () => {
-	const env = { HOME: HOME, PI_CODING_AGENT_DIR: "/tmp/agent", XDG_CONFIG_HOME: undefined };
+	const env = { HOME: HOME, PI_CODING_AGENT_DIR: "/tmp/agent", XDG_CONFIG_HOME: "" };
 	const fs = emptyFs();
 	assert.equal(setUserConfigTargetPath(env, memoryExists(fs)), "/tmp/agent/mistral-native.json");
 });
 
 test("set target: no file, no PI_CODING_AGENT_DIR -> XDG head", () => {
-	const env = { HOME: HOME, PI_CODING_AGENT_DIR: undefined, XDG_CONFIG_HOME: "/tmp/xdg" };
+	const env = { HOME: HOME, PI_CODING_AGENT_DIR: "", XDG_CONFIG_HOME: "/tmp/xdg" };
 	const fs = emptyFs();
 	assert.equal(setUserConfigTargetPath(env, memoryExists(fs)), "/tmp/xdg/pi/mistral-native.json");
 });
 
 test("set target: first existing file wins over the chain head", () => {
-	const env = { HOME: HOME, PI_CODING_AGENT_DIR: undefined, XDG_CONFIG_HOME: undefined };
+	const env = { HOME: HOME, PI_CODING_AGENT_DIR: "", XDG_CONFIG_HOME: "" };
 	const fs = emptyFs();
 	const legacy = `${HOME}/.pi/mistral-native.json`;
 	fs.files.set(legacy, "{}");
@@ -262,7 +262,13 @@ test("verify: an unset re-read reports did-not-take", () => {
 
 test("status card shows provenance per source layer", () => {
 	const fs = emptyFs();
-	const env = { ...memoryEnv(fs, HOME), MISTRAL_AGENT_ID: "agent-from-env" };
+	const env = {
+		...memoryEnv(fs, HOME),
+		MISTRAL_AGENT_ID: "agent-from-env",
+		// Pin the region so an ambient MISTRAL_REGION cannot flip the
+		// default-region provenance line.
+		MISTRAL_REGION: "",
+	};
 	const user = { value: { connectors: ["notion"] }, path: "/u/mistral-native.json", warning: undefined };
 	const project = { value: { serverTools: ["web_search"] }, path: "/p/.pi/mistral-native.json", warning: undefined };
 	const card = buildStatusCard({ user, project }, undefined, true, env);
@@ -374,9 +380,11 @@ test("env-only: without sentinel vars the chain head derives from HOME only", ()
 	// live machine (pinned by deriving the expectation from the chain
 	// itself rather than a hardcoded pattern).
 	const fs = emptyFs();
-	const env = { HOME: HOME, PI_CODING_AGENT_DIR: SENTINEL_DIR, XDG_CONFIG_HOME: SENTINEL_DIR };
-	void env;
-	const hermetic = { HOME: HOME };
+	void fs;
+	// A bag-present empty string is the code's unset marker, so pinning both
+	// chain-defining vars to "" keeps the bag hermetic even on machines
+	// that export XDG_CONFIG_HOME system-wide.
+	const hermetic = { HOME: HOME, PI_CODING_AGENT_DIR: "", XDG_CONFIG_HOME: "" };
 	const paths = userConfigPaths(hermetic);
 	const target = setUserConfigTargetPath(hermetic, memoryExists(fs));
 	assert.equal(target, paths[0]);
@@ -387,7 +395,7 @@ test("real fs: atomic write leaves no temp file behind and lands at the target",
 	// Real write path: temp sibling + rename in the same directory.
 	const dir = mkdtempSync(join(tmpdir(), "mistral-commands-test-"));
 	try {
-		const env = { HOME: dir, PI_CODING_AGENT_DIR: dir, XDG_CONFIG_HOME: undefined };
+		const env = { HOME: dir, PI_CODING_AGENT_DIR: dir, XDG_CONFIG_HOME: "" };
 		const target = `${dir}/mistral-native.json`;
 		// setUserConfigKey with the real fs (no injected writer).
 		const returned = setUserConfigKey("endpoint.region", "eu", env);
@@ -498,7 +506,7 @@ test("handler: set with a list key and no value clears the list (writes [])", as
 	try {
 		const { ctx, notifications } = makeCtx();
 		ctx.cwd = dir;
-		const env = { HOME: dir, PI_CODING_AGENT_DIR: dir, XDG_CONFIG_HOME: undefined };
+		const env = { HOME: dir, PI_CODING_AGENT_DIR: dir, XDG_CONFIG_HOME: "" };
 		const target = `${dir}/mistral-native.json`;
 		writeFileSync(target, JSON.stringify({ serverTools: ["web_search"] }));
 		await handleMistralCommand("set serverTools", ctx, { env });
@@ -516,7 +524,7 @@ test("handler: set refusal (bad value) does not refresh cached config or write",
 	try {
 		const { ctx, notifications } = makeCtx();
 		ctx.cwd = dir;
-		const env = { HOME: dir, PI_CODING_AGENT_DIR: dir, XDG_CONFIG_HOME: undefined };
+		const env = { HOME: dir, PI_CODING_AGENT_DIR: dir, XDG_CONFIG_HOME: "" };
 		await handleMistralCommand("set endpoint.region moon", ctx, { env });
 		assert.equal(notifications.length, 1);
 		assert.equal(notifications[0]!.type, "error");
