@@ -61,8 +61,8 @@
   .contexts{margin-top:18px}
   .ctx{padding:26px;border:1px solid #c9d2de}
   .ctx+.ctx{margin-top:18px}
-  .ctx.dark{background:#171e26;border-color:#171e26}   /* Forgejo dark canvas */
-  .ctx.light{background:#ffffff}                       /* GitHub/Forgejo light canvas */
+  .ctx.dark{background:#0d1117;border-color:#0d1117}   /* GitHub dark canvas */
+  .ctx.light{background:#ffffff}                       /* GitHub light canvas */
   .ctx-label{font:600 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px}
   .ctx.dark .ctx-label{color:#7f93ab}
   .ctx.light .ctx-label{color:#8b98a8}
@@ -186,8 +186,8 @@
     <h1>pi-mistral-native — README banner proposals</h1>
     <p class="sub">
       Three variants on a 1200 × 400 (3:1) canvas, each shown inside a simulated
-      README on a dark (<code>#171e26</code>, Forgejo dark) and a light
-      (<code>#ffffff</code>, GitHub / Forgejo light) canvas. Mistral's block
+      README on a dark (<code>#0d1117</code>, GitHub dark) and a light
+      (<code>#ffffff</code>, GitHub light) canvas. Mistral's block
       language — discrete hard-edged rectangles, near-zero radius, staggered
       entrances — with their orange ramp remapped to a five-step blue ramp.
       Motion is an enhancement: every variant reads complete as a static image.
@@ -283,8 +283,7 @@
       against generous whitespace. Exports as a trivially clean static SVG.
       Shown theme-tuned: an ivory card for light canvases and an ink card for
       dark canvases, demonstrating the <code>#gh-dark-mode-only</code> /
-      <code>#gh-light-mode-only</code> image pair (supported by both GitHub and
-      Forgejo markup).
+      <code>#gh-light-mode-only</code> image pair (supported by GitHub markup).
     </p>
     <div class="chips">
       <span class="chip">SVG · 1200 × 400 · 3:1</span>
@@ -396,7 +395,7 @@
       <div class="swatch"><span class="sw" style="background:#0B7FE0"></span><b>Primary</b><code>#0B7FE0</code><small>The signature blue — widest bar, π glyph</small></div>
       <div class="swatch"><span class="sw" style="background:#0A5BD0"></span><b>Deep</b><code>#0A5BD0</code><small>Ramp step 4, hover state of primary</small></div>
       <div class="swatch"><span class="sw" style="background:#0B3FB0"></span><b>Ultramarine</b><code>#0B3FB0</code><small>Dark ramp base, feet blocks</small></div>
-      <div class="swatch"><span class="sw" style="background:#101826"></span><b>Ink</b><code>#101826</code><small>Dark surface, text on light (harmonizes with Forgejo #171e26)</small></div>
+      <div class="swatch"><span class="sw" style="background:#101826"></span><b>Ink</b><code>#101826</code><small>Dark surface, text on light (harmonizes with GitHub dark #0d1117)</small></div>
       <div class="swatch"><span class="sw" style="background:#F2F7FF;border-bottom:1px solid #c9d2de"></span><b>Cool ivory</b><code>#F2F7FF</code><small>Light surface for cards and banners</small></div>
       <div class="swatch"><span class="sw" style="background:#E8F0FA;border-bottom:1px solid #c9d2de"></span><b>Text on dark</b><code>#E8F0FA</code><small>Body text on ink surfaces</small></div>
     </div>
@@ -417,9 +416,7 @@
     <div class="chips">
       <span class="chip">GitHub light #ffffff</span>
       <span class="chip">GitHub dark #0d1117</span>
-      <span class="chip">Forgejo dark #171e26</span>
-      <span class="chip">Forgejo light #ffffff</span>
-      <span class="chip">#gh-dark-mode-only works on GitHub + Forgejo</span>
+      <span class="chip">#gh-dark-mode-only works on GitHub</span>
       <span class="chip">README body max-width 1012px</span>
     </div>
   </section>
