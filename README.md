@@ -1,4 +1,4 @@
-![pi-mistral-native — native Mistral AI provider for the pi coding agent](assets/banner.svg)
+![pi-mistral-native — native Mistral AI provider for the pi coding agent](assets/banner.png)
 
 # pi-mistral-native
 
