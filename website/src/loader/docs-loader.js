@@ -11,6 +11,10 @@
 //
 // README.md at the repository root is NOT ingested (the site landing page is
 // site-authored and derives from it instead).
+//
+// The loader passes config.base through to the link rewriter so rewritten
+// routes carry the deployment base (GitHub Pages serves the site under
+// /pi-mistral-native/; Astro rewrites its own URLs but not raw markdown).
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -51,7 +55,7 @@ export function docsLoader() {
         const posixPath = filePath.split(path.sep).join('/');
         const docsPath = posixPath.slice(posixPath.indexOf('/docs/') + 1);
         const raw = await fs.readFile(filePath, 'utf8');
-        const body = rewriteLinks(raw, docsPath);
+        const body = rewriteLinks(raw, docsPath, config.base);
         const frontmatter = buildFrontmatter(docsPath, raw);
         const slug = docsPathToSlug(docsPath);
 

@@ -5,6 +5,15 @@ import { Card, CardGrid, Icon } from '@astrojs/starlight/components';
 // Site-authored landing page, derived from the repository README: one-line
 // value proposition, quickstart and the capability cards. The README itself
 // stays the single source of truth for the feature pages this links to.
+//
+// GitHub Pages serves the site under a subpath; Astro rewrites its own URLs
+// but not hand-written hrefs, so site-absolute routes gain the base here
+// (BASE_URL is '/' in dev and '/pi-mistral-native/' in the build).
+const base = import.meta.env.BASE_URL;
+
+function withBase(route) {
+  return base.endsWith('/') ? `${base}${route.slice(1)}` : `${base}/${route.slice(1)}`;
+}
 
 const quickstart = `pi install npm:pi-mistral-native
 pi /login mistral-native`;
@@ -12,47 +21,47 @@ pi /login mistral-native`;
 const capabilities = [
   {
     title: 'Chat with Mistral models — including reasoning',
-    href: '/stream/',
+    href: withBase('/stream/'),
     text: 'Pick any `mistral-native/…` model and chat as usual: thinking streams into proper thinking blocks, tool calls execute, usage and cost are shown.',
   },
   {
     title: 'Use Mistral connectors as tools',
-    href: '/server-tools/',
+    href: withBase('/server-tools/'),
     text: 'Outlook, SharePoint, Notion, Google Drive, … — grant access once; the connector\u2019s MCP tools become ordinary pi tools your agent can call.',
   },
   {
     title: 'Run server-side tools mid-chat',
-    href: '/server-tools/',
+    href: withBase('/server-tools/'),
     text: 'Web search, image generation and code execution with one setting — no client-side glue.',
   },
   {
     title: 'Extract text from images and PDFs (OCR)',
-    href: '/knowledge-tools/',
+    href: withBase('/knowledge-tools/'),
     text: 'Point the agent at a screenshot, scan or PDF and get per-page markdown back with `mistral_ocr`.',
   },
   {
     title: 'Search your own documents (RAG)',
-    href: '/knowledge-tools/',
+    href: withBase('/knowledge-tools/'),
     text: 'Upload a file once, then ask questions about it — answers come back with citations linking to the source passages.',
   },
   {
     title: 'An always-current model list with real prices',
-    href: '/catalog/',
+    href: withBase('/catalog/'),
     text: 'New and retired Mistral models show up (or disappear) without a package update, each priced from a sourced rate card.',
   },
   {
     title: 'Check and shape content',
-    href: '/knowledge-tools/',
+    href: withBase('/knowledge-tools/'),
     text: 'Moderations (policy flags with scores), embeddings, and classification against your fine-tuned models — all as tools.',
   },
   {
     title: 'Route through the EU or US region',
-    href: '/auth/',
+    href: withBase('/auth/'),
     text: 'Data-residency routing with one key (or one prompt during `/login`).',
   },
   {
     title: 'Configure everything without leaving pi',
-    href: '/configuration/',
+    href: withBase('/configuration/'),
     text: 'The `/mistral` command family shows every effective setting, writes user-scope keys and checks the live connection.',
   },
 ];
@@ -111,7 +120,7 @@ const capabilities = [
 
     <p>
       The package installs as a pi package; Node.js ≥ 22 is required. See the
-      <a href="/development/">development docs</a> for building from a local
+      <a href={withBase('/development/')}>development docs</a> for building from a local
       checkout.
     </p>
   </Fragment>

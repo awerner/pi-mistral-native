@@ -10,6 +10,7 @@ import {
   rewriteLinks,
   stripInlineMarkdown,
   transformDocsFile,
+  withBase,
 } from '../src/loader/helpers.js';
 
 test('docsPathToSlug maps docs paths to site route slugs', () => {
@@ -259,4 +260,76 @@ test('transformDocsFile combines frontmatter injection and link rewriting', () =
   assert.equal(result.frontmatter.adrStatus, 'trial');
   assert.ok(result.body.includes('](/adr/process/0008-reference-discipline/)'));
   assert.ok(!result.body.includes('](0008-'), 'raw .md link must be rewritten');
+});
+
+test('withBase prefixes the deployment base onto site-absolute routes', () => {
+  // Dev/plain-Node default: the root base leaves routes unchanged.
+  assert.equal(withBase('/stream/'), '/stream/');
+  assert.equal(withBase('/'), '/');
+  assert.equal(withBase('/stream/', '/'), '/stream/');
+  assert.equal(withBase('/stream/', ''), '/stream/');
+  // GitHub Pages subpath base.
+  assert.equal(withBase('/stream/', '/pi-mistral-native/'), '/pi-mistral-native/stream/');
+  // Landing-page route must not gain a double slash.
+  assert.equal(withBase('/', '/pi-mistral-native/'), '/pi-mistral-native/');
+  // Anchors ride along on the route.
+  assert.equal(
+    withBase('/catalog/#family-rate-card-default_rates', '/pi-mistral-native/'),
+    '/pi-mistral-native/catalog/#family-rate-card-default_rates',
+  );
+  assert.equal(withBase('/#quickstart', '/pi-mistral-native/'), '/pi-mistral-native/#quickstart');
+  // A base without a trailing slash is normalized.
+  assert.equal(withBase('/stream/', '/pi-mistral-native'), '/pi-mistral-native/stream/');
+  // Non-route values (absolute URLs, relative paths) pass through untouched.
+  assert.equal(withBase('https://pi.dev', '/pi-mistral-native/'), 'https://pi.dev');
+  assert.equal(withBase('assets/banner.svg', '/pi-mistral-native/'), 'assets/banner.svg');
+});
+
+test('rewriteLinks emits base-aware routes when a base is passed', () => {
+  // Doc-page .md link (docs/stream.md -> configuration.md).
+  assert.equal(
+    rewriteLinks('See [configuration.md](configuration.md).', 'docs/stream.md', '/pi-mistral-native/'),
+    'See [configuration.md](/pi-mistral-native/configuration/).',
+  );
+  // ADR-relative link (docs/adr/0002-x.md -> 0003-....md).
+  assert.equal(
+    rewriteLinks('See [0003](0003-vendored-openapi-spec.md).', 'docs/adr/0002-x.md', '/pi-mistral-native/'),
+    'See [0003](/pi-mistral-native/adr/0003-vendored-openapi-spec/).',
+  );
+  // Landing-page Quickstart link from a docs page.
+  assert.equal(
+    rewriteLinks('[README](../README.md#quickstart).', 'docs/stream.md', '/pi-mistral-native/'),
+    '[README](/pi-mistral-native/#quickstart).',
+  );
+  // Anchors are preserved under the base.
+  assert.equal(
+    rewriteLinks('[rates](catalog.md#family-rate-card-default_rates).', 'docs/stream.md', '/pi-mistral-native/'),
+    '[rates](/pi-mistral-native/catalog/#family-rate-card-default_rates).',
+  );
+});
+
+test('rewriteLinks leaves site-absolute links and absolute URLs alone even with a base', () => {
+  // Authors write site-absolute links deliberately; the base must not be
+  // double-prefixed, and stripping/removal behavior is base-independent.
+  const body = 'See [pi](https://pi.dev) and [root](/stream/).';
+  assert.equal(rewriteLinks(body, 'docs/stream.md', '/pi-mistral-native/'), body);
+  assert.equal(
+    rewriteLinks('[ci](../.github/workflows/ci.yml)', 'docs/development.md', '/pi-mistral-native/'),
+    'ci',
+  );
+});
+
+test('rewriteLinks keeps fenced-code links literal with a base set', () => {
+  const body = '```markdown\n[ADR 0004](../0004-x.md)\n```\n\nReal [0008](0008-x.md).';
+  const result = rewriteLinks(body, 'docs/adr/process/0007-x.md', '/pi-mistral-native/');
+  assert.ok(result.includes('](../0004-x.md)'), 'fenced link keeps its literal .md target');
+  assert.ok(result.includes('](/pi-mistral-native/adr/process/0008-x/)'),
+    'link outside the fence is base-aware rewritten');
+});
+
+test('transformDocsFile flows the base through to the link rewriter', () => {
+  const raw = '# 0007. Taxonomy\n\n- **Status**: Trial\n\nSee [0008](0008-reference-discipline.md).';
+  const result = transformDocsFile('docs/adr/process/0007-adr-taxonomy.md', raw, '/pi-mistral-native/');
+  assert.equal(result.frontmatter.adrStatus, 'trial');
+  assert.ok(result.body.includes('](/pi-mistral-native/adr/process/0008-reference-discipline/)'));
 });

@@ -63,6 +63,18 @@ export function stripInlineMarkdown(text) {
 }
 
 /**
+ * Prefix the Astro base path onto a site-absolute route ('/stream/' →
+ * '/pi-mistral-native/stream/' when GitHub Pages serves the site from a
+ * subpath). The default base '/' (dev server, plain Node) leaves routes
+ * * unchanged; paths that do not start with '/' are returned untouched.
+ */
+export function withBase(route, base = '/') {
+  if (!route.startsWith('/') || base === '/' || base === '') return route;
+  const normalizedBase = base.endsWith('/') ? base : `${base}/`;
+  return `${normalizedBase}${route.slice(1)}`;
+}
+
+/**
  * Extract the description: the plain text of the first non-heading,
  * non-list, non-table, non-fenced-code paragraph. Truncated with an
  * ellipsis around 200 characters. Returns null when no paragraph exists.
@@ -158,8 +170,13 @@ export function isAdrPage(docsPath) {
  * Absolute URLs, site-absolute links and non-.md links that stay inside the
  * docs tree (e.g. `../assets/banner.svg`, synced to the site root) are left
  * untouched.
+ *
+ * `base` is the Astro base path (dev '/' → routes unchanged; build
+ * '/pi-mistral-native/' → rewritten routes gain the base prefix). Only the
+ * .md-link rewrite branch emits routes, so only it is base-aware —
+ * site-absolute links an author wrote deliberately keep their literal form.
  */
-export function rewriteLinks(body, docsPath) {
+export function rewriteLinks(body, docsPath, base = '/') {
   const dir = dirnameOf(docsPath);
   const out = [];
   let inFence = false;
@@ -175,12 +192,12 @@ export function rewriteLinks(body, docsPath) {
       out.push(line);
       continue;
     }
-    out.push(rewriteLinksInLine(line, dir));
+    out.push(rewriteLinksInLine(line, dir, base));
   }
   return out.join('\n');
 }
 
-function rewriteLinksInLine(line, dir) {
+function rewriteLinksInLine(line, dir, base) {
   return line.replace(/\[([^\]]*)\]\(([^)]+)\)/g, (whole, label, target) => {
     if (/^([a-z]+:)?\/\//i.test(target) || target.startsWith('/')) return whole;
     const anchorMatch = target.match(/^(.*?)(#.*)?$/);
@@ -193,7 +210,8 @@ function rewriteLinksInLine(line, dir) {
     if (pathPart.endsWith('.md') || /\.md$/.test(resolved)) {
       if (resolved !== 'README.md' && !resolved.startsWith('docs/')) return whole;
       const slug = docsPathToSlug(resolved);
-      return `[${label}](/${slug}${slug ? '/' : ''}${anchor})`;
+      const route = `/${slug}${slug ? '/' : ''}${anchor}`;
+      return `[${label}](${withBase(route, base)})`;
     }
     if (resolved.startsWith('docs/')) return whole;
     // assets/ is synced to the site root; every other target above docs/
@@ -242,11 +260,12 @@ export function buildFrontmatter(docsPath, body) {
 
 /**
  * Full in-memory transformation for one docs file: returns the frontmatter
- * object and the transformed markdown body (links rewritten).
+ * object and the transformed markdown body (links rewritten, `base` passed
+ * through to the link rewriter).
  */
-export function transformDocsFile(docsPath, body) {
+export function transformDocsFile(docsPath, body, base = '/') {
   return {
     frontmatter: buildFrontmatter(docsPath, body),
-    body: rewriteLinks(body, docsPath),
+    body: rewriteLinks(body, docsPath, base),
   };
 }
