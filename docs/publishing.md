@@ -11,9 +11,9 @@ publish itself.
 
 ## Tarball surface (manifest decision)
 
-The `files` array ships `dist/extensions`, `README.md`, `LICENSE`, and the
-`pi` manifest points at the built entry points
-(`pi.extensions: ["dist/extensions/*.js"]`):
+The `files` array ships `dist/extensions`, `assets/banner.png`, `README.md`,
+`CHANGELOG.md`, `LICENSE`, and the `pi` manifest points at the built entry
+points (`pi.extensions: ["dist/extensions/*.js"]`):
 
 - pi resolves package resources via the `pi` manifest, paths relative to
   the package root, globs included — built JavaScript works and is what
@@ -25,6 +25,15 @@ The `files` array ships `dist/extensions`, `README.md`, `LICENSE`, and the
   `main` and leaves the tarball's entry points untested-by-build.
 - `files` names `dist/extensions`, not `dist`, so the compiled test suite
   (`dist/test/*.test.js`, used by `npm test`) stays out of the tarball.
+- `CHANGELOG.md` ships because pi shows package changelogs under
+  "Extension Updates" after an update, reading them from the package root;
+  without the file in the tarball users see nothing after upgrading.
+- `assets/banner.png` ships so the README's relative banner image resolves
+  in every renderer that serves the readme from the package (registry
+  previews read the shipped files, not the repository). `pi.image` in the
+  `pi` manifest additionally gives the pi gallery a preview image; the
+  gallery does not render SVG, hence the PNG (the animated SVG stays in
+  the repository for contexts that render it well).
 - `exports` is deliberately absent: pi resolves the package via the `pi`
   manifest, not the Node module resolution of consumers; `main` remains as
   a conventional pointer for humans.

@@ -16,11 +16,12 @@
 import { Type } from "typebox";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionToolContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { StringEnum } from "@earendil-works/pi-ai";
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 
 import type { MistralClient } from "./mistral-client.js";
 import { createMistralClient } from "./mistral-client.js";
+
+import { stringEnum } from "./string-enum.js";
 
 /** Dependencies of {@link createConnectorTools}: a lazy per-call client factory. */
 export interface ConnectorToolsDeps {
@@ -204,7 +205,7 @@ export function createConnectorTools(deps: ConnectorToolsDeps): AnyToolDefinitio
 			// Optional + execute fallback: pi's validation never applies JSON-Schema
 			// defaults, so a required-with-default property would fail when omitted.
 			consumerScope: Type.Optional(
-				StringEnum(["user", "workspace", "organization"] as const, {
+				stringEnum(["user", "workspace", "organization"] as const, {
 					description: "Scope to activate the connector for (defaults to user)",
 					default: "user",
 				}),
@@ -231,7 +232,7 @@ export function createConnectorTools(deps: ConnectorToolsDeps): AnyToolDefinitio
 		parameters: Type.Object({
 			connectorId: Type.String({ description: "Connector id (UUID)" }),
 			consumerScope: Type.Optional(
-				StringEnum(["user", "workspace", "organization"] as const, {
+				stringEnum(["user", "workspace", "organization"] as const, {
 					description: "Scope to deactivate the connector for (defaults to user)",
 					default: "user",
 				}),

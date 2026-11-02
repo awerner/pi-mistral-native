@@ -87,14 +87,18 @@ needed. README bodies render at max-width 1012px (GitHub); the banner's
 
 ## Render-protocol note
 
-GitHub raw image serving does not transform `assets/banner.svg` (served as
-`image/svg+xml` with the committed keyframes intact), and the README
-renderer links the SVG directly, so CSS animations inside the SVG run in
-all modern browsers. If a client strips CSS or sets
-`prefers-reduced-motion`, the banner degrades to the complete settled
-still — by design, every element's base style is its final state (see
-motion principle above). The PNG fallback covers renderers that reject
-SVG outright.
+The README banner is the static PNG (`assets/banner.png`, this repository)
+because renderers outside GitHub — notably the pi package gallery, which
+serves SVG as a download rather than an image — do not display SVG. The
+animated SVG lives on where SVG renders well: design iterations and this
+document link it directly, and it stays the source for the PNG.
+
+Where the SVG is linked, GitHub raw image serving does not transform it
+(served as `image/svg+xml` with the committed keyframes intact), so CSS
+animations inside the SVG run in all modern browsers. If a client strips
+CSS or sets `prefers-reduced-motion`, the banner degrades to the complete
+settled still — by design, every element's base style is its final state
+(see motion principle above).
 
 ## ADR status note
 

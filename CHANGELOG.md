@@ -5,6 +5,46 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-11-02
+
+### Added
+
+- **Gallery presence: changelog and preview image.** The npm tarball now
+  ships `CHANGELOG.md`, so pi shows the release notes under "Extension
+  Updates" after upgrading to this version, and the `pi.image` manifest
+  field gives the pi package gallery a preview image (the static banner
+  PNG — the gallery does not render SVG).
+
+### Changed
+
+- **Web search requests now force the server-side search and distinguish a
+  skipped search from zero hits.** Every `mistral_web_search` /
+  `mistral_web_search_premium` call sends a fixed `instructions` string
+  steering Mistral's server-side agent to run the search tool (hard
+  forcing is unavailable: `tool_choice` `any`/`required` are 422-rejected
+  on the Conversations endpoint). When the response carries no
+  `tool.execution` entry, the tool now reports that the search was
+  skipped and can be retried — distinct from "no results found", which
+  now only appears when the search genuinely ran and the hit map was
+  empty.
+- **pi 1.5.0 host compatibility for tool parameter typing.**
+  `StringEnum` from `@earendil-works/pi-ai` changed its return type in
+  1.5.0 from a typebox-branded schema to a plain JSON-Schema object, which
+  left the affected tool-parameter fields typed `unknown` in development
+  checkouts resolved against 1.5. The string-enum schemas now come from a
+  local `Type.Unsafe`-branded helper with byte-identical JSON-Schema
+  output (`{ type: "string", enum: [...] }`), so the package type-checks
+  and passes its full suite against both 1.4.x and 1.5.0 hosts; the wire
+  schema and runtime behavior are unchanged (the full test suite was run
+  against a 1.5.0 host install to confirm).
+- **README banner switched to the static PNG.** The repository README now
+  shows `assets/banner.png` — renderers outside GitHub (notably the pi
+  package gallery) do not display SVG — while the animated SVG stays in
+  the repository and remains the source for the PNG and for
+  design/website contexts where SVG renders well. The PNG is also shipped
+  in the npm tarball so the README image resolves from the package
+  itself, and was losslessly optimized (155 kB to 106 kB).
+
 ## [0.1.0] - 2026-11-02
 
 Initial public release: a native Mistral AI provider for the
@@ -120,19 +160,9 @@ endpoints, all as first-class pi capabilities.
 
 ## [unreleased]
 
-### Changed
+Nothing yet beyond 0.1.2.
 
-- **Web search requests now force the server-side search and distinguish a
-  skipped search from zero hits.** Every `mistral_web_search` /
-  `mistral_web_search_premium` call sends a fixed `instructions` string
-  steering Mistral's server-side agent to run the search tool (hard
-  forcing is unavailable: `tool_choice` `any`/`required` are 422-rejected
-  on the Conversations endpoint). When the response carries no
-  `tool.execution` entry, the tool now reports that the search was
-  skipped and can be retried — distinct from "no results found", which
-  now only appears when the search genuinely ran and the hit map was
-  empty.
-
-[unreleased]: https://github.com/awerner/pi-mistral-native/compare/v0.1.1...HEAD
+[unreleased]: https://github.com/awerner/pi-mistral-native/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/awerner/pi-mistral-native/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/awerner/pi-mistral-native/releases/tag/v0.1.1
 [0.1.0]: https://github.com/awerner/pi-mistral-native/releases/tag/v0.1.0

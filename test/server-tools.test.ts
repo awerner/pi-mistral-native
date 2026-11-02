@@ -1092,3 +1092,17 @@ test("buildAgentsRequestBody returns exactly agent_id, messages, stream (+max_to
 		max_tokens: 256,
 	});
 });
+
+test("string-enum tool parameters serialize to the flat {type: string, enum} JSON Schema", () => {
+	const tools = buildConnectorTools(createMockFetch().mockFetch);
+	// The flat enum form must survive the helper swap: pi validates tool
+	// arguments against this schema and some providers reject anyOf/const.
+	const activate = toolByName(tools, "mistral_connector_activate");
+	const scope = (activate.parameters as { properties?: Record<string, unknown> }).properties?.consumerScope;
+	assert.deepEqual(scope, {
+		type: "string",
+		enum: ["user", "workspace", "organization"],
+		description: "Scope to activate the connector for (defaults to user)",
+		default: "user",
+	});
+});
