@@ -1,17 +1,13 @@
 # Publishing
 
-Runbook for publishing `pi-mistral-native` to npm (issue #9). The package
-publishes as version `0.1.0`; the goal is a minimal-surface tarball: only
-the compiled extension, README, and license (decision below), with
-`pi-package` in `keywords` so pi's package gallery can list it.
+Runbook for publishing `pi-mistral-native` to npmjs.org (public, owner-executed).
+The package publishes under the unscoped name `pi-mistral-native` with a
+minimal-surface tarball: only the compiled extension, README, and license,
+with `pi-package` in `keywords` so pi's package gallery can list it.
 
-Hosting is two-phase (issue #26, ADR
-[0006](adr/process/0006-two-phase-package-hosting.md)): pre-release versions
-publish to the **Forgejo npm registry** under the scoped name
-`@agentic/pi-mistral-native` — that flow lives in
-[hosting.md](hosting.md). The steps below cover packing, inspection and
-tagging, which both phases share, and the **npmjs.org publish itself,
-which is Phase 2** (first stable release, owner-declared).
+Publishing is an owner action. Agents and CI never publish; they document
+this runbook, keep the pipeline green, and verify everything short of the
+publish itself.
 
 ## Tarball surface (manifest decision)
 
@@ -49,39 +45,47 @@ The `files` array ships `dist/extensions`, `README.md`, `LICENSE`, and the
    npm pack --dry-run     # verify the file list before packing
    ```
 
-2. **Registry / login check** — never publish from CI or with a token
-   committed to the repository. Phase 2 (npmjs.org):
+2. **Login check** — never publish from CI or with a token committed to the
+   repository:
 
    ```bash
    npm whoami             # must print the intended npm account
    ```
 
-   Phase 1 (Forgejo registry) has no `npm whoami` (as of the current
-   Gitea version; the endpoint is announced for Gitea 29.0.0); the
-   `~/.npmrc` scope mapping and token from [hosting.md](hosting.md)
-   replace the login.
+3. **Versioning** — releases follow semantic versioning. Bump the version
+   with `npm version` (which also tags the commit), not by hand:
 
-3. **Pack and inspect** — `npm pack` (the `prepack` script rebuilds
+   ```bash
+   npm version patch      # or minor / major / prerelease
+   ```
+
+   Do not bump versions ahead of time; the version in `package.json` is the
+   published version. npmjs does not allow overwriting a published version
+   — see [Unpublish](#unpublish) below — so every publish needs its own
+   version.
+
+4. **Pack and inspect** — `npm pack` (the `prepack` script rebuilds
    `dist/`); open the tarball if anything looks off:
 
    ```bash
    npm pack
-   tar -tzf agentic-pi-mistral-native-0.1.0.tgz
+   tar -tzf pi-mistral-native-<version>.tgz
    ```
 
-4. **Publish** — public access, no provenance/attestations required yet.
-   This is the **Phase 2** npmjs.org publish; for the current Phase 1
-   (Forgejo registry, scoped name) use the publish command in
-   [hosting.md](hosting.md#publish-owner-only) instead:
+5. **Publish** — public access from the repository root:
 
    ```bash
-   npm publish agentic-pi-mistral-native-0.1.0.tgz --access public   # Phase 2 only
+   npm publish --access public
    ```
 
-   Do not bump versions ahead of time; the version in `package.json` is the
-   published version.
+   If the publishing account has two-factor authentication enabled, npm
+   requires an OTP for the publish:
 
-5. **Smoke test the published package** — fresh scratch directory, no local
+   ```bash
+   npm publish --access public --otp=<one-time-password>
+   ```
+
+6. **Smoke test the published package** — fresh scratch directory, no local
    checkout in scope. `pi -e npm:…` loads the package for one invocation
    without touching `~/.pi/agent/settings.json`:
 
@@ -91,22 +95,40 @@ The `files` array ships `dist/extensions`, `README.md`, `LICENSE`, and the
    rm -rf /tmp/pi-mistral-smoke
    ```
 
-   During Phase 1 the smoke test uses the scoped form against the Forgejo
-   registry — see the
-   [verify flow in hosting.md](hosting.md#verify-the-install-path-after-the-first-publish);
-   the command above is the Phase 2 form. For a persistent install
-   (`pi install npm:pi-mistral-native`, personal scope), clean up with
+   For a persistent install (personal scope), clean up with
    `pi remove npm:pi-mistral-native` afterwards.
 
-6. **Tag and release** — after the publish PR merges to `main`:
+   **The smoke test must go through the npm registry.** Installing from a
+   local tarball (`pi install <path-to-tarball>`) is *not* a valid smoke
+   test for an npm-published package: a local tarball does not exercise the
+   npm registry resolution path, so it can pass even when the published
+   package is broken or stale. The only valid check that the package
+   actually arrived on npmjs is `pi install npm:pi-mistral-native` (or the
+   `pi -e` one-shot form above), run after a real `npm publish`. This was
+   learned the hard way: a local-tarball install verifies packing, not
+   publishing.
+
+7. **Tag and release** — `npm version` already created the tag; push it and
+   optionally create a GitHub release for `v<version>` on
+   `https://github.com/awerner/pi-mistral-native` with the tarball attached:
 
    ```bash
-   git tag -a v0.1.0 -m "pi-mistral-native v0.1.0" && git push origin v0.1.0
+   git push origin main --follow-tags
    ```
 
-   Optionally create a Forgejo release for `v0.1.0` on
-   `https://git.techlex.space/agentic/pi-mistral-native` with the tarball
-   attached.
+## Unpublish
+
+npmjs does not allow overwriting a published version. If a publish turns
+out to be broken:
+
+- Within **72 hours** of publishing, `npm unpublish pi-mistral-native@<version>`
+  can remove a single broken version without special conditions.
+- After that window, unpublishing is restricted by npm policy: removing the
+  package entirely requires `npm unpublish pi-mistral-native --force`, and
+  npm may still serve the cached content for a while. Unpublished versions
+  cannot be reused for a different tarball.
+- The practical rule: bump the version and publish a fixed release rather
+  than unpublish-republish cycles; `npm unpublish` is for mistakes.
 
 ## Local install verification (without publishing)
 
@@ -117,9 +139,9 @@ scratch directory and pointing pi at that directory (equivalent to what
 npm publishes):
 
 ```bash
-npm pack                                          # produces agentic-pi-mistral-native-0.1.0.tgz
+npm pack                                          # produces pi-mistral-native-<version>.tgz
 mkdir /tmp/pi-mistral-verify && cd /tmp/pi-mistral-verify
-tar -xzf /path/to/agentic-pi-mistral-native-0.1.0.tgz     # unpacks into ./package
+tar -xzf /path/to/pi-mistral-native-<version>.tgz     # unpacks into ./package
 MISTRAL_API_KEY=… pi -e ./package --list-models | grep mistral-native
 rm -rf /tmp/pi-mistral-verify
 ```
@@ -134,9 +156,11 @@ loads nothing and only the missing provider in `--list-models` hints at it.
 
 - Never publish from a branch other than `main` post-merge, and never with
   `npm run check` or `npm test` failing.
-- Never commit an `.npmrc` with a registry token; use `npm whoami` /
+- Never commit an `.npmrc` with a registry token or OTP; use `npm whoami` /
   environment-level login state.
 - Never add the SDK or other runtime dependencies: the minimal surface is
   the point.
+- Never publish with agent-controlled credentials: npm credentials stay
+  with the owner, on the owner's machine; agents document and verify only.
 
 *Decisions: [ADR 0008 — Direct fetch over vendor SDK](adr/0008-direct-fetch-over-vendor-sdk.md)*
