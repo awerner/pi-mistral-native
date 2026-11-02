@@ -63,10 +63,19 @@ when configured tools were dropped, surfaces a visible warning once per
 session pointing at the alternatives (web search: the `mistral_web_search`
 tool; code interpreter: hosted agent mode). Web search itself runs via
 `mistral_web_search`/`mistral_web_search_premium` pi tools over one-shot
-stateless Conversations calls, and code interpreter stays
+stateless Conversations calls: every request carries a fixed
+`instructions` string steering the server-side agent to run the search
+tool (a declared field of the Conversations request, wire-verified
+effective on the live endpoint; hard forcing via `tool_choice` is
+server-rejected 422 for builtin connectors). The tool result
+nevertheless distinguishes a skipped search (no tool execution in the
+response — reported as skipped, retry the query) from a genuinely
+empty result (search executed, zero hits). Code interpreter stays
 Conversations/Agents-only for now. The `mistral_web_search` tool is
 registered by default (no configuration) and the search model is
 configurable via `knowledge.searchModel`.
+
+*Decisions: [ADR 0018 — Web search as a Conversations-backed tool](adr/0018-web-search-as-conversations-backed-tool.md)*
 
 ### Agent mode
 

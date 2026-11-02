@@ -14,7 +14,13 @@
  * `message.output` entry that is DISCARDED here (only the hits are the
  * tool's payload). mistral-large-4 refuses builtin connectors on
  * /v1/conversations (400 code 3004), so the search model is configured
- * separately from the chat model (default `mistral-small-latest`).
+ * separately from the chat model (default `mistral-small-latest`). Two
+ * empty outcomes are distinct wire shapes: a response with NO
+ * `tool.execution` entry means the backend skipped the search (reported
+ * as skipped, retry-worthy), while a `tool.execution` entry with an
+ * empty hit map is a genuinely executed search with zero hits. Every
+ * request also carries a fixed top-level `instructions` string steering
+ * the server-side agent to run the search tool.
  *
  * ADR 0018 — Web search as a Conversations-backed tool.
  */
@@ -45,6 +51,13 @@ interface SearchHit {
 	title: string;
 	description?: string;
 	snippets: string[];
+}
+
+/** Two-outcome parse of a Conversations search response. */
+interface ParsedSearchResult {
+	/** False when no `tool.execution` entry matched the tool type: the backend skipped the search. */
+	executed: boolean;
+	hits: SearchHit[];
 }
 
 /** Model-facing text plus structuredContent and log-safe details. */
@@ -104,12 +117,16 @@ function parseSearchUsage(raw: Record<string, unknown>): NonNullable<AgentToolRe
 }
 
 /**
- * Extracts the `info.result` JSON string from the tool.execution entry of a
+ * Parses the `info.result` JSON string from the tool.execution entry of a
  * /v1/conversations response and maps the hit object's VALUES (opaque ids
  * discarded) to SearchHit records. The message.output entry is never read —
- * its text is not the tool's payload.
+ * its text is not the tool's payload. Distinguishes the two empty outcomes:
+ * `executed: false` (no tool.execution entry matched the tool type — the
+ * backend skipped the search) from `executed: true` with an empty hits
+ * list (a genuinely executed search with zero hits). Malformed/unreadable
+ * bodies throw so the caller can fail loudly.
  */
-function parseSearchHits(response: unknown, toolType: SearchToolType): SearchHit[] {
+function parseSearchResult(response: unknown, toolType: SearchToolType): ParsedSearchResult {
 	if (response === null || typeof response !== "object" || Array.isArray(response)) {
 		throw new Error("unreadable search result: the response is not an object");
 	}
@@ -117,7 +134,8 @@ function parseSearchHits(response: unknown, toolType: SearchToolType): SearchHit
 	if (!Array.isArray(outputs)) {
 		throw new Error("unreadable search result: the response has no outputs array");
 	}
-	let resultJson: string | undefined;
+	let sawExecution = false;
+	const resultJsons: string[] = [];
 	for (const entry of outputs) {
 		if (entry === null || typeof entry !== "object") continue;
 		const record = entry as Record<string, unknown>;
@@ -126,33 +144,43 @@ function parseSearchHits(response: unknown, toolType: SearchToolType): SearchHit
 		const func = record.function;
 		// Wire-verified 2026-11-03: `name` carries the requested tool type,
 		// `function` stays "web_search" for both variants — match on either.
-		if (name !== toolType && name !== func && func !== toolType) continue;
+		if (name !== toolType && func !== toolType) continue;
+		sawExecution = true;
 		const info = record.info;
-		if (info !== null && typeof info === "object" && typeof (info as Record<string, unknown>).result === "string") {
-			resultJson = (info as Record<string, string>).result;
+		const result = info !== null && typeof info === "object" ? (info as Record<string, unknown>).result : undefined;
+		if (typeof result === "string") {
+			resultJsons.push(result);
 		}
 	}
-	if (resultJson === undefined) return [];
-	const hitsObject: unknown = JSON.parse(resultJson);
-	if (hitsObject === null || typeof hitsObject !== "object" || Array.isArray(hitsObject)) {
-		throw new Error("unreadable search result: the tool result is not a hit map");
+	if (!sawExecution) return { executed: false, hits: [] };
+	if (resultJsons.length === 0) {
+		throw new Error("unreadable search result: the tool execution carries no readable info.result");
 	}
+	// The agent may execute the search more than once per turn (plausible
+	// now every request instructs it to always search) — concatenate the hits
+	// of every readable execution in outputs order, losing none.
 	const hits: SearchHit[] = [];
-	for (const value of Object.values(hitsObject as Record<string, unknown>)) {
-		if (value === null || typeof value !== "object") continue;
-		const hit = value as Record<string, unknown>;
-		if (typeof hit.url !== "string" || typeof hit.title !== "string") continue;
-		const snippets = Array.isArray(hit.snippets)
-			? hit.snippets.filter((snippet): snippet is string => typeof snippet === "string" && snippet.length > 0)
-			: [];
-		hits.push({
-			url: hit.url,
-			title: hit.title,
-			...(typeof hit.description === "string" ? { description: hit.description } : {}),
-			snippets,
-		});
+	for (const resultJson of resultJsons) {
+		const hitsObject: unknown = JSON.parse(resultJson);
+		if (hitsObject === null || typeof hitsObject !== "object" || Array.isArray(hitsObject)) {
+			throw new Error("unreadable search result: the tool result is not a hit map");
+		}
+		for (const value of Object.values(hitsObject as Record<string, unknown>)) {
+			if (value === null || typeof value !== "object") continue;
+			const hit = value as Record<string, unknown>;
+			if (typeof hit.url !== "string" || typeof hit.title !== "string") continue;
+			const snippets = Array.isArray(hit.snippets)
+				? hit.snippets.filter((snippet): snippet is string => typeof snippet === "string" && snippet.length > 0)
+				: [];
+			hits.push({
+				url: hit.url,
+				title: hit.title,
+				...(typeof hit.description === "string" ? { description: hit.description } : {}),
+				snippets,
+			});
+		}
 	}
-	return hits;
+	return { executed: true, hits };
 }
 
 /** Renders the model-facing result text: one compact block per hit. */
@@ -213,6 +241,10 @@ function defineSearchTool(
 					snippets: Type.Array(Type.String()),
 				}),
 			),
+			// Present (true) only on the skipped-search path; absent for zero
+			// hits and for hits — callers distinguish the outcomes
+			// programmatically, complementing the distinct result texts.
+			skipped: Type.Optional(Type.Boolean()),
 		}),
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			const model = getEffectiveSearchModel();
@@ -225,23 +257,35 @@ function defineSearchTool(
 					query: params.query,
 					signal,
 				});
-				// Zero hits is the legitimate search-skip case (the backend
-				// decided not to search): an ok result, never an error.
-				let hits: SearchHit[];
+				// Two distinct ok outcomes, never errors: the backend skipping
+				// the search (no tool.execution entry — the message.output text is
+				// discarded, so the model must learn about the skip from the result
+				// text) is retry-worthy, while zero hits after an executed search
+				// genuinely means nothing was found.
+				let parsed: ParsedSearchResult;
 				try {
-					hits = parseSearchHits(response, toolType);
+					parsed = parseSearchResult(response, toolType);
 				} catch (error) {
 					return fail(
 						`${name} returned an unreadable search result: ${errorMessage(error)}`,
 						baseDetails,
 					);
 				}
+				const hits = parsed.hits;
 				const structured: Record<string, unknown> = { hits: hits as unknown as Record<string, unknown>[] };
 				const record = response as Record<string, unknown>;
 				const rawUsage = record.usage;
 				const usage = rawUsage !== null && typeof rawUsage === "object" && !Array.isArray(rawUsage)
 					? parseSearchUsage(rawUsage as Record<string, unknown>)
 					: undefined;
+				if (!parsed.executed) {
+					return ok(
+						"The web search was skipped: the backend did not execute the search, so no results were fetched. The query can be retried.",
+						{ ...structured, skipped: true },
+						{ ...baseDetails, skipped: true, hits: 0 },
+						usage,
+					);
+				}
 				if (hits.length === 0) {
 					const empty = ok("The web search returned no results for this query.", structured, { ...baseDetails, hits: 0 }, usage);
 					return empty;

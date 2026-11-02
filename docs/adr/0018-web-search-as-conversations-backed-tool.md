@@ -16,10 +16,22 @@ request facts for the Conversations endpoint: the request body uses
 response carries `outputs[]` with a `tool.execution` entry (whose
 `info.result` is a JSON string of hits keyed by opaque ids) plus a
 `message.output` entry, and `store: false` yields a stateless one-shot
-call. The model matrix is asymmetric: `mistral-small-latest`,
-`mistral-medium-latest` and `magistral-medium-latest` run the search tool
-on `/v1/conversations`, while `mistral-large-4` refuses builtin
-connectors there (400 `invalid_request_error`, code 3004).
+call. The same probing also established the forcing lever: the top-level
+`instructions` string field — declared in the vendored spec's
+ConversationRequestBase — is wire-verified accepted and effective on the
+live Beta endpoint, while hard forcing is unavailable —
+`completion_args.tool_choice`
+"any" is 422-rejected (`Input should be 'auto', 'none' or 'required'`;
+the live endpoint is narrower than the vendor spec's ToolChoiceEnum) and
+"required" is 422-rejected (`Can't set 'tool_choice' to 'required' when
+using built in connectors.`). The server-side agent also sometimes
+silently skips executing the search connector: `outputs[]` then carries
+only the `message.output` entry, with no `tool.execution` — on the wire
+indistinguishable from zero hits. The model matrix is asymmetric:
+`mistral-small-latest`, `mistral-medium-latest` and
+`magistral-medium-latest` run the search tool on `/v1/conversations`,
+while `mistral-large-4` refuses builtin connectors there (400
+`invalid_request_error`, code 3004).
 
 The provider's chat path stays on stateless GA Chat Completions by design
 (ADR [0002](0002-mistral-native-provider-for-pi.md)) — the Beta
@@ -34,18 +46,28 @@ Web search ships as two client-side pi tools,
 (`extensions/tools/web-search.ts`), each running a **stateless one-shot
 Conversations call**: a fresh `POST /v1/conversations` with
 `inputs: [{role:"user", content: <query>}]`, `tools:
-[{type:"web_search"|"web_search_premium"}]`, `stream: false` and
-`store: false`. The returned `conversation_id` is discarded — the tool
-never continues a conversation.
+[{type:"web_search"|"web_search_premium"}]`, `stream: false`, `store:
+false` and a fixed top-level `instructions` string — "Always use the
+<tool> tool to search the web before answering. Never answer from
+memory." with the tool name substituted. Since `tool_choice` hard
+forcing is 422-rejected for builtin connectors, `instructions` is the
+only lever to make the server-side agent run the search; it is
+probabilistic (LLM instruction-following), not a guarantee. The
+returned `conversation_id` is discarded — the tool never continues a
+conversation.
 
 - **Parsing**: the `tool.execution` entry's `info.result` JSON string is
   parsed defensively; the hit map's values map to `{url, title,
   description (omitted when null), snippets[]}` in the tool result
   (structured `hits`). The `message.output` entry is discarded — only the
-  hits are the tool's payload. A missing `tool.execution` entry or zero
-  hits (the backend decided not to search) is an ok result with
-  `hits: []`, never an error. Usage maps onto the tool result like the
-  RAG path; cost stays 0.
+  hits are the tool's payload. The two empty outcomes are distinct
+  result texts: a missing `tool.execution` entry means the backend
+  skipped the search and yields an ok result whose text reports the skip
+  (retry-worthy, never "no results found"), while a `tool.execution`
+  entry with an empty hit map is a genuinely executed search with zero
+  hits and keeps the "returned no results" ok result. Neither is an
+  error. Usage maps onto the tool result like the RAG path; cost stays
+  0.
 - **Search model**: separate from the chat model, configurable via the
   `knowledge.searchModel` config key; the default is
   `mistral-small-latest`. A 400 with code 3004 (the refusal of
@@ -75,6 +97,10 @@ never continues a conversation.
   `mistral-large-4` sessions the search still runs
   (`mistral-small-latest` by default) even though the chat model refuses
   builtin connectors.
+- Forcing the search is probabilistic: the `instructions` string steers
+  the server-side agent but cannot guarantee execution, so the skip
+  detection (the distinct skipped-search result) remains the safety net —
+  a caller can tell a retry-worthy skip from a genuinely empty result.
 - The Conversations call is Beta-endpoint usage — but stateless and
   one-shot (`store: false`, conversation discarded), so no server-side
   conversation state can corrupt anything.

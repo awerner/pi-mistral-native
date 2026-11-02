@@ -120,7 +120,18 @@ endpoints, all as first-class pi capabilities.
 
 ## [unreleased]
 
-Nothing yet beyond 0.1.1.
+### Changed
+
+- **Web search requests now force the server-side search and distinguish a
+  skipped search from zero hits.** Every `mistral_web_search` /
+  `mistral_web_search_premium` call sends a fixed `instructions` string
+  steering Mistral's server-side agent to run the search tool (hard
+  forcing is unavailable: `tool_choice` `any`/`required` are 422-rejected
+  on the Conversations endpoint). When the response carries no
+  `tool.execution` entry, the tool now reports that the search was
+  skipped and can be retried — distinct from "no results found", which
+  now only appears when the search genuinely ran and the hit map was
+  empty.
 
 [unreleased]: https://github.com/awerner/pi-mistral-native/compare/v0.1.1...HEAD
 [0.1.1]: https://github.com/awerner/pi-mistral-native/releases/tag/v0.1.1

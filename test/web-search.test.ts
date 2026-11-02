@@ -165,10 +165,19 @@ test("mistral_web_search posts a stateless one-shot Conversations request and ma
 	assert.deepEqual(body.tools, [{ type: "web_search" }]);
 	assert.equal(body.stream, false);
 	assert.equal(body.store, false);
+	// The fixed instructions string steers the server-side agent to run
+	// the search tool (wire-verified lever; tool_choice forcing is
+	// 422-rejected on this endpoint).
+	assert.equal(
+		body.instructions,
+		"Always use the web_search tool to search the web before answering. Never answer from memory.",
+	);
 
 	// Hits: opaque ids discarded, values mapped; null description omitted.
 	const hits = result.structuredContent?.hits as Record<string, unknown>[];
 	assert.equal(hits?.length, 2);
+	// Hits means the search executed — the skip marker stays absent.
+	assert.equal(result.structuredContent?.skipped, undefined);
 	assert.deepEqual(hits?.[0], {
 		url: "https://en.wikipedia.org/wiki/Pi_(AI_agent)",
 		title: "Pi (AI agent)",
@@ -244,6 +253,10 @@ test("mistral_web_search_premium sends the premium tool type and shares the pars
 	const body = JSON.parse(String(mock.requests[0]?.body)) as Record<string, unknown>;
 	assert.deepEqual(body.tools, [{ type: "web_search_premium" }]);
 	assert.equal(body.store, false);
+	assert.equal(
+		body.instructions,
+		"Always use the web_search_premium tool to search the web before answering. Never answer from memory.",
+	);
 	const hits = result.structuredContent?.hits as Record<string, unknown>[];
 	assert.equal(hits?.length, 1);
 	assert.equal(hits?.[0]?.url, "https://pi.dev/changelog");
@@ -254,7 +267,7 @@ test("mistral_web_search_premium sends the premium tool type and shares the pars
 	assert.equal(result.isError, undefined);
 });
 
-test("a search-skip response (no tool.execution entry) maps to an ok result with zero hits", async () => {
+test("a search-skip response (no tool.execution entry) maps to a distinct skipped ok result", async () => {
 	// Fixture shape: no_tool_execution.json (live-probed 2026-11-03) — the
 	// backend answered with a clarifying question instead of searching.
 	const mock = createMockFetch();
@@ -279,12 +292,64 @@ test("a search-skip response (no tool.execution entry) maps to an ok result with
 
 	assert.equal(result.isError, undefined, "a search skip is not an error");
 	assert.deepEqual(result.structuredContent?.hits, []);
-	assert.match(String(result.content[0]?.text), /returned no results/);
+	// The skip is programmatically distinguishable from zero hits.
+	assert.equal(result.structuredContent?.skipped, true);
+	const text = String(result.content[0]?.text);
+	// The skipped-search message is distinct from the zero-hits message:
+	// it reports the skip (retry-worthy), never "no results found".
+	assert.match(text, /skipped/);
+	assert.match(text, /did not execute the search/);
+	assert.match(text, /retried/);
+	assert.doesNotMatch(text, /returned no results/);
 	// The assistant's clarifying question is discarded, not surfaced as hits.
-	assert.doesNotMatch(String(result.content[0]?.text), /could you clarify/);
+	assert.doesNotMatch(text, /could you clarify/);
 	// Usage still maps when the response carries it.
 	assert.equal((result.usage as Record<string, unknown> | undefined)?.input, 1046);
 	assert.equal((result.usage as Record<string, unknown> | undefined)?.output, 91);
+});
+
+test("a tool.execution entry with an empty hit map maps to the zero-hits ok result", async () => {
+	// Fixture shape: the search genuinely executed (tool.execution present,
+	// info.result an empty hit map) and found nothing.
+	const mock = createMockFetch();
+	mock.respond(200, {
+		object: "conversation.response",
+		conversation_id: "conv_01a19cdfc8b0f68eb0f1a2c3d4e5f678",
+		outputs: [
+			{
+				object: "entry",
+				type: "tool.execution",
+				model: "mistral-small-latest",
+				id: "tool_exec_01a19cdfc9c6d79ec4b6a3d2f1e0c9d8",
+				name: "web_search",
+				arguments: JSON.stringify({ query: "pi coding agent" }),
+				function: "web_search",
+				info: { result: "{}" },
+			},
+			{
+				object: "entry",
+				type: "message.output",
+				model: "mistral-small-latest",
+				id: "msg_01a19cdfca57de7c0a9b8e6f5d4c3b2a",
+				role: "assistant",
+				content: "I searched, but there was nothing to find.",
+			},
+		],
+		usage: { prompt_tokens: 812, completion_tokens: 140, total_tokens: 952, connector_tokens: 5865, connectors: { web_search: 1 } },
+		guardrails: null,
+	});
+	const tools = buildTools(mock.mockFetch);
+	const result = await execute(toolByName(tools, "mistral_web_search"), { query: "pi coding agent" });
+
+	assert.equal(result.isError, undefined, "zero hits is not an error");
+	assert.deepEqual(result.structuredContent?.hits, []);
+	// Executed search, zero hits — the skip marker stays absent.
+	assert.equal(result.structuredContent?.skipped, undefined);
+	const text = String(result.content[0]?.text);
+	// The zero-hits message stays reserved for the executed-search case.
+	assert.equal(text, "The web search returned no results for this query.");
+	assert.doesNotMatch(text, /skipped/);
+	assert.doesNotMatch(text, /could you clarify/);
 });
 
 test("a 400 code 3004 refusal maps to the friendly search-model error", async () => {
@@ -369,6 +434,119 @@ test("an unreadable info.result fails with the unreadable-search-result message,
 	const text = String(result.content[0]?.text);
 	assert.match(text, /unreadable search result/);
 	assert.doesNotMatch(text, /\{not json/);
+});
+
+test("a matching tool.execution entry without a readable info.result fails with the unreadable-search-result message", async () => {
+	// Matching entry (name web_search) whose info carries no result string:
+	// neither a skip nor an executed search — the unreadable path.
+	const mock = createMockFetch();
+	mock.respond(200, {
+		object: "conversation.response",
+		conversation_id: "conv-no-result",
+		outputs: [
+			{
+				object: "entry",
+				type: "tool.execution",
+				model: "mistral-small-latest",
+				id: "tool_exec_01a19cdfd0e1b2c3d4e5f6a7b8c9d0e1f",
+				name: "web_search",
+				arguments: JSON.stringify({ query: "pi coding agent" }),
+				function: "web_search",
+				info: {},
+			},
+		],
+		usage: { prompt_tokens: 42, completion_tokens: 7, total_tokens: 49 },
+		guardrails: null,
+	});
+	const tools = buildTools(mock.mockFetch);
+	const result = await execute(toolByName(tools, "mistral_web_search"), { query: "pi coding agent" });
+	assert.equal(result.isError, true);
+	const text = String(result.content[0]?.text);
+	assert.match(text, /unreadable search result/);
+	assert.match(text, /no readable info\.result/);
+	// No raw dump of the fixture body.
+	assert.doesNotMatch(text, /tool_execution/);
+});
+
+test("multiple matching tool.execution entries concatenate their hits in outputs order", async () => {
+	// The agent may execute the search twice in one turn (plausible now
+	// every request instructs it to always search) — both hit maps surface,
+	// in outputs order.
+	const mock = createMockFetch();
+	mock.respond(200, {
+		object: "conversation.response",
+		conversation_id: "conv_01a19cdfd7c1f2e3a4b5c6d7e8f9a0b1",
+		outputs: [
+			{
+				object: "entry",
+				type: "tool.execution",
+				model: "mistral-small-latest",
+				id: "tool_exec_01a19cdfd8a0b1c2d3e4f5a6b7c8d9e0f",
+				name: "web_search",
+				arguments: JSON.stringify({ query: "pi coding agent" }),
+				function: "web_search",
+				info: {
+					result: JSON.stringify({
+						first1: {
+							url: "https://en.wikipedia.org/wiki/Pi_(AI_agent)",
+							title: "Pi (AI agent)",
+							description: null,
+							snippets: ["Pi is an open-source AI coding agent for the terminal."],
+						},
+					}),
+				},
+			},
+			{
+				object: "entry",
+				type: "tool.execution",
+				model: "mistral-small-latest",
+				id: "tool_exec_01a19cdfd9f1e2d3c4b5a69788796a5b4",
+				name: "web_search",
+				arguments: JSON.stringify({ query: "pi coding agent docs" }),
+				function: "web_search",
+				info: {
+					result: JSON.stringify({
+						second1: {
+							url: "https://pi.dev/docs",
+							title: "Pi Documentation",
+							description: "The official documentation.",
+							snippets: ["Guides, tutorials, and API references."],
+						},
+						second2: {
+							url: "https://pi.dev/faq",
+							title: "Pi FAQ",
+							description: null,
+							snippets: ["Frequently asked questions."],
+						},
+					}),
+				},
+			},
+			{
+				object: "entry",
+				type: "message.output",
+				model: "mistral-small-latest",
+				id: "msg_01a19cdfdaf2e3d4c5b6a798897a6b5c4",
+				role: "assistant",
+				content: "SECRET-ASSISTANT-TEXT: Here is what I found.",
+			},
+		],
+		usage: { prompt_tokens: 905, completion_tokens: 310, total_tokens: 6775, connector_tokens: 5865, connectors: { web_search: 2 } },
+		guardrails: null,
+	});
+	const tools = buildTools(mock.mockFetch);
+	const result = await execute(toolByName(tools, "mistral_web_search"), { query: "pi coding agent" });
+
+	assert.equal(result.isError, undefined);
+	const hits = result.structuredContent?.hits as Record<string, unknown>[];
+	// Both executions contribute: 1 + 2 hits, in outputs order.
+	assert.equal(hits?.length, 3);
+	assert.equal(hits?.[0]?.url, "https://en.wikipedia.org/wiki/Pi_(AI_agent)");
+	assert.equal(hits?.[1]?.url, "https://pi.dev/docs");
+	assert.equal(hits?.[2]?.url, "https://pi.dev/faq");
+	// The search executed — the skip marker stays absent.
+	assert.equal(result.structuredContent?.skipped, undefined);
+	// The message.output text is still discarded.
+	assert.doesNotMatch(String(result.content[0]?.text), /SECRET-ASSISTANT-TEXT/);
 });
 
 test("registerWebSearchTools registers both tools with the extension", async () => {
