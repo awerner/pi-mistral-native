@@ -3,7 +3,7 @@
 # pi-mistral-native
 
 A Mistral-specific, optimized integration for the
-[pi coding agent](https://pi.dev) — not just chat. pi-mistral-native is a pi
+[pi coding agent](https://github.com/earendil-works/pi) — not just chat. pi-mistral-native is a pi
 package that registers the native `mistral-native` provider and exposes
 Mistral's full native feature surface as first-class pi capabilities:
 a dynamically loaded model catalog with current pricing, knowledge/RAG,
