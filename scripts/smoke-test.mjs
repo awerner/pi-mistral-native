@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Live smoke tests for the mistral-native provider (issue #21).
+ * Live smoke tests for the mistral-native provider.
  *
- * Runs the four live checks deferred across issues #1, #2, #5 and #6 against
+ * Runs the four live checks against
  * the locally built package (`pi -e ./`):
  *   1. stream with thinking ON via `pi -p --provider mistral-native
  *      --model mistral-large-4` — multi-turn + tool calls, clean output,

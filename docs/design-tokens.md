@@ -1,7 +1,7 @@
 # Design tokens — blue block system
 
 Source of truth for the pi-mistral-native visual identity. Ingestion source
-for the documentation website (issue #30) and for any future design
+for the documentation website and for any future design
 iterations of the README banner ([`assets/banner.svg`](../assets/banner.svg),
 [`assets/banner.png`](../assets/banner.png), editable design study:
 [`assets/banner-source.html`](../assets/banner-source.html)).
@@ -56,7 +56,7 @@ The shipped README banner carries the fall-in, pop-in, copy entrance and
 dot-pulse keyframes inline in `assets/banner.svg`; hover and ambient wash
 are web-context tokens (kept in the design source for the future website).
 Ambient wash is not animated in the SVG export — see the render-protocol
-finding below.
+note below.
 
 **Motion principle:** every element's base (un-animated) style is its final
 state. Stripping animations — static rasterization, proxies that drop CSS —
@@ -68,11 +68,9 @@ leaves a complete, correct still. Motion is progressive enhancement only.
 |---|---|
 | GitHub light | `#ffffff` |
 | GitHub dark | `#0d1117` |
-| Forgejo light (git.techlex.space) | `#ffffff` |
-| Forgejo dark (git.techlex.space) | `#171e26` |
 
 The banner carries its own Ink (`#101826`) background, so a single asset
-reads correctly on all four canvases; no `#gh-dark-mode-only` variant pair is
+reads correctly on both canvases; no `#gh-dark-mode-only` variant pair is
 needed. README bodies render at max-width 1012px (GitHub); the banner's
 1200 × 400 (3:1) canvas keeps text legible at that clamp.
 
@@ -87,33 +85,16 @@ needed. README bodies render at max-width 1012px (GitHub); the banner's
 - SVG text uses font stacks, not embedded fonts: any renderer with basic
   system fonts produces a faithful result.
 
-## Render-protocol finding (git.techlex.space, verified 2026-11-03)
+## Render-protocol note
 
-**Result: animations survive.** Forgejo on git.techlex.space does not run a
-transforming image proxy. Verified on the pushed `design-banner` branch:
-
-1. The raw route serves `assets/banner.svg` with `Content-Type:
-   `image/svg+xml` and **byte-identical** to the committed file (MD5 match;
-   all six `@keyframes` rules and the stagger delays intact).
-2. The README renderer (verified via the `/api/v1/markdown` endpoint, the
-   same renderer the UI uses) emits `<img src="…/pi-mistral-native/assets/
-   banner.svg">` — a direct same-origin link, not a proxied URL. The browser
-   fetches the SVG unmodified; CSS animations inside an SVG referenced via
-   `<img>` run in all modern browsers.
-3. `assets/banner.png` serves byte-identical as `image/png` — the fallback
-   for strict renderers that reject SVG (e.g. some RSS/social clients).
-
-Caveats, stated honestly:
-
-- The instance is login-walled for anonymous HTTP, so the check was made
-  through the authenticated raw route and the markdown-render API; a final
-  visual confirmation in a logged-in browser session is recommended at PR
-  review (one click on the README page).
-- If the SVG is ever served by a stripping proxy or a client that disables
-  CSS (or `prefers-reduced-motion` is set), the banner degrades to the
-  complete settled still — by design, every element's base style is its
-  final state (see motion principle above). The PNG fallback covers
-  renderers that reject SVG outright.
+GitHub raw image serving does not transform `assets/banner.svg` (served as
+`image/svg+xml` with the committed keyframes intact), and the README
+renderer links the SVG directly, so CSS animations inside the SVG run in
+all modern browsers. If a client strips CSS or sets
+`prefers-reduced-motion`, the banner degrades to the complete settled
+still — by design, every element's base style is its final state (see
+motion principle above). The PNG fallback covers renderers that reject
+SVG outright.
 
 ## ADR status note
 

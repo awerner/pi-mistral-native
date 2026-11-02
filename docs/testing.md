@@ -2,30 +2,27 @@
 
 All tests run offline against mocked HTTP layers — no network access, no
 real API keys (the literal `test-key` only). The provider stream is tested
-against a mocked SSE (`text/event-stream`) harness ported from the original
-hand-patch repro (`/tmp/mistral-blocks-repro/repro.mjs`), which drove the six
+against a mocked SSE (`text/event-stream`) harness, which drives the six
 recorded Mistral streaming scenarios this extension replaces.
-
-*Decisions: [ADR 0004 — Mocked-SSE test suite and user docs](adr/process/0004-mocked-sse-test-suite.md)*
 
 ```bash
 npm run check      # tsc --noEmit — type check
 npm test           # build + node --test dist/test/*.test.js
 ```
 
-CI (`.forgejo/workflows/ci.yaml`) runs the same two commands on every push
+CI (`.github/workflows/ci.yml`) runs the same two commands on every push
 and pull request.
 
 ## Suites
 
 | Suite | Scope |
 |---|---|
-| `test/mistral.test.ts` | The native `mistral-chat` stream: the six ported repro scenarios (block-array thinking, string regression, empty-thinking skip, tool-call regression, same-delta thinking+text, signature), pi's custom-provider event protocol, usage/cost, abort (incl. mid-tool-call and stalled transport), overflow normalization, malformed/truncated streams, Unicode boundaries, retry, request mapping, the dynamic catalog (`refreshModels` phases, rate card, filtering), and region routing/surcharge (issue #29: per-family chat URLs incl. gateway/`model.baseUrl` precedence, provider-scoped `MISTRAL_REGION`, regional catalog fetch, +10% cost mapping, and the session-start region notice). |
+| `test/mistral.test.ts` | The native `mistral-chat` stream: the six ported repro scenarios (block-array thinking, string regression, empty-thinking skip, tool-call regression, same-delta thinking+text, signature), pi's custom-provider event protocol, usage/cost, abort (incl. mid-tool-call and stalled transport), overflow normalization, malformed/truncated streams, Unicode boundaries, retry, request mapping, the dynamic catalog (`refreshModels` phases, rate card, filtering), and region routing/surcharge (per-family chat URLs incl. gateway/`model.baseUrl` precedence, provider-scoped `MISTRAL_REGION`, regional catalog fetch, +10% cost mapping, and the session-start region notice). |
 | `test/integration.test.ts` | The custom-provider checklist gaps: image input and image tool results, orphaned tool calls after an abort, cross-provider session handoff (foreign-api assistant turns and tool results replay), capability-gated image support on text-only models, thinking-block replay suppression, zeroed usage without a usage chunk, gateway choice-level usage, and the `max_tokens` context clamp. |
 | `test/auth.test.ts` | The API-key credential chain in three layers: the real extension registration, pi's real provider composer (precedence, `/login` flow), and contract pins of the documented fallback chain; plus static guards over the compiled extension (no OAuth remnants, no logging sinks). |
 | `test/knowledge.test.ts` | The four knowledge tools (OCR, embeddings, moderations, classifications): request mapping, result shaping, error paths, abort forwarding, auth precedence. |
 | `test/knowledge-tools.test.ts` | The nine library/RAG tools: multipart uploads, pagination, status enrichment, signed URLs (never logged), reprocess, RAG query mapping, error bodies, API-key absence. |
-| `test/config.test.ts` | The `mistral-native.json` configuration layer: user-scope resolution chain (each hop, first existing wins), project scope and project-over-user merge, JSON-over-env precedence, config-value protocol (`$VAR`, `${VAR}`, `!cmd`, escapes), strict validation with named-path errors (loader warns, never throws), reserved-and-parsed sections incl. `MISTRAL_REGION`, region resolution and the surcharge multiplier (issue #29: `resolveMistralRegionBaseUrl` precedence incl. empty/whitespace values, `MISTRAL_REGION_BASE_URLS` mapping, `applyRegionSurcharge` purity/rounding), and stream integration with an injected file config. |
+| `test/config.test.ts` | The `mistral-native.json` configuration layer: user-scope resolution chain (each hop, first existing wins), project scope and project-over-user merge, JSON-over-env precedence, config-value protocol (`$VAR`, `${VAR}`, `!cmd`, escapes), strict validation with named-path errors (loader warns, never throws), reserved-and-parsed sections incl. `MISTRAL_REGION`, region resolution and the surcharge multiplier (`resolveMistralRegionBaseUrl` precedence incl. empty/whitespace values, `MISTRAL_REGION_BASE_URLS` mapping, `applyRegionSurcharge` purity/rounding), and stream integration with an injected file config. |
 
 *Decisions: [ADR 0004 — API-key credential chain without Mistral OAuth](adr/0004-api-key-credential-chain-without-mistral-oauth.md); [ADR 0005 — OCR, embeddings, moderations/classifications as pi tools](adr/0005-ocr-embeddings-moderations-as-pi-tools.md); [ADR 0006 — Knowledge API tools](adr/0006-knowledge-api-tools.md); [ADR 0010 — Configuration via mistral-native.json](adr/0010-configuration-via-mistral-native-json.md); [ADR 0012 — Selectable region endpoint with per-family routing](adr/0012-selectable-region-endpoints.md)*
 
