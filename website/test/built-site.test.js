@@ -41,12 +41,15 @@ test('built site keeps every absolute href under the deployment base', {
   const escapees = [];
   for (const file of files) {
     const html = await fs.readFile(file, 'utf8');
-    for (const match of html.matchAll(/href="([^"]*)"/g)) {
-      const href = match[1];
-      // Site-absolute routes must carry the base; scheme URLs and
-      // page-internal anchors are fine.
-      if (href.startsWith('/') && !href.startsWith(basePrefix)) {
-        escapees.push(`${path.relative(websiteRoot, file)}: ${href}`);
+    for (const match of html.matchAll(/(?:href|src)="([^"]*)"/g)) {
+      const target = match[1];
+      // Site-absolute routes must carry the base; scheme URLs, protocol-
+      // relative targets and page-internal anchors are fine. basePrefix
+      // always ends in '/', so the prefix match is segment-boundary safe:
+      // a base without a trailing slash cannot let '/pi-mistral-native-evil/'
+      // pass as under the base.
+      if (target.startsWith('/') && !target.startsWith('//') && !target.startsWith(basePrefix)) {
+        escapees.push(`${path.relative(websiteRoot, file)}: ${target}`);
       }
     }
   }

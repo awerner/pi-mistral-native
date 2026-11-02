@@ -10,9 +10,12 @@ import { Card, CardGrid, Icon } from '@astrojs/starlight/components';
 // but not hand-written hrefs, so site-absolute routes gain the base here
 // (BASE_URL is '/' in dev and '/pi-mistral-native/' in the build).
 const base = import.meta.env.BASE_URL;
+// Guaranteed trailing slash, so a base without one can never yield a
+// double-segment path ('/pi-mistral-native' + '/stream/' → '/pi-mistral-native//stream/').
+const baseDir = base.endsWith('/') ? base : `${base}/`;
 
 function withBase(route) {
-  return base.endsWith('/') ? `${base}${route.slice(1)}` : `${base}/${route.slice(1)}`;
+  return `${baseDir}${route.slice(1)}`;
 }
 
 const quickstart = `pi install npm:pi-mistral-native

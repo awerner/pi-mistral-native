@@ -69,10 +69,11 @@ export function docsLoader() {
           id: slug,
           data,
           filePath: path.relative(fileURLToPath(config.root), filePath),
-          // The digest covers the file body plus the slug: the slug feeds
-          // link rewriting, so a mapping change must invalidate the entry
-          // even when the file content itself is unchanged.
-          digest: generateDigest(raw + slug),
+          // The digest covers the file body, the slug and the base: the
+          // slug and the base both feed link rewriting, so a mapping or
+          // base change must invalidate the entry even when the file
+          // content itself is unchanged.
+          digest: generateDigest(raw + slug + config.base),
           rendered,
         });
       }
