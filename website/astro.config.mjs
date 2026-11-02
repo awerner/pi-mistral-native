@@ -34,10 +34,15 @@ export default defineConfig({
   ],
 });
 
-// The sidebar mirrors the repository's four documentation layers. ADR
-// entries are derived from the docs directory at config load so page
-// numbers, order and suffixes follow the source of truth without being
-// re-listed here by hand.
+// Named export for the config test: Astro reads only the default export
+// from a config module, so this extra surface is inert for the build and
+// lets tests assert on the exact sidebar shape the integration receives.
+export { sidebarConfig };
+
+// The sidebar mirrors the repository's documentation surfaces in three
+// top-level groups. ADR entries are derived from the docs directory at
+// config load so page numbers, order and suffixes follow the source of
+// truth without being re-listed here by hand.
 function sidebarConfig() {
   return [
     { label: 'Getting started', items: [{ label: 'Welcome', link: '/' }] },
@@ -52,14 +57,14 @@ function sidebarConfig() {
         'configuration',
       ].map((slug) => entry(slug)),
     },
-    { label: 'Design', items: [entry('design-tokens')] },
     {
       label: 'Developer',
-      items: [entry('development'), entry('testing'), entry('publishing'), entry('hosting')],
-    },
-    {
-      label: 'Decisions',
       items: [
+        entry('development'),
+        entry('testing'),
+        entry('publishing'),
+        entry('hosting'),
+        entry('design-tokens'),
         {
           label: 'Architecture ADRs',
           items: [entry('adr', 'Index'), ...adrEntries(docsRoot, 'adr')],
