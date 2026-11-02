@@ -1,0 +1,46 @@
+{
+  "name": "@agentic/pi-mistral-native",
+  "version": "0.1.0",
+  "description": "Native Mistral provider extension for the pi coding agent: chat completions with block-array thinking, model catalog, server-side tools and knowledge APIs",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/extensions/mistral.js",
+  "files": [
+    "dist/extensions",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-extension",
+    "mistral",
+    "ai",
+    "llm",
+    "provider"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "check": "tsc --noEmit",
+    "test": "npm run build && node --test \"dist/test/*.test.js\"",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "pi": {
+    "extensions": [
+      "dist/extensions/*.js"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typebox": "^1.3.27",
+    "typescript": "^7.0.2"
+  }
+}
