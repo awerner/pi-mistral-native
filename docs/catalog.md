@@ -94,6 +94,11 @@ Last verified: **2026-10-31** against Mistral's per-model pricing
 pages; retired models without published prices fall through to the
 catch-all.
 
+All costs shown anywhere in pi are **catalog estimates, not billed
+provider totals**: Mistral's wire formats report token counts only, so
+every usage cost block the extension emits is marked with pi-ai's usage
+cost flag `totalFromProvider: false`.
+
 Config overrides: `mistral-native.json` `models.rateCard` entries are
 checked **before** the built-in card — a config entry with the same
 `match` shadows the built-in, and new match strings work. A config entry
@@ -107,7 +112,7 @@ once-per-notice warning at the next session start, and
 `models.fallThrough: false` swaps the catch-all rates for a zero-cost
 placeholder (still flagged approximate).
 
-*Decisions: [ADR 0010 — Configuration via mistral-native.json](adr/0010-configuration-via-mistral-native-json.md); [ADR 0013 — Per-family rate card with sourced prices and visible fall-through](adr/0013-rate-card-sourced-prices.md)*
+*Decisions: [ADR 0010 — Configuration via mistral-native.json](adr/0010-configuration-via-mistral-native-json.md); [ADR 0013 — Per-family rate card with sourced prices and visible fall-through](adr/0013-rate-card-sourced-prices.md); [ADR 0021 — Cost estimates marked as not provider-billed](adr/0021-cost-estimates-marked-not-billed.md)*
 
 ### Regional pricing
 

@@ -75,7 +75,13 @@ candidate).
 Each stream carries a usage object that maps to pi's `Usage` — input
 tokens excluding cached tokens, output, cache reads/writes and
 reasoning tokens — and cost is computed from the model's rate card
-(see [catalog.md](catalog.md)).
+(see [catalog.md](catalog.md)). The reported cost is a **local catalog
+estimate**, never a billed provider total: Mistral's chat wire format
+reports token counts only (billed totals live behind the admin-only
+`/v1/admin/usage` endpoint), so the cost block is explicitly marked
+with pi-ai's usage cost flag `totalFromProvider: false`.
+
+*Decisions: [ADR 0021 — Cost estimates marked as not provider-billed](adr/0021-cost-estimates-marked-not-billed.md)*
 
 ### Context overflow
 
@@ -184,7 +190,13 @@ The usage object is read from the chunk or the choice (some gateways
 use the latter); `input` excludes cached tokens (`prompt_tokens` minus
 cached/read and cache-write tokens, read defensively from
 `prompt_tokens_details` or the Mistral-gateway field variants); cost is
-computed with pi's `calculateCost`.
+computed with pi's `calculateCost`. Because the wire data carries no
+billed amount, every cost block — chunk-level usage, choice-level usage
+and the zero-usage fallback — is emitted with `totalFromProvider:
+false`, marking it as a catalog estimate rather than a provider-billed
+total.
+
+*Decisions: [ADR 0021 — Cost estimates marked as not provider-billed](adr/0021-cost-estimates-marked-not-billed.md)*
 
 ## Advanced: overflow and retry details
 

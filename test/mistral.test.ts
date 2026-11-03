@@ -800,8 +800,64 @@ test("usage with cached tokens maps to pi usage and cost", async () => {
 	assert.equal(usage.totalTokens, 1150);
 	// Cost per the rate card: (1000*0.70 + 50*2.10 + 100*0.07) / 1e6
 	const expected = (1000 * 0.7 + 50 * 2.1 + 100 * 0.07) / 1_000_000;
-	const cost = usage.cost as unknown as { total: number };
+	const cost = usage.cost as unknown as { total: number; totalFromProvider?: boolean };
 	assert.ok(Math.abs(cost.total - expected) < 1e-9, `cost.total=${cost.total} expected=${expected}`);
+	// Mistral's wire format reports token counts only, so the cost is a
+	// catalog estimate and must be flagged as not provider-billed.
+	assert.equal(cost.totalFromProvider, false);
+});
+
+test("cost block is explicitly marked as a catalog estimate (totalFromProvider false)", async () => {
+	const model = makeModel();
+	const { message } = await runStream(
+		[
+			chunk({ role: "assistant", content: "" }),
+			chunk({ content: "hi" }),
+			finalChunk("stop", {
+				usage: { prompt_tokens: 100, completion_tokens: 10, total_tokens: 110 },
+			}),
+		],
+		{ model },
+	);
+	const cost = (message.usage as Record<string, unknown>).cost as Record<string, unknown>;
+	assert.equal(cost.totalFromProvider, false);
+	assert.ok((cost.total as number) > 0, "catalog estimate should price the tokens");
+});
+
+test("zero usage path (no usage chunk) yields cost.total 0 marked as an estimate", async () => {
+	const { message } = await runStream(
+		[chunk({ role: "assistant", content: "" }), chunk({ content: "hi" }), finalChunk("stop")],
+	);
+	const usage = message.usage as Record<string, unknown>;
+	assert.equal(usage.totalTokens, 0);
+	const cost = usage.cost as Record<string, unknown>;
+	assert.equal(cost.total, 0);
+	assert.equal(cost.totalFromProvider, false);
+});
+
+test("chunk-level and choice-level usage both carry totalFromProvider false", async () => {
+	const chunkUsage = {
+		prompt_tokens: 100,
+		completion_tokens: 10,
+		total_tokens: 110,
+	};
+	// Chunk-level usage on the final chunk.
+	const viaChunk = await runStream(
+		[chunk({ role: "assistant", content: "" }), finalChunk("stop", { usage: chunkUsage })],
+	);
+	assert.equal(
+		((viaChunk.message.usage as Record<string, unknown>).cost as Record<string, unknown>).totalFromProvider,
+		false,
+	);
+	// Choice-level usage (some gateways report it there instead of on the chunk).
+	const choiceUsageChunk: SseChunk = {
+		...finalChunk("stop"),
+		choices: [{ index: 0, delta: {}, finish_reason: "stop", logprobs: null, usage: chunkUsage }],
+	};
+	const viaChoice = await runStream([chunk({ role: "assistant", content: "" }), choiceUsageChunk]);
+	const choiceCost = (viaChoice.message.usage as Record<string, unknown>).cost as Record<string, unknown>;
+	assert.equal(choiceCost.totalFromProvider, false);
+	assert.ok((choiceCost.total as number) > 0);
 });
 
 // =============================================================================
