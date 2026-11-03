@@ -687,6 +687,89 @@ test("parallel tool calls with split deltas assemble by stream index", async () 
 	assert.deepEqual(toolCalls[1]!.arguments, { tz: "UTC" });
 });
 
+test("a continuation chunk without id/index/name appends to the open tool call", async () => {
+	// GLM-style wire shape: the first chunk carries the full header, later
+	// chunks carry only function.arguments (no id, no index, no name). The
+	// continuation must append to the open call — never spawn a phantom
+	// empty-name block.
+	const { events, message } = await runStream([
+		chunk({ role: "assistant", content: null }),
+		chunk({
+			content: null,
+			tool_calls: [{ id: "call_1", type: "function", function: { name: "get_weather", arguments: '{"city":"P' } }],
+		}),
+		chunk({ content: null, tool_calls: [{ function: { arguments: 'aris"}' } }] }),
+		finalChunk("tool_calls"),
+	]);
+	const toolCalls = message.content.filter((b) => b.type === "toolCall");
+	assert.equal(toolCalls.length, 1);
+	assert.equal((toolCalls[0] as unknown as { name: string }).name, "get_weather");
+	assert.deepEqual(toolCalls[0]!.arguments, { city: "Paris" });
+	// Stream-event contract: exactly one toolcall_start; the continuation's
+	// args ride the toolcall_delta of the same block.
+	const starts = events.filter((e) => e.type === "toolcall_start");
+	assert.equal(starts.length, 1);
+	// The continuation's args ride a toolcall_delta on the SAME block.
+	const deltas = events.filter((e) => e.type === "toolcall_delta");
+	assert.deepEqual(deltas.map((d) => d.delta), ['{"city":"P', 'aris"}']);
+	assert.ok(deltas.every((d) => d.contentIndex === starts[0]!.contentIndex));
+});
+
+test("a continuation chunk after parallel calls appends to the most recent call", async () => {
+	const { message } = await runStream([
+		chunk({ role: "assistant", content: null }),
+		chunk({
+			content: null,
+			tool_calls: [{ index: 0, id: "call_a", type: "function", function: { name: "get_weather", arguments: '{"city":"P' } }],
+		}),
+		chunk({
+			content: null,
+			tool_calls: [{ index: 1, id: "call_b", type: "function", function: { name: "get_time", arguments: '{"tz":"U' } }],
+		}),
+		chunk({ content: null, tool_calls: [{ function: { arguments: 'TC"}' } }] }),
+		finalChunk("tool_calls"),
+	]);
+	const toolCalls = message.content.filter((b) => b.type === "toolCall");
+	assert.equal(toolCalls.length, 2);
+	// The continuation joined call_b (the most recent open call); call_a keeps
+	// only its own header args (incomplete on the wire, reported as such).
+	assert.equal((toolCalls[1] as unknown as { name: string }).name, "get_time");
+	assert.deepEqual(toolCalls[1]!.arguments, { tz: "UTC" });
+	assert.equal((toolCalls[0] as unknown as { name: string }).name, "get_weather");
+});
+
+test("a continuation chunk with no open tool call is dropped, not turned into a phantom block", async () => {
+	const { events, message } = await runStream([
+		chunk({ role: "assistant", content: null }),
+		chunk({ content: null, tool_calls: [{ function: { arguments: '{"city":"Paris"}' } }] }),
+		finalChunk("stop"),
+	]);
+	assert.equal(message.content.filter((b) => b.type === "toolCall").length, 0);
+	assert.equal(events.filter((e) => e.type === "toolcall_start").length, 0);
+	assert.equal(events.filter((e) => e.type === "toolcall_delta").length, 0);
+});
+
+test("a nameless delta with an id is a call header, not a continuation (name backfilled later)", async () => {
+	// The continuation discriminator requires no id as well: a nameless
+	// delta WITH an id opens a new call whose name a later delta backfills.
+	const { message } = await runStream([
+		chunk({ role: "assistant", content: null }),
+		chunk({
+			content: null,
+			tool_calls: [{ index: 0, id: "call_client_1", type: "function", function: { arguments: '{"city":' } }],
+		}),
+		chunk({
+			content: null,
+			tool_calls: [{ index: 0, type: "function", function: { name: "get_weather", arguments: '"Paris"}' } }],
+		}),
+		finalChunk("tool_calls"),
+	]);
+	const toolCalls = message.content.filter((b) => b.type === "toolCall");
+	assert.equal(toolCalls.length, 1);
+	assert.equal((toolCalls[0] as unknown as { name: string }).name, "get_weather");
+	assert.deepEqual(toolCalls[0]!.arguments, { city: "Paris" });
+});
+
 // =============================================================================
 // Usage and cost
 // =============================================================================

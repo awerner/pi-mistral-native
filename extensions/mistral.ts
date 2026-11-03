@@ -1413,11 +1413,26 @@ export function mistralStreamSimple(
 			// reports); the finalization pass must not close them twice.
 			const closedBlocks = new Set<unknown>();
 			const serverToolResults = new Map<string, { text: string; failed: boolean }>();
-			const ensureServerCallCandidate = (toolCall: MistralToolCallDelta): PendingServerToolCall => {
+			const ensureServerCallCandidate = (toolCall: MistralToolCallDelta): PendingServerToolCall | undefined => {
 				const streamIndex = typeof toolCall.index === "number" ? toolCall.index : undefined;
 				const name = toolCall.function?.name ?? "";
 				let existing = streamIndex !== undefined ? pendingServerCallsByIndex.get(streamIndex) : undefined;
 				if (!existing && toolCall.id) existing = pendingServerCallsById.get(toolCall.id);
+				/*
+				 * Continuation-chunk fallback: an args-only delta (no function.name
+				 * AND no id) continues the most recently opened, not yet folded
+				 * candidate; with no open candidate there is nothing valid to
+				 * append to, so the chunk is dropped. A nameless delta WITH an id
+				 * is a legitimate call header whose name is backfilled by a later
+				 * delta — never a continuation.
+				 *
+				 * ADR 0019 — Tool-call continuation chunks append to the open call
+				 */
+				if (!existing && !name && !toolCall.id) {
+					const open = pendingServerCalls.findLast((call) => !call.folded);
+					if (!open) return undefined;
+					existing = open;
+				}
 				if (existing) {
 					if (existing.index === undefined && streamIndex !== undefined) existing.index = streamIndex;
 					if (streamIndex !== undefined) pendingServerCallsByIndex.set(streamIndex, existing);
@@ -1545,11 +1560,26 @@ export function mistralStreamSimple(
 					`Unsupported Mistral content chunk type "${type}" ${context}: pi cannot represent it${detail}${blockedOnPi}`,
 				);
 			};
-			const ensureToolCallBlock = (toolCall: MistralToolCallDelta): MutableToolCall => {
+			const ensureToolCallBlock = (toolCall: MistralToolCallDelta): MutableToolCall | undefined => {
 				const streamIndex = typeof toolCall.index === "number" ? toolCall.index : undefined;
 				const name = toolCall.function?.name ?? "";
 				let existing = streamIndex !== undefined ? toolCallBlocksByIndex.get(streamIndex) : undefined;
 				if (!existing && toolCall.id) existing = toolCallBlocksById.get(toolCall.id);
+				/*
+				 * Continuation-chunk fallback: an args-only delta (no function.name
+				 * AND no id) continues the most recently opened tool-call block;
+				 * with no open block there is nothing valid to append to, so the
+				 * chunk is dropped. A nameless delta WITH an id is a legitimate
+				 * call header whose name is backfilled by a later delta — never
+				 * a continuation.
+				 *
+				 * ADR 0019 — Tool-call continuation chunks append to the open call
+				 */
+				if (!existing && !name && !toolCall.id) {
+					const open = blocks.findLast((block) => block.type === "toolCall");
+					if (!open) return undefined;
+					existing = open as MutableToolCall;
+				}
 				if (existing) {
 					if (streamIndex !== undefined && existing.streamIndex === undefined) {
 						existing.streamIndex = streamIndex;
@@ -1745,6 +1775,8 @@ export function mistralStreamSimple(
 							// call may have been executed server-side; folding/deferral is
 							// decided by the result stream and the finalization pass.
 							const candidate = ensureServerCallCandidate(toolCall);
+							// A continuation chunk with no open call is dropped (no phantom block).
+							if (!candidate) continue;
 							if (typeof toolCall.function?.arguments === "string") {
 								candidate.partialArgs += toolCall.function.arguments;
 								candidate.arguments = parseStreamingJson(candidate.partialArgs);
@@ -1752,6 +1784,8 @@ export function mistralStreamSimple(
 							continue;
 						}
 						const block = ensureToolCallBlock(toolCall);
+						// A continuation chunk with no open call is dropped (no phantom block).
+						if (!block) continue;
 						let deltaArgs = "";
 						if (typeof toolCall.function?.arguments === "string") {
 							deltaArgs = toolCall.function.arguments;

@@ -718,6 +718,110 @@ test("a client call's name is backfilled from a later delta in server-tools mode
 	assert.equal(outcome.message.stopReason, "toolUse");
 });
 
+test("a continuation chunk without id/index/name appends to the open candidate in server-tools mode", async () => {
+	// GLM-style wire shape: the header chunk carries id+name, the next chunk
+	// only function.arguments. The continuation must accumulate onto the open
+	// candidate — no phantom empty-name candidate, arguments not split.
+	const outcome = await runStream(
+		[
+			chunk({ role: "assistant", content: null }),
+			chunk({
+				content: null,
+				tool_calls: [{ index: 0, id: "call_1", type: "function", function: { name: "get_weather", arguments: '{"city":"P' } }],
+			}),
+			chunk({ content: null, tool_calls: [{ function: { arguments: 'aris"}' } }] }),
+			finalChunk("tool_calls"),
+		],
+		{ streamOptions: { env: { MISTRAL_SERVER_TOOLS: "web_search" } } },
+	);
+	const toolCalls = outcome.message.content.filter((block) => block.type === "toolCall");
+	assert.equal(toolCalls.length, 1);
+	assert.equal((toolCalls[0] as unknown as { name: string }).name, "get_weather");
+	assert.deepEqual(toolCalls[0]!.arguments, { city: "Paris" });
+	const starts = outcome.events.filter((e) => e.type === "toolcall_start");
+	assert.equal(starts.length, 1);
+	// Server-tools mode materializes the client call at finalization, so the
+	// accumulated arguments ride the single toolcall_delta of that block.
+	const deltas = outcome.events.filter((e) => e.type === "toolcall_delta");
+	assert.deepEqual(deltas.map((d) => d.delta), ['{"city":"Paris"}']);
+});
+
+test("a continuation chunk after parallel calls appends to the most recent candidate in server-tools mode", async () => {
+	const outcome = await runStream(
+		[
+			chunk({ role: "assistant", content: null }),
+			chunk({
+				content: null,
+				tool_calls: [{ index: 0, id: "call_a", type: "function", function: { name: "get_weather", arguments: '{"city":"P' } }],
+			}),
+			chunk({
+				content: null,
+				tool_calls: [{ index: 1, id: "call_b", type: "function", function: { name: "get_time", arguments: '{"tz":"U' } }],
+			}),
+			chunk({ content: null, tool_calls: [{ function: { arguments: 'TC"}' } }] }),
+			finalChunk("tool_calls"),
+		],
+		{ streamOptions: { env: { MISTRAL_SERVER_TOOLS: "web_search" } } },
+	);
+	const toolCalls = outcome.message.content.filter((block) => block.type === "toolCall");
+	assert.equal(toolCalls.length, 2);
+	assert.deepEqual(toolCalls[1]!.arguments, { tz: "UTC" });
+	assert.equal((toolCalls[1] as unknown as { name: string }).name, "get_time");
+});
+
+test("a continuation chunk with no open candidate is dropped in server-tools mode", async () => {
+	const outcome = await runStream(
+		[
+			chunk({ role: "assistant", content: null }),
+			chunk({ content: null, tool_calls: [{ function: { arguments: '{"city":"Paris"}' } }] }),
+			finalChunk("stop"),
+		],
+		{ streamOptions: { env: { MISTRAL_SERVER_TOOLS: "web_search" } } },
+	);
+	assert.equal(outcome.message.content.filter((block) => block.type === "toolCall").length, 0);
+	assert.equal(outcome.events.filter((e) => e.type === "toolcall_start").length, 0);
+});
+
+test("a continuation chunk appends to a folded server call's successor, never to the folded call itself", async () => {
+	// The folded candidate is closed; an args-only continuation must join the
+	// most recent still-open candidate (here: the client call), not resurrect
+	// the folded server call.
+	const outcome = await runStream(
+		[
+			chunk({ role: "assistant", content: null }),
+			chunk({
+				content: "",
+				tool_calls: [
+					{
+						index: 0,
+						id: "call_server_1",
+						type: "function",
+						function: { name: "web_search", arguments: '{"query":"cats"}' },
+						metadata: { tool_type: "web_search" },
+					},
+				],
+			}),
+			chunk({
+				role: "tool",
+				tool_call_id: "call_server_1",
+				content: '{"results":["cat facts"]}',
+				metadata: { tool_call_result: { type: "success" } },
+			}),
+			chunk({
+				content: null,
+				tool_calls: [{ index: 1, id: "call_client_1", type: "function", function: { name: "get_weather", arguments: '{"city":"P' } }],
+			}),
+			chunk({ content: null, tool_calls: [{ function: { arguments: 'aris"}' } }] }),
+			finalChunk("tool_calls"),
+		],
+		{ streamOptions: { env: { MISTRAL_SERVER_TOOLS: "web_search" } } },
+	);
+	const toolCalls = outcome.message.content.filter((block) => block.type === "toolCall");
+	assert.equal(toolCalls.length, 1);
+	assert.equal((toolCalls[0] as unknown as { name: string }).name, "get_weather");
+	assert.deepEqual(toolCalls[0]!.arguments, { city: "Paris" });
+});
+
 test("abort mid-stream with a pending server candidate leaks no scratch into the error", async () => {
 	// A candidate accumulated but not yet folded (no result,
 	// no metadata) must not leak into the aborted error output — no

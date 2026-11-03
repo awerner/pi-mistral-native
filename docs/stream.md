@@ -50,11 +50,25 @@ with a clear error naming the type: no silent content loss.
 
 `delta.tool_calls` entries arrive incrementally: a first delta carries
 the call `id` and function `name`, subsequent deltas only argument
-fragments. Calls are assembled by stream `index`, the partial JSON
-arguments accumulate per block, and the completed tool-call block at
-the end of the stream carries parsed arguments. Parallel calls
-interleave safely. Finish reasons map onto pi's stop reasons
-(`content_filter` becomes an error stop, and so on).
+fragments. Calls are assembled by stream `index` (matched exactly by
+`index` first, then by `id`), the partial JSON arguments accumulate per
+block, and the completed tool-call block at the end of the stream
+carries parsed arguments. Parallel calls interleave safely. Finish
+reasons map onto pi's stop reasons (`content_filter` becomes an error
+stop, and so on).
+
+**Continuation chunks** (no `function.name` *and* no `id` — the shape
+some models emit for argument-only follow-up deltas) never open a new
+call: with no exact `index`/`id` match they append to the most recently
+opened tool-call block, and with no open block at all they are dropped
+rather than becoming a phantom empty-name call. A nameless delta that
+*does* carry an `id` is a legitimate call header whose name is
+backfilled by a later delta — it is never treated as a continuation.
+This holds in both the client path and server-tools mode (where the
+continuation joins the most recent still-open, not-yet-folded
+candidate).
+
+*Decisions: [ADR 0019 — Tool-call continuation chunks append to the open call](adr/0019-tool-call-continuation-chunks.md)*
 
 ### Usage and cost
 
