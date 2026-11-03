@@ -849,6 +849,17 @@ test("mistral_document_query streams over SSE and maps chunks + citations identi
 	assert.equal(usage.output, 5);
 	assert.equal(usage.cacheRead, 2);
 	assert.equal(usage.totalTokens, 15);
+	// Cost is all-zero by design (session accounting prices the tokens from
+	// the rate card) and explicitly marked as a catalog estimate, not
+	// provider-billed.
+	assert.deepEqual(usage.cost, {
+		input: 0,
+		output: 0,
+		cacheRead: 0,
+		cacheWrite: 0,
+		total: 0,
+		totalFromProvider: false,
+	});
 });
 
 test("the RAG SSE parser: an event split across body reads still parses", async () => {

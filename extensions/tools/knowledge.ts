@@ -9,7 +9,8 @@
  * model/caller but MUST NOT end up in `details`, which pi persists in
  * transcripts and logs.
  *
- * ADR 0006 — Knowledge API tools.
+ * ADR 0006 — Knowledge API tools; ADR 0021 — Cost estimates marked as not
+ * provider-billed.
  */
 
 import { readFile } from "node:fs/promises";
@@ -154,10 +155,19 @@ function ragResult(assembled: RagAssembled, model: string, libraryIds: string[])
 }
 
 /**
+ * Cost block shape including pi-ai 1.5's `totalFromProvider` flag (the
+ * dev-locked pi-ai 1.4.0 types predate the field; the peer range is "*").
+ */
+type CostBlock = NonNullable<AgentToolResult<any>["usage"]>["cost"] & { totalFromProvider?: boolean };
+
+/**
  * Parse the streaming RAG usage block (loose Mistral UsageInfo subset) into
- * pi's tool-result Usage. Mirrors the one-shot behavior of leaving
- * cost/currency unset (pi's session accounting computes totals; the token
- * counts are what matter here).
+ * pi's tool-result Usage. Mirrors the one-shot behavior of leaving cost at 0:
+ * pi's session accounting computes totals from the token counts, and the
+ * Mistral wire format carries no billed amount — token counts only — so the
+ * cost block is explicitly marked as a catalog estimate (`totalFromProvider:
+ * false`, pi-ai 1.5+), never as a provider-billed total.
+ * ADR 0021 — Cost estimates marked as not provider-billed.
  */
 function parseRagUsage(raw: Record<string, unknown>): NonNullable<AgentToolResult<any>["usage"]> {
 	const num = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0);
@@ -166,13 +176,14 @@ function parseRagUsage(raw: Record<string, unknown>): NonNullable<AgentToolResul
 	const output = num(raw.completion_tokens);
 	const cacheRead = num(details.cached_tokens);
 	const cacheWrite = num(details.cache_write_tokens);
+	const cost: CostBlock = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0, totalFromProvider: false };
 	return {
 		input: Math.max(0, input - cacheRead - cacheWrite),
 		output,
 		cacheRead,
 		cacheWrite,
 		totalTokens: Math.max(0, input - cacheRead - cacheWrite) + output + cacheRead + cacheWrite,
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+		cost,
 	};
 }
 

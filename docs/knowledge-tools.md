@@ -151,13 +151,16 @@ optional `model` (default `mistral-large-4`), `maxTokens`. Runs a
 **streaming** chat completion with the `document_library` tool: the
 answer assembles as it generates, the session UI receives partial
 previews, an abort cancels the transfer mid-stream, and the terminal
-usage chunk is carried on the tool result. The model-facing result is
-identical to the one-shot path: retrieved text chunks plus citations
-(signed document URLs with names). Set `rag.streaming: false` (or
-`MISTRAL_RAG_STREAMING=0`) to force the non-streaming request — see
+usage chunk is carried on the tool result (token counts only; its cost
+block is all-zero and marked `totalFromProvider: false` — a catalog
+estimate, not a billed total, since the wire format carries no billed
+amount). The model-facing result is identical to the one-shot path:
+retrieved text chunks plus citations (signed document URLs with
+names). Set `rag.streaming: false` (or `MISTRAL_RAG_STREAMING=0`) to
+force the non-streaming request — see
 [configuration.md](configuration.md).
 
-*Decisions: [ADR 0006 — Knowledge API tools](adr/0006-knowledge-api-tools.md); [ADR 0015 — Streaming RAG document query](adr/0015-streaming-rag-document-query.md)*
+*Decisions: [ADR 0006 — Knowledge API tools](adr/0006-knowledge-api-tools.md); [ADR 0015 — Streaming RAG document query](adr/0015-streaming-rag-document-query.md); [ADR 0021 — Cost estimates marked as not provider-billed](adr/0021-cost-estimates-marked-not-billed.md)*
 
 ### Web search
 
@@ -176,7 +179,13 @@ config key (see [configuration.md](configuration.md)); a model that
 refuses builtin connectors there (mistral-large-4, error 3004) is
 reported with a friendly fix hint.
 
-*Decisions: [ADR 0018 — Web search as a Conversations-backed tool](adr/0018-web-search-as-conversations-backed-tool.md)*
+The usage block of each search call is carried on the tool result with
+**cost 0, explicitly marked as a catalog estimate** (`totalFromProvider:
+false`): the `connector_tokens` pay-per-use charge is deliberately not
+priceable locally — the Conversations wire format reports token counts
+only, never a billed total.
+
+*Decisions: [ADR 0018 — Web search as a Conversations-backed tool](adr/0018-web-search-as-conversations-backed-tool.md); [ADR 0021 — Cost estimates marked as not provider-billed](adr/0021-cost-estimates-marked-not-billed.md)*
 
 ### Code interpreter
 

@@ -41,7 +41,8 @@
  * ADR 0004 — API-key credential chain without Mistral OAuth; ADR 0005 — OCR,
  * embeddings, moderations/classifications as pi tools; ADR 0006 — Knowledge API
  * tools; ADR 0013 — Per-family rate card with sourced prices and visible
- * fall-through; ADR 0014 — Content chunk coverage: map or reject, never drop.
+ * fall-through; ADR 0014 — Content chunk coverage: map or reject, never drop;
+ * ADR 0021 — Cost estimates marked as not provider-billed.
  */
 
 import {
@@ -959,6 +960,27 @@ function buildRequestBody(
 // Usage parsing
 // =============================================================================
 
+/**
+ * Cost block shape including pi-ai 1.5's `totalFromProvider` flag. The
+ * dev-locked pi-ai 1.4.0 types predate the field (the peer range is "*", and
+ * the package is verified against both 1.4.x and 1.5.0 hosts), so the flag is
+ * declared on this local type and assigned through it; pi-ai 1.5's `Usage`
+ * accepts the same shape.
+ */
+type CostBlock = AssistantMessage["usage"]["cost"] & { totalFromProvider?: boolean };
+
+/**
+ * Every cost this extension emits is a local catalog estimate: Mistral's chat
+ * wire format reports token counts only (billed totals live behind the
+ * admin-only /v1/admin/usage endpoint, see ADR 0013), so `totalFromProvider`
+ * is always false — set explicitly rather than relying on pi-ai 1.5's
+ * calculateCost to set it, keeping 1.4.x hosts honest too.
+ * ADR 0021 — Cost estimates marked as not provider-billed.
+ */
+function estimateCost(): CostBlock {
+	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0, totalFromProvider: false };
+}
+
 function zeroUsage(): AssistantMessage["usage"] {
 	return {
 		input: 0,
@@ -966,7 +988,7 @@ function zeroUsage(): AssistantMessage["usage"] {
 		cacheRead: 0,
 		cacheWrite: 0,
 		totalTokens: 0,
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+		cost: estimateCost(),
 	};
 }
 
@@ -990,9 +1012,13 @@ function parseUsage(raw: MistralUsage | undefined, model: Model<Api>): Assistant
 		cacheWrite,
 		reasoning: raw.completion_tokens_details?.reasoning_tokens || 0,
 		totalTokens: Math.max(0, promptTokens - cacheRead - cacheWrite) + outputTokens + cacheRead + cacheWrite,
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+		// Catalog estimate, never provider-billed (see estimateCost); set
+		// before calculateCost so the flag survives even if a future pi-ai
+		// stops setting it, and re-asserted after in case a host clears it.
+		cost: estimateCost(),
 	};
 	calculateCost(model, usage);
+	(usage.cost as CostBlock).totalFromProvider = false;
 	return usage;
 }
 

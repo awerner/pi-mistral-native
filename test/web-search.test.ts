@@ -198,11 +198,19 @@ test("mistral_web_search posts a stateless one-shot Conversations request and ma
 	assert.equal(result.isError, undefined);
 
 	// Usage: prompt/completion mapped to input/output; cost stays 0
-	// (pay-per-use connector tokens are not priceable locally).
+	// (pay-per-use connector tokens are not priceable locally) and is
+	// explicitly marked as a catalog estimate, not provider-billed.
 	assert.ok(result.usage !== undefined);
 	assert.equal((result.usage as Record<string, unknown> | undefined)?.input, 768);
 	assert.equal((result.usage as Record<string, unknown> | undefined)?.output, 220);
-	assert.deepEqual((result.usage as Record<string, unknown> | undefined)?.cost, { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 });
+	assert.deepEqual((result.usage as Record<string, unknown> | undefined)?.cost, {
+		input: 0,
+		output: 0,
+		cacheRead: 0,
+		cacheWrite: 0,
+		total: 0,
+		totalFromProvider: false,
+	});
 });
 
 test("mistral_web_search_premium sends the premium tool type and shares the parsing", async () => {

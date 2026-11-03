@@ -357,13 +357,15 @@ test("no usage in the stream ends with zeroed usage and cost (no undefined/NaN)"
 		cacheRead: 0,
 		cacheWrite: 0,
 		totalTokens: 0,
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0, totalFromProvider: false },
 	});
 	// Mistral reports no reasoning breakdown without a usage chunk; pi's
 	// Usage.reasoning is optional and stays undefined (not 0) then.
 	assert.ok(!("reasoning" in message.usage));
 	// Consumers read usage.cost.total directly; it must be a finite number.
 	assert.ok(Number.isFinite(message.usage.cost.total));
+	// Even the zero-usage path marks the cost block as a catalog estimate.
+	assert.equal((message.usage.cost as { totalFromProvider?: boolean }).totalFromProvider, false);
 });
 
 test("gateway usage on the choice level is parsed when the chunk carries none", async () => {

@@ -22,6 +22,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runs under `knowledge.searchModel` (default `mistral-small-latest`), and
   a 3004 refusal maps to the same friendly error as web search.
 
+### Changed
+
+- **Cost blocks now explicitly mark catalog estimates via the pi-ai 1.5
+  usage cost flag.** Every usage cost the extension emits (chat streams
+  incl. the zero-usage fallback, web-search and RAG tool results) sets
+  `totalFromProvider: false`, because Mistral's wire formats report token
+  counts only — billed totals are admin-API-only — so all reported costs
+  are local rate-card estimates, never provider-billed. Web-search /
+  connector usage stays cost 0 by design: `connector_tokens` pay-per-use
+  charges are not priceable locally.
+  Landing-page wording now says "estimated prices/costs" instead of
+  "real prices/costs" (README, website index, catalog.md).
+
 ## [0.1.2] - 2026-11-03
 
 ### Added

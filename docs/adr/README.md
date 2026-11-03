@@ -66,3 +66,4 @@ Status legend:
 | [0018](0018-web-search-as-conversations-backed-tool.md) | Web search as a Conversations-backed tool | Trial |
 | [0019](0019-tool-call-continuation-chunks.md) | Tool-call continuation chunks append to the open call | Trial |
 | [0020](0020-code-interpreter-as-conversations-backed-tool.md) | Code interpreter as a Conversations-backed tool | Trial |
+| [0021](0021-cost-estimates-marked-not-billed.md) | Cost estimates marked as not provider-billed | Trial |

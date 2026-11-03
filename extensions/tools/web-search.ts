@@ -22,7 +22,8 @@
  * request also carries a fixed top-level `instructions` string steering
  * the server-side agent to run the search tool.
  *
- * ADR 0018 — Web search as a Conversations-backed tool.
+ * ADR 0018 — Web search as a Conversations-backed tool; ADR 0021 — Cost
+ * estimates marked as not provider-billed.
  */
 
 import { Type } from "typebox";
@@ -93,11 +94,21 @@ function errorMessage(error: unknown): string {
 }
 
 /**
+ * Cost block shape including pi-ai 1.5's `totalFromProvider` flag (the
+ * dev-locked pi-ai 1.4.0 types predate the field; the peer range is "*").
+ */
+type CostBlock = NonNullable<AgentToolResult<any>["usage"]>["cost"] & { totalFromProvider?: boolean };
+
+/**
  * Parses the Conversations usage block (loose subset of the wire shape:
  * prompt_tokens/completion_tokens, optional prompt_tokens_details) into
- * pi's tool-result Usage. Cost stays 0: pay-per-use connector tokens
- * (`connector_tokens`) are not priceable locally. Same shape as
- * parseRagUsage in knowledge.ts.
+ * pi's tool-result Usage. Cost stays 0 by design: pay-per-use connector
+ * tokens (`connector_tokens`) are not priceable locally, and the Mistral
+ * wire format carries token counts only — no billed total — so the cost
+ * block is explicitly marked as a catalog estimate (`totalFromProvider:
+ * false`, pi-ai 1.5+) rather than a provider-billed amount.
+ * Same shape as parseRagUsage in knowledge.ts.
+ * ADR 0021 — Cost estimates marked as not provider-billed.
  */
 function parseSearchUsage(raw: Record<string, unknown>): NonNullable<AgentToolResult<any>["usage"]> {
 	const num = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0);
@@ -106,13 +117,14 @@ function parseSearchUsage(raw: Record<string, unknown>): NonNullable<AgentToolRe
 	const output = num(raw.completion_tokens);
 	const cacheRead = num(details.cached_tokens);
 	const cacheWrite = num(details.cache_write_tokens);
+	const cost: CostBlock = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0, totalFromProvider: false };
 	return {
 		input: Math.max(0, input - cacheRead - cacheWrite),
 		output,
 		cacheRead,
 		cacheWrite,
 		totalTokens: Math.max(0, input - cacheRead - cacheWrite) + output + cacheRead + cacheWrite,
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+		cost,
 	};
 }
 
