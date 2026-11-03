@@ -291,13 +291,15 @@ export interface MistralClient {
 	 * Stateless one-shot Conversations call: a fresh POST /v1/conversations
 	 * with `store: false`; the returned conversation_id is discarded by the
 	 * caller. Thin transport method — response parsing lives in the tool
-	 * module.
+	 * module. `toolType` is the builtin connector's wire name
+	 * (`web_search`, `web_search_premium` or `code_interpreter`); the
+	 * top-level `instructions` string is built per tool type.
 	 *
-	 * ADR 0018 — Web search as a Conversations-backed tool.
+	 * ADR 0018 — Web search as a Conversations-backed tool; ADR 0020 — Code interpreter as a Conversations-backed tool.
 	 */
 	createConversation(args: {
 		model: string;
-		toolType: "web_search" | "web_search_premium";
+		toolType: "web_search" | "web_search_premium" | "code_interpreter";
 		query: string;
 		signal?: AbortSignal | undefined;
 	}): Promise<unknown>;
@@ -793,14 +795,17 @@ export function createMistralClient(options: MistralClientOptions): MistralClien
 			// `store: false` for a stateless one-shot call.
 			//
 			// The top-level `instructions` field forces the server-side agent to
-			// run the search tool. It is declared in the vendored
+			// run the builtin tool. It is declared in the vendored
 			// ConversationRequestBase and wire-verified effective on the live
 			// endpoint, while hard forcing is not available: tool_choice "any"
 			// and "required" are 422-rejected on this endpoint (the live endpoint
 			// is narrower than the spec's ToolChoiceEnum; "required" is explicitly
 			// forbidden for builtin connectors), making instructions the only
-			// forcing lever.
-			const instructions = `Always use the ${toolType} tool to search the web before answering. Never answer from memory.`;
+			// forcing lever. The wording is per tool type: web search keeps its
+			// established string, the code interpreter gets the Python analogue.
+			const instructions = toolType === "code_interpreter"
+				? "Always use the code_interpreter tool to run Python code before answering. Never answer from memory."
+				: `Always use the ${toolType} tool to search the web before answering. Never answer from memory.`;
 			const text = await doRequest("POST", "/conversations", {
 				json: {
 					inputs: [{ role: "user", content: query }],

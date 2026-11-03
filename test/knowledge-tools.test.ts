@@ -174,6 +174,7 @@ test("the extension registers the knowledge, web-search and connector tools", as
 		"mistral_document_query",
 		"mistral_web_search",
 		"mistral_web_search_premium",
+		"mistral_code_interpreter",
 		"mistral_connector_list",
 		"mistral_connector_tools",
 		"mistral_connector_auth_url",

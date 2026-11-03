@@ -96,10 +96,10 @@ export interface ModelsRateCardConfig {
 	fallThrough: boolean | undefined;
 }
 
-/** `knowledge` section (RESERVED — `searchModel` is behavioral for the web-search tools). */
+/** `knowledge` section (RESERVED — `searchModel` is behavioral for the web-search and code-interpreter tools). */
 export interface KnowledgeConfig {
 	streaming: boolean | undefined;
-	/** Model used by the web-search tools' Conversations calls; undefined → the DEFAULT_SEARCH_MODEL. */
+	/** Model used by the web-search and code-interpreter tools' Conversations calls; undefined → the DEFAULT_SEARCH_MODEL. */
 	searchModel: string | undefined;
 }
 

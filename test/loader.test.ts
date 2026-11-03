@@ -211,8 +211,8 @@ interface LoaderHarness {
 /** The pi built-in tool names a realistic session already has registered. */
 const PI_BUILTINS = ["read", "bash", "powershell", "edit", "write", "grep", "find", "ls"];
 
-/** The extension's own tool names a realistic session also has registered (web search: extensions/tools/web-search.ts). */
-const EXTENSION_TOOLS = ["mistral_web_search", "mistral_web_search_premium"];
+/** The extension's own tool names a realistic session also has registered (web search: extensions/tools/web-search.ts; code interpreter: extensions/tools/code-interpreter.ts). */
+const EXTENSION_TOOLS = ["mistral_web_search", "mistral_web_search_premium", "mistral_code_interpreter"];
 
 /** The realistic session registry: pi built-ins plus this extension's tools. */
 const SESSION_TOOLS = [...PI_BUILTINS, ...EXTENSION_TOOLS];
