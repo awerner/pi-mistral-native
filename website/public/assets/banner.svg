@@ -3,7 +3,7 @@
   <desc>Native Mistral AI provider for the pi coding agent — banner with a pi mark built from blue blocks on an ink background.</desc>
   <style>
     /* ============================================================
-       pi-mistral-native README banner (Variant A, accepted #31)
+       pi-mistral-native README banner (Variant A)
        Blue block system: cool-hue mapping of Mistral's five-step
        logo ramp. Motion is progressive enhancement: every element
        carries its final state as base style, so stripping the
