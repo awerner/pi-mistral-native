@@ -64,3 +64,4 @@ Status legend:
 | [0016](0016-mistral-command-family.md) | `/mistral` command family: show, set, test | Trial |
 | [0017](0017-documented-max-output-mapping.md) | Documented max-output mapping over fixed clamp | Trial |
 | [0018](0018-web-search-as-conversations-backed-tool.md) | Web search as a Conversations-backed tool | Trial |
+| [0019](0019-tool-call-continuation-chunks.md) | Tool-call continuation chunks append to the open call | Trial |
