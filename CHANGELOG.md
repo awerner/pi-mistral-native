@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.3] - 2026-11-03
 
 ### Added
 
@@ -32,8 +32,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are local rate-card estimates, never provider-billed. Web-search /
   connector usage stays cost 0 by design: `connector_tokens` pay-per-use
   charges are not priceable locally.
-  Landing-page wording now says "estimated prices/costs" instead of
-  "real prices/costs" (README, website index, catalog.md).
+- **Landing surfaces say "estimated" prices/costs.** README, the website
+  landing page, and the catalog doc now describe costs as estimates instead
+  of "real prices/costs".
+
+### Fixed
+
+- **GLM-style tool-call continuation chunks no longer create phantom
+  empty-name tool calls.** A streamed `tool_calls` delta with no
+  `function.name` and no `id` (args-only continuation, as emitted by GLM
+  models) now appends to the most recently opened tool-call block — in both
+  the client tool-call path and the server-tools path — instead of creating
+  a new empty-name call with split arguments. A continuation with no open
+  call is dropped. Deltas that carry an `id` but no name are still treated
+  as legitimate headers whose name is backfilled by a later delta.
+- **Light-mode website links now meet WCAG AA contrast.** The light theme's
+  link color (`--sl-color-text-accent`) uses the deeper brand ramp step
+  `deep` (#0a5bd0): 6.14:1 on white and 5.71:1 on ivory, up from 4.10:1 /
+  3.81:1. Dark mode is unchanged (6.80:1).
+- **Public banner source no longer carries an internal tracker
+  reference.** The stale issue token was stripped from the banner SVG
+  comment (and the website-synced copy); rendering is unchanged.
 
 ## [0.1.2] - 2026-11-03
 
