@@ -66,7 +66,11 @@
   --sl-color-black: #ffffff;
 
   --sl-color-text: var(--sl-color-ink);
-  --sl-color-text-accent: var(--sl-color-primary);
+  /* Light-mode links use the deeper ramp step `deep`: `primary` measures
+     4.10:1 on white and 3.81:1 on ivory (below WCAG AA 4.5:1), while
+     `deep` measures 6.14:1 on white and 5.71:1 on ivory. Dark mode keeps
+     `azure` on ink at 6.80:1. */
+  --sl-color-text-accent: var(--sl-color-deep);
   --sl-color-text-invert: var(--sl-color-black);
   --sl-color-bg: var(--sl-color-black);
   --sl-color-bg-nav: var(--sl-color-ivory);
