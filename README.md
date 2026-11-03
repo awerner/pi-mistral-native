@@ -66,9 +66,10 @@ questions about it — answers come back with citations linking to the
 source passages. Quick way:
 `mistral_document_upload` (once), then `mistral_document_query`.
 
-**An always-current model list with real prices.** New and retired
+**An always-current model list with estimated prices.** New and retired
 Mistral models show up (or disappear) without a package update, each
-priced from a sourced rate card so pi's cost display is meaningful.
+priced from a sourced rate card so pi's cost display shows meaningful
+catalog estimates (marked as estimates, never as billed totals).
 Quick way: nothing — the catalog refreshes itself; `/mistral test`
 checks the live connection on demand.
 

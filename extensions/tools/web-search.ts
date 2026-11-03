@@ -22,7 +22,7 @@
  * request also carries a fixed top-level `instructions` string steering
  * the server-side agent to run the search tool.
  *
- * ADR 0018 — Web search as a Conversations-backed tool; ADR 0019 — Cost
+ * ADR 0018 — Web search as a Conversations-backed tool; ADR 0021 — Cost
  * estimates marked as not provider-billed.
  */
 

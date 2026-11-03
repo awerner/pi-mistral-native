@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are local rate-card estimates, never provider-billed. Web-search /
   connector usage stays cost 0 by design: `connector_tokens` pay-per-use
   charges are not priceable locally.
+  Landing-page wording now says "estimated prices/costs" instead of
+  "real prices/costs" (README, website index, catalog.md).
 
 ## [0.1.2] - 2026-11-03
 

@@ -6,8 +6,9 @@
   Mistral's live catalog, so newly released models appear (and retired
   ones disappear) without any package update. Just pick a
   `mistral-native/…` model in pi.
-- **See real costs** — every model carries current pricing, so pi's
-  usage and cost display is meaningful out of the box.
+- **See estimated costs** — every model carries current pricing, so pi's
+  usage and cost display is meaningful out of the box; costs are catalog
+  estimates, explicitly marked as such (never billed provider totals).
 - **Work offline** — startup works without network; the last fetched
   catalog snapshot restores automatically (a static fallback applies
   on the very first start).
