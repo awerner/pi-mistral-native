@@ -33,6 +33,14 @@ mistral_web_search            mistral_web_search_premium  (premium costs
                                                           extra per call)
 ```
 
+**Run and inspect Python code.** `mistral_code_interpreter` executes
+Python server-side and returns the captured output plus generated files
+(plots, data files) as download links:
+
+```text
+mistral_code_interpreter   (prompt: what to compute, analyze or generate)
+```
+
 **Manage the document store.** Create libraries, list documents, get
 short-lived download URLs, re-index after fixing a source file:
 
@@ -48,11 +56,11 @@ No configuration needed — the tools register automatically.
 
 ## Tool reference
 
-The extension registers **15 pi tools** covering Mistral's
+The extension registers **16 pi tools** covering Mistral's
 knowledge-side APIs: the four document-intelligence tools (OCR,
 embeddings, moderations, classifications), the nine library/RAG
-tools for files, libraries, documents and streaming RAG queries, and
-the two web-search tools.
+tools for files, libraries, documents and streaming RAG queries, the
+two web-search tools, and the code-interpreter tool.
 
 All tools resolve the API key per call through the chain in
 [auth.md](auth.md) and stay on the **global** `api.mistral.ai`
@@ -169,6 +177,25 @@ refuses builtin connectors there (mistral-large-4, error 3004) is
 reported with a friendly fix hint.
 
 *Decisions: [ADR 0018 — Web search as a Conversations-backed tool](adr/0018-web-search-as-conversations-backed-tool.md)*
+
+### Code interpreter
+
+**`mistral_code_interpreter`** — `prompt` (required, the only parameter:
+the Python task — what to compute, analyze or generate; the code itself is
+written server-side). Each call is a **stateless one-shot Conversations
+API request** (`store: false`, nothing persisted, no conversation
+continued) under the same dedicated **search model** as web search —
+`mistral-small-latest` by default, configurable via
+`knowledge.searchModel` (see [configuration.md](configuration.md)). The
+result carries the executed code, the captured stdout/stderr, printed text
+chunks, and generated files as **signed download links** (they appear in
+the model-facing content and `structuredContent`, never in the persisted
+`details`). If the backend skips execution (no code run —
+`mistral-large-4` behaves this way) the result reports the skip as
+retry-worthy, distinct from an executed run that produced no output;
+neither is an error.
+
+*Decisions: [ADR 0020 — Code interpreter as a Conversations-backed tool](adr/0020-code-interpreter-as-conversations-backed-tool.md)*
 
 ## Security and privacy rules
 

@@ -100,6 +100,7 @@ import {
 import type { MistralServerToolType, ServerToolsConfig } from "./mistral/server-tools.js";
 import { registerKnowledgeTools } from "./tools/knowledge.js";
 import { registerWebSearchTools } from "./tools/web-search.js";
+import { registerCodeInterpreterTool } from "./tools/code-interpreter.js";
 import { registerConnectorTools } from "./tools/connectors.js";
 import { registerConnectorLoaderTools } from "./tools/loader.js";
 
@@ -2484,6 +2485,9 @@ export default function (pi: ExtensionAPI) {
 
 	// Web-search tools over stateless one-shot Conversations calls.
 	registerWebSearchTools(pi);
+
+	// Code-interpreter tool over a stateless one-shot Conversations call.
+	registerCodeInterpreterTool(pi);
 
 	registerConnectorTools(pi);
 

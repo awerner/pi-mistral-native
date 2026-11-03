@@ -48,8 +48,8 @@ agent you configured on La Plateforme:
 Mistral can execute tools **server-side** inside one streamed chat
 response (image generation and custom connectors such as Notion or
 Google Drive), can offer hosted **agents** whose tool set runs entirely
-on Mistral's side, and — as of this release — exposes **web search** as a
-model-callable pi tool. pi-mistral-native exposes all of these: configured
+on Mistral's side, and — as of this release — exposes **web search and the
+code interpreter** as model-callable pi tools. pi-mistral-native exposes all of these: configured
 per session, folded into the chat stream as opaque content, and manageable
 through connector tools.
 
@@ -61,21 +61,22 @@ with HTTP 400 code 1800 — Mistral marks them Conversations/Agents-API-only.
 The request builder therefore filters entries to the supported set and,
 when configured tools were dropped, surfaces a visible warning once per
 session pointing at the alternatives (web search: the `mistral_web_search`
-tool; code interpreter: hosted agent mode). Web search itself runs via
-`mistral_web_search`/`mistral_web_search_premium` pi tools over one-shot
-stateless Conversations calls: every request carries a fixed
-`instructions` string steering the server-side agent to run the search
-tool (a declared field of the Conversations request, wire-verified
+tool; code interpreter: the `mistral_code_interpreter` tool). Web search
+runs via `mistral_web_search`/`mistral_web_search_premium` pi tools over
+one-shot stateless Conversations calls, and the code interpreter runs via
+the `mistral_code_interpreter` pi tool over the same shape: every request
+carries a fixed
+`instructions` string steering the server-side agent to run the tool (a
+declared field of the Conversations request, wire-verified
 effective on the live endpoint; hard forcing via `tool_choice` is
-server-rejected 422 for builtin connectors). The tool result
-nevertheless distinguishes a skipped search (no tool execution in the
+server-rejected 422 for builtin connectors). The tool results
+nevertheless distinguish a skipped execution (no tool execution in the
 response — reported as skipped, retry the query) from a genuinely
-empty result (search executed, zero hits). Code interpreter stays
-Conversations/Agents-only for now. The `mistral_web_search` tool is
-registered by default (no configuration) and the search model is
+empty result (tool executed, zero hits / no output). Both tools are
+registered by default (no configuration) and run under the search model
 configurable via `knowledge.searchModel`.
 
-*Decisions: [ADR 0018 — Web search as a Conversations-backed tool](adr/0018-web-search-as-conversations-backed-tool.md)*
+*Decisions: [ADR 0018 — Web search as a Conversations-backed tool](adr/0018-web-search-as-conversations-backed-tool.md); [ADR 0020 — Code interpreter as a Conversations-backed tool](adr/0020-code-interpreter-as-conversations-backed-tool.md)*
 
 ### Agent mode
 
@@ -95,8 +96,8 @@ overrides take precedence over `process.env`:
   completions — `web_search`, `web_search_premium` and `code_interpreter`
   are not supported by that endpoint (HTTP 400 code 1800) and are dropped
   from requests with a visible once-per-session warning. Web search is
-  available as the `mistral_web_search` pi tool instead; code interpreter
-  runs in hosted agent mode
+  available as the `mistral_web_search` pi tool instead; the code
+  interpreter runs as the `mistral_code_interpreter` pi tool
 - `MISTRAL_CONNECTORS` — comma/space separated connector ids or names
   (e.g. `notion`); sent as `{type:"connector", connector_id:…}` entries
 - `MISTRAL_AGENT_ID` — a non-empty value switches requests to agent mode

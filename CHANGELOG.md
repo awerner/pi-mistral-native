@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`mistral_code_interpreter` pi tool.** Runs Python code server-side
+  through Mistral's `code_interpreter` builtin connector via a stateless
+  one-shot Conversations call (the same pattern as `mistral_web_search`;
+  Chat Completions rejects `code_interpreter` with 400 code 1800). The
+  `prompt` parameter describes the Python task; the result carries the
+  executed code, captured stdout/stderr, printed text chunks, and
+  generated files (plots, data files) as signed download links — in the
+  model-facing content and `structuredContent` only, never in the
+  persisted `details`. A skipped execution (no code run) is reported as
+  retry-worthy and distinct from an executed run with no output; the call
+  runs under `knowledge.searchModel` (default `mistral-small-latest`), and
+  a 3004 refusal maps to the same friendly error as web search.
+
 ## [0.1.2] - 2026-11-03
 
 ### Added
