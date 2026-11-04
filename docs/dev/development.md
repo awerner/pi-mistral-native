@@ -7,9 +7,9 @@ project's documentation is structured in four layers:
 - `README.md` — the user landing page (features, status, install,
   configuration)
 - `docs/*.md` — user-facing feature docs (behavior, usage, limits)
-- `docs/development.md` (this page) and `docs/testing.md` — developer
-  docs for contributors and agents
-- `docs/adr/` — architecture decision records
+- `docs/dev/*.md` — developer docs for contributors and agents (this page,
+  testing, publishing, hosting, design-tokens)
+- `docs/dev/adr/` — architecture decision records
 
 `AGENTS.md` remains the agent entry point; `.pi/*.md` hold working
 instructions, not audience documentation.
@@ -36,8 +36,9 @@ npm run build      # tsc to dist/ (git-ignored)
 | `extensions/tools/` | Library/RAG and connector tools: `mistral-client.ts` (shared HTTP client), `knowledge.ts` (9 pi tools for files, libraries, documents, RAG query), `connectors.ts` (7 connector management pi tools), `loader.ts` (client-side connector tool loader — mistral_connector_load/unload/reload) |
 | `test/` | `node --test` suites |
 | `vendor/mistral-openapi.yaml` | Vendored Mistral OpenAPI spec — wire-format reference, never edit by hand |
-| `docs/` | Feature pages: [stream.md](stream.md), [catalog.md](catalog.md), [auth.md](auth.md), [knowledge-tools.md](knowledge-tools.md), [configuration.md](configuration.md), [testing.md](testing.md), [publishing.md](publishing.md); developer docs: [development.md](development.md) (this page), [testing.md](testing.md) |
-| `docs/adr/` | Decision records — index: [adr/README.md](adr/README.md) |
+| `docs/` | Feature pages: [stream.md](../stream.md), [catalog.md](../catalog.md), [auth.md](../auth.md), [knowledge-tools.md](../knowledge-tools.md), [server-tools.md](../server-tools.md), [configuration.md](../configuration.md) |
+| `docs/dev/` | Developer docs: [development.md](development.md) (this page), [testing.md](testing.md), [publishing.md](publishing.md), [hosting.md](hosting.md), [design-tokens.md](design-tokens.md) |
+| `docs/dev/adr/` | Decision records — index: [adr/README.md](adr/README.md) |
 | `.pi/` | pi project configuration (loads only after project trust) |
 | `.pi/settings.json` | Project model defaults (`mistral-native/mistral-large-4`) |
 | `.pi/workflow.md` | Workflow reference (roles, stages, never-list) |

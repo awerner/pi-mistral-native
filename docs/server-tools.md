@@ -41,8 +41,6 @@ agent you configured on La Plateforme:
 `{ "endpoint": { "region": "eu" } }` — or pick it during
 `/login mistral-native`.
 
-*Decisions: [ADR 0007 — Server-side tools as opaque content](adr/0007-server-side-tools-as-opaque-content.md); [ADR 0011 — Client-side connector tools via the loader pattern](adr/0011-client-side-connector-tools.md)*
-
 ## How it works
 
 Mistral can execute tools **server-side** inside one streamed chat
@@ -75,8 +73,6 @@ response — reported as skipped, retry the query) from a genuinely
 empty result (tool executed, zero hits / no output). Both tools are
 registered by default (no configuration) and run under the search model
 configurable via `knowledge.searchModel`.
-
-*Decisions: [ADR 0018 — Web search as a Conversations-backed tool](adr/0018-web-search-as-conversations-backed-tool.md); [ADR 0020 — Code interpreter as a Conversations-backed tool](adr/0020-code-interpreter-as-conversations-backed-tool.md)*
 
 ### Agent mode
 
@@ -116,8 +112,6 @@ the executed result. Calls the model wants the *client* to run still
 become normal pi tool calls, and a response that mixes both keeps its
 stop reason `toolUse` only when a client call is actually pending.
 
-*Decisions: [ADR 0007 — Server-side tools as opaque content](adr/0007-server-side-tools-as-opaque-content.md)*
-
 ### Connector management tools
 
 Seven pi tools manage connectors; all stay on the **global** endpoint
@@ -133,8 +127,6 @@ regardless of the configured region:
   activate/deactivate for a scope (user, workspace, organization)
 - `mistral_connector_share` / `mistral_connector_unshare` — share
   with / unshare from the current workspace
-
-*Decisions: [ADR 0007 — Server-side tools as opaque content](adr/0007-server-side-tools-as-opaque-content.md)*
 
 ### Client-side connector tools (loader pattern)
 
@@ -154,8 +146,6 @@ Gated by the `connectorTools` section of `mistral-native.json`
 (`enabled`, default true, with `MISTRAL_CONNECTOR_TOOLS` env override;
 `autoLoad`, a list of connectors registered and activated at session
 start — see [configuration.md](configuration.md)).
-
-*Decisions: [ADR 0011 — Client-side connector tools via the loader pattern](adr/0011-client-side-connector-tools.md)*
 
 ## Notes
 

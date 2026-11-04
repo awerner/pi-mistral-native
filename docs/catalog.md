@@ -29,8 +29,6 @@
 
 No configuration needed — the catalog maintains itself.
 
-*Decisions: [ADR 0003 — Vendored OpenAPI spec](adr/0003-vendored-openapi-spec.md)*
-
 ## How it works
 
 The provider registers a `refreshModels` handler so pi's model catalog
@@ -62,8 +60,6 @@ server errors or malformed bodies keep the **last-known list**; a
 successful fetch mapping to an **empty catalog** also keeps the
 last-known list; an abort returns it quietly; an unconfigured provider
 returns an empty list without any fetch.
-
-*Decisions: [ADR 0012 — Selectable region endpoint with per-family routing](adr/0012-selectable-region-endpoints.md)*
 
 ### Pricing: the family rate card
 
@@ -113,8 +109,6 @@ once-per-notice warning at the next session start, and
 `models.fallThrough: false` swaps the catch-all rates for a zero-cost
 placeholder (still flagged approximate).
 
-*Decisions: [ADR 0010 — Configuration via mistral-native.json](adr/0010-configuration-via-mistral-native-json.md); [ADR 0013 — Per-family rate card with sourced prices and visible fall-through](adr/0013-rate-card-sourced-prices.md); [ADR 0021 — Cost estimates marked as not provider-billed](adr/0021-cost-estimates-marked-not-billed.md)*
-
 ### Regional pricing
 
 Regional endpoints (EU/US) carry a **+10% price premium** on eligible
@@ -122,8 +116,6 @@ input, output and cached-token rates. Whenever the effective region is
 not `global`, every resolved cost is multiplied by the surcharge factor
 inside the single rate-resolution point, so pi's cost display stays
 truthful; the rate cards themselves are never mutated.
-
-*Decisions: [ADR 0012 — Selectable region endpoint with per-family routing](adr/0012-selectable-region-endpoints.md)*
 
 ### Which models appear
 
@@ -162,17 +154,15 @@ limit (documented limits win — they are the tighter, sourced facts):
 Models without a wire-verified entry use a conservative fallback
 (262144, capped at the context window): an oversized value hard-fails
 requests with 400 code 3058, while a conservative one merely caps output.
-New ceilings are sourced by probing (see ADR 0017 for the method).
+New ceilings are sourced by probing.
 
 The static fallback catalog follows the same mapping, so the fallback and
 the live path never contradict each other.
 
 Last verified: **2026-11-03** — documented limits against the model
 pages on [docs.mistral.ai](https://docs.mistral.ai/models), the
-mistral-large-4 ceiling against the live API (probe, see ADR 0017);
+mistral-large-4 ceiling against the live API (probe);
 re-verify per entry when updating either table.
-
-*Decisions: [ADR 0017 — Documented max-output mapping over fixed clamp](adr/0017-documented-max-output-mapping.md)*
 
 ## Advanced: refreshModels implementation
 
@@ -198,5 +188,3 @@ re-verify per entry when updating either table.
   `lastFallThroughNotice()` (`{ ids, at }`); the extension surfaces it
   via `ctx.ui.notify(..., "warning")` on the next `session_start`
   (the extension itself performs no logging).
-
-*Decisions: [ADR 0013 — Per-family rate card with sourced prices and visible fall-through](adr/0013-rate-card-sourced-prices.md); [ADR 0012 — Selectable region endpoint with per-family routing](adr/0012-selectable-region-endpoints.md)*

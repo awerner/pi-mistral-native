@@ -37,7 +37,7 @@ script (`npm run build`) so the tarball can never ship stale or missing
 Known trade-off accepted: in a fresh local checkout, `pi install`/`pi -e`
 against the package root silently loads no extension until `npm run build`
 has produced `dist/` (the manifest glob matches no file). This is
-documented in the README and `docs/publishing.md`.
+documented in the README and `docs/dev/publishing.md`.
 
 ## Consequences
 

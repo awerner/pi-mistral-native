@@ -6,7 +6,7 @@
 ## Context
 
 Mistral's chat-completions `ContentChunk` union (vendored
-[OpenAPI spec](../vendor/mistral-openapi.yaml), ADR
+[OpenAPI spec](../../../vendor/mistral-openapi.yaml), ADR
 [0003](0003-vendored-openapi-spec.md)) has nine wire types: `text`,
 `image_url`, `document_url`, `reference`, `file`, `thinking`,
 `input_audio`, `resource`, `resource_link`. The stream's delta mapping

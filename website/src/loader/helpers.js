@@ -11,9 +11,10 @@
 
 /**
  * Resolve a POSIX-style docs-relative path (e.g. `docs/stream.md`,
- * `docs/adr/0002-x.md`, `docs/adr/README.md`) to its site route slug
- * (e.g. `stream`, `adr/0002-x`, `adr`). The repository root README (which the
- * docs link as `../README.md`) maps to the empty slug: the site landing page.
+ * `docs/dev/adr/0002-x.md`, `docs/dev/adr/README.md`) to its site route slug
+ * (e.g. `stream`, `dev/adr/0002-x`, `dev/adr`). The repository root README
+ * (which the docs link as `../README.md` or `../../../README.md`) maps to
+ * the empty slug: the site landing page.
  */
 export function docsPathToSlug(docsPath) {
   const posixPath = docsPath.replaceAll('\\', '/');
@@ -23,7 +24,7 @@ export function docsPathToSlug(docsPath) {
   }
   let rest = posixPath.slice('docs/'.length);
   if (rest === 'README.md') return '';
-  // docs/<dir>/README.md collapses to the directory route (docs/adr/README.md -> adr).
+  // docs/<dir>/README.md collapses to the directory route (docs/dev/adr/README.md -> dev/adr).
   if (rest.endsWith('/README.md')) {
     return rest.slice(0, -'/README.md'.length);
   }
@@ -210,11 +211,11 @@ export function extractAdrStatus(body) {
 }
 
 /**
- * True when the docs path belongs to the ADR directories (docs/adr/ or
- * docs/adr/process/) — i.e. when the status line carries lifecycle meaning.
+ * True when the docs path belongs to the ADR directory (docs/dev/adr/) —
+ * i.e. when the status line carries lifecycle meaning.
  */
 export function isAdrPage(docsPath) {
-  return /^docs\/adr\/(process\/)?.+\.md$/.test(docsPath);
+  return /^docs\/dev\/adr\/.+\.md$/.test(docsPath);
 }
 
 /**

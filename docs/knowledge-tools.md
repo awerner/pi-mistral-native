@@ -52,8 +52,6 @@ mistral_document_reprocess
 
 No configuration needed — the tools register automatically.
 
-*Decisions: [ADR 0005 — OCR, embeddings, moderations/classifications as pi tools](adr/0005-ocr-embeddings-moderations-as-pi-tools.md); [ADR 0006 — Knowledge API tools](adr/0006-knowledge-api-tools.md)*
-
 ## Tool reference
 
 The extension registers **16 pi tools** covering Mistral's
@@ -66,8 +64,6 @@ All tools resolve the API key per call through the chain in
 [auth.md](auth.md) and stay on the **global** `api.mistral.ai`
 endpoint regardless of the configured region (only chat completions
 and the model catalog route regionally).
-
-*Decisions: [ADR 0012 — Selectable region endpoint with per-family routing](adr/0012-selectable-region-endpoints.md)*
 
 ### Document-intelligence tools
 
@@ -102,8 +98,6 @@ Key parameters:
   model id (its training-time targets are what get scored; callers
   cannot define custom criteria). `input`: one text or a list. Returns
   per-target score tables in `structuredContent`.
-
-*Decisions: [ADR 0005 — OCR, embeddings, moderations/classifications as pi tools](adr/0005-ocr-embeddings-moderations-as-pi-tools.md)*
 
 ### Library / RAG tools
 
@@ -142,8 +136,6 @@ Key parameters:
   optional `kind` (`document` default, or `extracted-text`). The URL
   expires after 30 minutes.
 
-*Decisions: [ADR 0006 — Knowledge API tools](adr/0006-knowledge-api-tools.md)*
-
 ### Streaming RAG queries
 
 **`mistral_document_query`** — `libraryIds` (at least one), `query`;
@@ -159,8 +151,6 @@ retrieved text chunks plus citations (signed document URLs with
 names). Set `rag.streaming: false` (or `MISTRAL_RAG_STREAMING=0`) to
 force the non-streaming request — see
 [configuration.md](configuration.md).
-
-*Decisions: [ADR 0006 — Knowledge API tools](adr/0006-knowledge-api-tools.md); [ADR 0015 — Streaming RAG document query](adr/0015-streaming-rag-document-query.md); [ADR 0021 — Cost estimates marked as not provider-billed](adr/0021-cost-estimates-marked-not-billed.md)*
 
 ### Web search
 
@@ -185,8 +175,6 @@ false`): the `connector_tokens` pay-per-use charge is deliberately not
 priceable locally — the Conversations wire format reports token counts
 only, never a billed total.
 
-*Decisions: [ADR 0018 — Web search as a Conversations-backed tool](adr/0018-web-search-as-conversations-backed-tool.md); [ADR 0021 — Cost estimates marked as not provider-billed](adr/0021-cost-estimates-marked-not-billed.md)*
-
 ### Code interpreter
 
 **`mistral_code_interpreter`** — `prompt` (required, the only parameter:
@@ -203,8 +191,6 @@ the model-facing content and `structuredContent`, never in the persisted
 `mistral-large-4` behaves this way) the result reports the skip as
 retry-worthy, distinct from an executed run that produced no output;
 neither is an error.
-
-*Decisions: [ADR 0020 — Code interpreter as a Conversations-backed tool](adr/0020-code-interpreter-as-conversations-backed-tool.md)*
 
 ## Security and privacy rules
 

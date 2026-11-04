@@ -5,10 +5,10 @@
 // rewriting all happen in memory here.
 //
 // Route mapping:
-//   docs/stream.md           -> slug `stream`             -> /stream/
-//   docs/adr/0002-x.md       -> slug `adr/0002-x`         -> /adr/0002-x/
-//   docs/adr/README.md       -> slug `adr`                -> /adr/
-//   docs/adr/process/0007-x  -> slug `adr/process/0007-x` -> /adr/process/0007-x/
+//   docs/stream.md               -> slug `stream`             -> /stream/
+//   docs/dev/development.md      -> slug `dev/development`    -> /dev/development/
+//   docs/dev/adr/0002-x.md       -> slug `dev/adr/0002-x`     -> /dev/adr/0002-x/
+//   docs/dev/adr/README.md       -> slug `dev/adr`            -> /dev/adr/
 //
 // README.md at the repository root is NOT ingested (the site landing page is
 // site-authored and derives from it instead).
