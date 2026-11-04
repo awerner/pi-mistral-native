@@ -82,6 +82,9 @@ The user-scope file is authored by hand or created by an explicit first
 `/mistral set` or by the guided `/login` region picker (ADR
 [0016](0016-mistral-command-family.md)); it is never created
 speculatively — with no `set`, the no-file env-first default is
-unchanged. The `/mistral` command family writes user scope only; the
-project scope stays hand-authored (trust boundary — it travels with the
-repo).
+unchanged. The `/mistral` command family writes the user scope by
+default; `/mistral set --project` writes the project scope in trusted
+projects (ADR [0022](0022-mistral-set-scope-and-list-mutation.md) —
+Project-scope writes and list mutation for `/mistral set`); otherwise
+the project scope stays hand-authored (trust boundary — it travels with
+the repo).

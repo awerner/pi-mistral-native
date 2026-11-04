@@ -36,10 +36,11 @@ scope on every `session_start`.
 
 ### Writing the file
 
-The file is authored by hand or written by `/mistral set` (see
-[the command family](#mistral-command-family)); the guided `/login`
-region picker creates the user-scope file — only when no file exists
-anywhere in the chain — with just `endpoint.region`. A write never
+The file is authored by hand or written by `/mistral set` — user scope
+by default, project scope via `/mistral set --project` (requires project
+trust; see [the command family](#mistral-command-family)); the guided
+`/login` region picker creates the user-scope file — only when no file
+exists anywhere in the chain — with just `endpoint.region`. A write never
 touches an existing file's other content.
 
 ### Merging
@@ -222,13 +223,20 @@ config-file field (see [auth.md](auth.md)).
 
 `/mistral` shows a status card with every key's effective value and its
 provenance; `/mistral set <key> <value>` writes one key to the **user
-scope** (atomic, merge-preserving, validated before the write, verified by
-re-reading; the project scope stays hand-edited — it travels with the
-repo); `/mistral test` runs a live `GET /v1/models` check naming the
-failing step (auth / network / http) with a fix hint. Every key in the
-table is settable except `models.rateCard` (hand-edit the file). Within
-the command family, only `set` writes: the first `set` creates the
-user-scope file (the env-first default stands).
+scope** by default, or to the **project scope** with `--project`
+(`<cwd>/.pi/mistral-native.json`, requires project trust) — both scopes
+through the same atomic, merge-preserving, validated write-then-verify
+path. List-kind keys (`serverTools`, `connectors`,
+`connectorTools.autoLoad`) accept `+entry` (append, deduplicated) and
+`-entry` (remove; a no-op with a note when absent); a bare key clears
+the list, a comma-separated value replaces it. Values complete at the
+value position (booleans `true`/`false`, `endpoint.region`
+`global`/`eu`/`us`, list `+`/`-` entry hints), and Tab completes at
+every argument position. `/mistral test` runs a live `GET /v1/models`
+check naming the failing step (auth / network / http) with a fix hint.
+Every key in the table is settable except `models.rateCard` (hand-edit
+the file). Within the command family, only `set` writes: the first
+`set` creates the user-scope file (the env-first default stands).
 
 ## Advanced
 

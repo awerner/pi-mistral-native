@@ -39,7 +39,10 @@ in `extensions/mistral/commands.ts`), three subcommands:
   `validateMistralFileConfig` **before** the write, and write-then-verified
   by re-reading the chain. Unknown keys and `models.rateCard` (nested
   object array, no sane single-string encoding) get a Usage error pointing
-  at the documented keys and the file for hand-editing.
+  at the documented keys and the file for hand-editing. (User scope stays
+  the default; `/mistral set --project` writes the project scope — ADR
+  [0022](0022-mistral-set-scope-and-list-mutation.md) supersedes the
+  user-scope-only rule for `set`.)
 - **`/mistral test`**: a live `GET /v1/models` check with a named failing
   step (auth / network / HTTP status) and a concrete fix hint per failure.
 
@@ -51,7 +54,9 @@ Invariants the command layer commits to:
    test override. Only a *successful* `set` calls `refreshMistralConfig`
    to sync the live session; a bare status read never mutates cached state.
 2. **Project scope is read-only for commands**: `set` refuses to write it
-   and the card says so when a project key shadows a user key.
+   and the card says so when a project key shadows a user key
+   (superseded for `set` by ADR
+   [0022](0022-mistral-set-scope-and-list-mutation.md)).
 3. **No speculative file creation**: the user file is created only by an
    explicit first `set` (extending ADR 0010's "authored by hand" note).
 4. **Never render secrets**: the API key is never displayed; auth shows the

@@ -5,6 +5,37 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Value completion and Tab completion for `/mistral set`.** The value
+  position now completes for every settable key — booleans offer
+  `true`/`false`, `endpoint.region` offers `global`/`eu`/`us`, list
+  keys offer `+<known entry>`/`-<existing entry>` hints — and Tab
+  completes at every argument position (subcommand, `--project`, key,
+  value). Items carry the complete new argument text (pi 1.5.0 replaces
+  the entire argument string when applying a suggestion — the previous
+  bare-token items deleted the preceding tokens), and an
+  autocomplete-provider wrapper serves forced (explicit Tab) requests,
+  which pi otherwise routes to file completion.
+- **`+entry`/`-entry` list mutation for list-kind keys.** `serverTools`,
+  `connectors` and `connectorTools.autoLoad` accept `+entry` (appends,
+  deduplicated) and `-entry` (removes; a no-op with a note when the
+  entry is absent — never an error, and nothing is written when
+  nothing changes). A bare key still clears the list and a plain
+  comma-separated value still replaces it wholesale; `+`/`-` prefixes
+  are parsed only for list-kind keys, so a string value starting with
+  `+`/`-` is stored literally.
+- **`--project` scope flag for `/mistral set`.** `/mistral set --project
+  <key> <value>` writes the project scope
+  `<cwd>/.pi/mistral-native.json` through the same atomic,
+  merge-preserving, validated write-then-verify path as the user scope
+  (still the default), and is refused with a clear message when the
+  project is not trusted. A user-scope write warns when a project value
+  shadows it; a project-scope write notes when it overrides a
+  differing user value.
+
 ## [0.1.3] - 2026-11-03
 
 ### Added
@@ -207,11 +238,7 @@ endpoints, all as first-class pi capabilities.
   cannot reproduce the 400 before the self-healing catalog refresh
   overwrites them.
 
-## [unreleased]
-
-Nothing yet beyond 0.1.2.
-
-[unreleased]: https://github.com/awerner/pi-mistral-native/compare/v0.1.2...HEAD
+[unreleased]: https://github.com/awerner/pi-mistral-native/compare/v0.1.3...HEAD
 [0.1.2]: https://github.com/awerner/pi-mistral-native/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/awerner/pi-mistral-native/releases/tag/v0.1.1
 [0.1.0]: https://github.com/awerner/pi-mistral-native/releases/tag/v0.1.0

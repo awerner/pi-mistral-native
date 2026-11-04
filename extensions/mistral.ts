@@ -2523,6 +2523,6 @@ export default function (pi: ExtensionAPI) {
 	registerConnectorLoaderTools(pi);
 
 	// The /mistral command family: status card with per-value provenance,
-	// user-scope-only set, live connectivity test.
+	// user-default/project-opt-in set, live connectivity test.
 	registerMistralCommands(pi);
 }
