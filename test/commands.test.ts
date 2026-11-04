@@ -1,31 +1,55 @@
 /**
- * Tests for the `/mistral` command family: status-card
- * provenance, user-scope-only set (atomic write-then-verify, no speculative
- * creation, first-set minimal file), the Usage error for unknown keys, the
- * live test's named failing steps (auth/network/http/ok), and the env-only
- * regression. No network, no real keys; file seams are injected.
+ * Tests for the `/mistral` command family: status-card provenance,
+ * scope-parameterized set (user default, --project with trust refusal;
+ * atomic write-then-verify, no speculative creation, first-set minimal
+ * file), list-entry mutation (+append dedup / -remove / clear /
+ * wholesale-replace), the Usage error for unknown keys, the live test's
+ * named failing steps (auth/network/http/ok), the env-only regression,
+ * and the completion surface — the pure argument-completion function
+ * (full-argument item values, key/flag/value positions, static and
+ * seam-driven dynamic hints) plus the autocomplete-provider wrapper.
+ *
+ * The wrapper regression tests drive pi's REAL
+ * `CombinedAutocompleteProvider` (imported from `@earendil-works/pi-tui`
+ * — an accepted coupling to the installed pi-tui, same pattern as
+ * test/auth.test.ts's composer coupling): pi applies a completion item
+ * by replacing the entire stored argument prefix with `item.value`, and
+ * explicit Tab on a slash line with a space issues a forced request that
+ * skips registerCommand argument completions, so the real provider (not a
+ * replica) must observe both fixes.
+ *
+ * No network, no real keys. Handler tests run against the real fs
+ * inside throwaway temp dirs with hermetic env bags (never the
+ * machine's live config); pure-function tests use injected seams; the
+ * wrapper regression tests read the process-env user chain for dynamic
+ * +/- hints with machine-tolerant shape/membership assertions.
  *
  * ADR 0016 — /mistral command family: show, set, test
+ * ADR 0022 — Project-scope writes and list mutation for /mistral set
  */
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { userConfigPaths } from "../extensions/mistral/config.js";
+import { userConfigPaths, projectConfigPath } from "../extensions/mistral/config.js";
 import {
 	type CommandContext,
 	loadMistralScopes,
 	buildStatusCard,
 	setUserConfigKey,
+	setProjectConfigKey,
 	setUserConfigTargetPath,
 	verifySetResult,
 	runMistralTest,
 	mistralArgumentCompletions,
+	mistralAutocompleteProviderWrapper,
 	handleMistralCommand,
+	registerMistralCommands,
 } from "../extensions/mistral/commands.js";
+import { CombinedAutocompleteProvider } from "@earendil-works/pi-tui";
 
 // --- scope fixtures: a tiny in-memory file chain via injected seams ------
 
@@ -97,9 +121,12 @@ test("first set creates a minimal file with only the written key", () => {
 	const fs = emptyFs();
 	const env = memoryEnv(fs, HOME);
 	const target = setUserConfigTargetPath(env, memoryExists(fs));
-	setUserConfigKey("endpoint.region", "eu", env, {
+	const outcome = setUserConfigKey("endpoint.region", "eu", env, {
 		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
 	});
+	assert.equal(outcome.target, target);
+	assert.equal(outcome.wrote, true);
+	assert.equal(outcome.note, undefined);
 	const written = JSON.parse(fs.files.get(target)!) as Record<string, unknown>;
 	assert.deepEqual(written, { endpoint: { region: "eu" } });
 });
@@ -175,7 +202,7 @@ test("set unknown key -> Usage error listing settable keys", () => {
 		() => setUserConfigKey("endpoint.regiion", "eu", env, {
 			readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
 		}),
-		/Usage: \/mistral set <key> <value>[\s\S]*Settable keys:/,
+		/Usage: \/mistral set \[--project\] <key> <value>[\s\S]*Settable keys:/,
 	);
 });
 
@@ -201,6 +228,219 @@ test("set list key accepts comma-separated values", () => {
 	assert.deepEqual(written.serverTools, ["web_search", "code_interpreter"]);
 });
 
+test("set +entry appends to the current list with dedup (memory fs)", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	const target = setUserConfigTargetPath(env, memoryExists(fs));
+	fs.files.set(target, JSON.stringify({ serverTools: ["web_search"] }));
+	const outcome = setUserConfigKey("serverTools", "+code_interpreter", env, {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	assert.equal(outcome.wrote, true);
+	const written = JSON.parse(fs.files.get(target)!) as { serverTools: string[] };
+	assert.deepEqual(written.serverTools, ["web_search", "code_interpreter"]);
+});
+
+test("set +entry on an unset list creates the list", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	const target = setUserConfigTargetPath(env, memoryExists(fs));
+	setUserConfigKey("connectors", "+notion", env, {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	const written = JSON.parse(fs.files.get(target)!) as { connectors: string[] };
+	assert.deepEqual(written.connectors, ["notion"]);
+});
+
+test("set +entry already present is a no-op with a note, file unchanged", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	const target = setUserConfigTargetPath(env, memoryExists(fs));
+	const before = JSON.stringify({ serverTools: ["web_search"] });
+	fs.files.set(target, before);
+	const outcome = setUserConfigKey("serverTools", "+web_search", env, {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	assert.equal(outcome.wrote, false);
+	assert.match(outcome.note ?? "", /nothing added/);
+	assert.match(outcome.note ?? "", /web_search already in the list/);
+	assert.equal(fs.files.get(target), before);
+});
+
+test("set -entry removes from the current list", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	const target = setUserConfigTargetPath(env, memoryExists(fs));
+	fs.files.set(target, JSON.stringify({ serverTools: ["web_search", "code_interpreter"] }));
+	const outcome = setUserConfigKey("serverTools", "-web_search", env, {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	assert.equal(outcome.wrote, true);
+	const written = JSON.parse(fs.files.get(target)!) as { serverTools: string[] };
+	assert.deepEqual(written.serverTools, ["code_interpreter"]);
+});
+
+test("set -entry missing from the list is a no-op with a note", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	const target = setUserConfigTargetPath(env, memoryExists(fs));
+	const before = JSON.stringify({ serverTools: ["web_search"] });
+	fs.files.set(target, before);
+	const outcome = setUserConfigKey("serverTools", "-code_interpreter", env, {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	assert.equal(outcome.wrote, false);
+	assert.match(outcome.note ?? "", /nothing removed/);
+	assert.match(outcome.note ?? "", /code_interpreter not in the list/);
+	assert.equal(fs.files.get(target), before);
+});
+
+test("set -entry on an unset list is a no-op; the key stays absent", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	const target = setUserConfigTargetPath(env, memoryExists(fs));
+	// unset falls through to env; [] suppresses it — never turn one into the other.
+	const outcome = setUserConfigKey("serverTools", "-web_search", env, {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	assert.equal(outcome.wrote, false);
+	assert.match(outcome.note ?? "", /the list is unset/);
+	assert.equal(fs.files.has(target), false, "no file may be created by a no-op removal");
+});
+
+test("set mixed +a,+b with a already present writes and notes the skip", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	const target = setUserConfigTargetPath(env, memoryExists(fs));
+	fs.files.set(target, JSON.stringify({ connectors: ["a"] }));
+	const outcome = setUserConfigKey("connectors", "+a,+b", env, {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	assert.equal(outcome.wrote, true);
+	assert.match(outcome.note ?? "", /added \+?b/);
+	assert.match(outcome.note ?? "", /skipped a/);
+	const written = JSON.parse(fs.files.get(target)!) as { connectors: string[] };
+	assert.deepEqual(written.connectors, ["a", "b"]);
+});
+
+test("set mixed -a,-c removes a and notes the missing c", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	const target = setUserConfigTargetPath(env, memoryExists(fs));
+	fs.files.set(target, JSON.stringify({ connectors: ["a", "b"] }));
+	const outcome = setUserConfigKey("connectors", "-a,-c", env, {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	assert.equal(outcome.wrote, true);
+	assert.match(outcome.note ?? "", /removed a/);
+	assert.match(outcome.note ?? "", /skipped \+?c/);
+	const written = JSON.parse(fs.files.get(target)!) as { connectors: string[] };
+	assert.deepEqual(written.connectors, ["b"]);
+});
+
+test("set '+' alone is an invalid value error", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	assert.throws(
+		() => setUserConfigKey("serverTools", "+", env, {
+			readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+		}),
+		/"serverTools": "\+" needs at least one entry/,
+	);
+});
+
+test("set non-list keys store +/- values literally or reject them", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	const target = setUserConfigTargetPath(env, memoryExists(fs));
+	// String keys: a literal "+foo"/"-foo" stays untouched.
+	setUserConfigKey("agentId", "-foo", env, {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	let written = JSON.parse(fs.files.get(target)!) as { agentId: string };
+	assert.equal(written.agentId, "-foo");
+	// Boolean/region keys: the existing invalid-value errors apply.
+	assert.throws(
+		() => setUserConfigKey("rag.streaming", "-x", env, {
+			readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+		}),
+		/invalid boolean for "rag\.streaming"/,
+	);
+	assert.throws(
+		() => setUserConfigKey("endpoint.region", "+eu", env, {
+			readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+		}),
+		/must be global, eu or us/,
+	);
+});
+
+test("set stores a protocol value literally (endpoint.baseUrl)", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	const target = setUserConfigTargetPath(env, memoryExists(fs));
+	// The raw `!cmd` string is stored untouched — the config-value
+	// protocol resolves at read time, never at write time.
+	setUserConfigKey("endpoint.baseUrl", "!pass show gateway-url", env, {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	const written = JSON.parse(fs.files.get(target)!) as { endpoint: { baseUrl: string } };
+	assert.equal(written.endpoint.baseUrl, "!pass show gateway-url");
+});
+
+test("setProjectConfigKey writes and merges at projectConfigPath(cwd)", () => {
+	const fs = emptyFs();
+	const cwd = "/proj";
+	const target = projectConfigPath(cwd);
+	fs.files.set(target, JSON.stringify({ agentId: "keep-me" }));
+	const outcome = setProjectConfigKey(cwd, "endpoint.region", "eu", {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	assert.equal(outcome.target, target);
+	assert.equal(outcome.wrote, true);
+	const written = JSON.parse(fs.files.get(target)!) as Record<string, unknown>;
+	assert.deepEqual(written, { agentId: "keep-me", endpoint: { region: "eu" } });
+});
+
+test("setProjectConfigKey refuses invalid JSON at the project path", () => {
+	const fs = emptyFs();
+	const cwd = "/proj";
+	const target = projectConfigPath(cwd);
+	fs.files.set(target, "{ not json");
+	assert.throws(
+		() => setProjectConfigKey(cwd, "agentId", "x", {
+			readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+		}),
+		/not valid JSON.*fix the file by hand/,
+	);
+	assert.equal(fs.files.get(target), "{ not json");
+});
+
+test("setProjectConfigKey refuses a project file failing schema validation (no write)", () => {
+	const fs = emptyFs();
+	const cwd = "/proj";
+	const target = projectConfigPath(cwd);
+	fs.files.set(target, JSON.stringify({ unknownField: true }));
+	assert.throws(
+		() => setProjectConfigKey(cwd, "agentId", "x", {
+			readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+		}),
+		/unknown field.*fix the file by hand/,
+	);
+	assert.equal(fs.files.get(target), JSON.stringify({ unknownField: true }));
+});
+
+test("setProjectConfigKey: list mutation works on the project scope's own list", () => {
+	const fs = emptyFs();
+	const cwd = "/proj";
+	const target = projectConfigPath(cwd);
+	fs.files.set(target, JSON.stringify({ serverTools: ["web_search"] }));
+	setProjectConfigKey(cwd, "serverTools", "+code_interpreter", {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	const written = JSON.parse(fs.files.get(target)!) as { serverTools: string[] };
+	assert.deepEqual(written.serverTools, ["web_search", "code_interpreter"]);
+});
+
 test("set empty list value clears to []", () => {
 	const fs = emptyFs();
 	const env = memoryEnv(fs, HOME);
@@ -210,6 +450,26 @@ test("set empty list value clears to []", () => {
 	});
 	const written = JSON.parse(fs.files.get(target)!) as { serverTools: string[] };
 	assert.deepEqual(written.serverTools, []);
+});
+
+test("set list value is comma-only: clears; no whitespace fallback", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	const target = setUserConfigTargetPath(env, memoryExists(fs));
+	// A comma-only value has no non-empty parts -> the empty list (spaces
+	// are significant within an entry; there is no space-split fallback).
+	setUserConfigKey("serverTools", ",", env, {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	let written = JSON.parse(fs.files.get(target)!) as { serverTools: string[] };
+	assert.deepEqual(written.serverTools, []);
+	// A comma-only mutation has no entries -> the existing error.
+	assert.throws(
+		() => setUserConfigKey("serverTools", "+,", env, {
+			readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+		}),
+		/"serverTools": "\+" needs at least one entry/,
+	);
 });
 
 test("set empty string value for a plain string key is refused", () => {
@@ -253,9 +513,53 @@ test("verify: a project key shadowing the written key is reported", () => {
 	assert.match(result.message, /effective here: from-project/);
 });
 
+test("verify: a content-equal project list value is not a shadow", () => {
+	const user = { value: { serverTools: ["web_search"] }, path: "/u/mistral-native.json", warning: undefined };
+	const project = { value: { serverTools: ["web_search"] }, path: "/p/.pi/mistral-native.json", warning: undefined };
+	const result = verifySetResult({ user, project }, "serverTools");
+	assert.equal(result.ok, true);
+	assert.match(result.message, /Saved: serverTools = web_search \(user scope\)/);
+	assert.doesNotMatch(result.message, /shadows/);
+});
+
+test("verify: a content-equal user list value is not an override", () => {
+	const user = { value: { serverTools: ["web_search"] }, path: "/u/mistral-native.json", warning: undefined };
+	const project = { value: { serverTools: ["web_search"] }, path: "/p/.pi/mistral-native.json", warning: undefined };
+	const result = verifySetResult({ user, project }, "serverTools", "project");
+	assert.equal(result.ok, true);
+	assert.match(result.message, /Saved: serverTools = web_search \(project scope\)/);
+	assert.doesNotMatch(result.message, /overrides/);
+});
+
 test("verify: an unset re-read reports did-not-take", () => {
 	const scopes = { user: { value: undefined, path: undefined, warning: undefined }, project: { value: undefined, path: undefined, warning: undefined } };
 	const result = verifySetResult(scopes, "agentId");
+	assert.equal(result.ok, false);
+	assert.match(result.message, /did not take/);
+});
+
+test("verify: project-scope write reports the project scope", () => {
+	const user = { value: { agentId: "from-user" }, path: "/u/mistral-native.json", warning: undefined };
+	const project = { value: { agentId: "from-project" }, path: "/p/.pi/mistral-native.json", warning: undefined };
+	const result = verifySetResult({ user, project }, "agentId", "project");
+	assert.equal(result.ok, true);
+	assert.match(result.message, /Saved: agentId = from-project \(project scope\)/);
+	assert.match(result.message, /overrides the user-scope value from-user/);
+});
+
+test("verify: project-scope write with no user value says so plainly", () => {
+	const user = { value: undefined, path: undefined, warning: undefined };
+	const project = { value: { agentId: "from-project" }, path: "/p/.pi/mistral-native.json", warning: undefined };
+	const result = verifySetResult({ user, project }, "agentId", "project");
+	assert.equal(result.ok, true);
+	assert.match(result.message, /\(project scope\)/);
+	assert.doesNotMatch(result.message, /overrides/);
+});
+
+test("verify: project-scope did-not-take is reported against the project re-read", () => {
+	const user = { value: { agentId: "from-user" }, path: "/u/mistral-native.json", warning: undefined };
+	const project = { value: undefined, path: undefined, warning: undefined };
+	const result = verifySetResult({ user, project }, "agentId", "project");
 	assert.equal(result.ok, false);
 	assert.match(result.message, /did not take/);
 });
@@ -306,9 +610,9 @@ test("status card: a user-file knowledge.searchModel shows with file provenance;
 	});
 	const written = JSON.parse(fs.files.get(target)!) as { knowledge: { searchModel: string } };
 	assert.equal(written.knowledge.searchModel, "mistral-medium-latest");
-	// Completion offers the key.
+	// Completion offers the key (values carry the full argument text).
 	const items = mistralArgumentCompletions("set knowledge.");
-	assert.ok(items.some((item) => item.value === "knowledge.searchModel"), "key must be offered");
+	assert.ok(items.some((item) => item.value === "set knowledge.searchModel"), "key must be offered");
 });
 
 test("status card: no server-tools footnote when the configured set is supported", () => {
@@ -444,8 +748,9 @@ test("real fs: atomic write leaves no temp file behind and lands at the target",
 		const env = { HOME: dir, PI_CODING_AGENT_DIR: dir, XDG_CONFIG_HOME: "" };
 		const target = `${dir}/mistral-native.json`;
 		// setUserConfigKey with the real fs (no injected writer).
-		const returned = setUserConfigKey("endpoint.region", "eu", env);
-		assert.equal(returned, target);
+		const outcome = setUserConfigKey("endpoint.region", "eu", env);
+		assert.equal(outcome.target, target);
+		assert.equal(outcome.wrote, true);
 		const written = JSON.parse(readFileSync(target, "utf8")) as Record<string, unknown>;
 		assert.deepEqual(written, { endpoint: { region: "eu" } });
 		const leftovers = readdirSync(dir).filter((name) => name.includes(".tmp"));
@@ -455,11 +760,12 @@ test("real fs: atomic write leaves no temp file behind and lands at the target",
 	}
 });
 
-// --- tab completion --------------------------------------------------------
+// --- tab completion (pure function) ---------------------------------------
 
 test("completion: empty prefix offers the subcommands", () => {
 	const items = mistralArgumentCompletions("");
 	assert.deepEqual(items.map((item) => item.value).sort(), ["set", "test"]);
+	assert.match(items.find((item) => item.value === "set")!.description ?? "", /--project/);
 });
 
 test("completion: 'se' prefix offers only set", () => {
@@ -467,24 +773,406 @@ test("completion: 'se' prefix offers only set", () => {
 	assert.deepEqual(items.map((item) => item.value), ["set"]);
 });
 
-test("completion: 'set ' offers all settable keys", () => {
+test("completion: 'set ' offers all settable keys plus --project, full-argument values", () => {
 	const items = mistralArgumentCompletions("set ");
-	assert.ok(items.length >= 10);
-	assert.ok(items.some((item) => item.value === "endpoint.region"));
+	const expectedKeys = Object.keys({
+		"agentId": 0,
+		"connectorTools.autoLoad": 0,
+		"connectorTools.enabled": 0,
+		"connectors": 0,
+		"endpoint.baseUrl": 0,
+		"endpoint.region": 0,
+		"knowledge.searchModel": 0,
+		"knowledge.streaming": 0,
+		"models.fallThrough": 0,
+		"ocr.defaultModel": 0,
+		"rag.defaultLibraryId": 0,
+		"rag.streaming": 0,
+		"serverTools": 0,
+	}).sort();
+	assert.deepEqual(
+		items.map((item) => item.value).sort(),
+		[...expectedKeys.map((key) => `set ${key}`), "set --project"].sort(),
+	);
+	const flag = items.find((item) => item.value === "set --project")!;
+	assert.equal(flag.label, "--project");
+	assert.match(flag.description ?? "", /project trust/);
+});
+
+test("completion: 'set --p' offers only the --project flag", () => {
+	const items = mistralArgumentCompletions("set --p");
+	assert.deepEqual(items.map((item) => item.value), ["set --project"]);
+	assert.equal(items[0]!.label, "--project");
+});
+
+test("completion: 'set --project ' offers keys with project-argument values and no flag", () => {
+	const items = mistralArgumentCompletions("set --project ");
+	assert.ok(items.length >= 13);
+	assert.ok(items.some((item) => item.value === "set --project serverTools"));
+	assert.ok(!items.some((item) => item.value === "set --project"), "flag already consumed");
+	for (const item of items) assert.ok(item.value.startsWith("set --project "));
 });
 
 test("completion: 'set endpoint.' offers the dotted endpoint keys", () => {
 	const items = mistralArgumentCompletions("set endpoint.");
-	assert.deepEqual(items.map((item) => item.value), ["endpoint.baseUrl", "endpoint.region"]);
+	assert.deepEqual(items.map((item) => item.value), ["set endpoint.baseUrl", "set endpoint.region"]);
 });
 
-test("completion: 'set endpoint.region ' (value position) offers nothing", () => {
-	assert.deepEqual(mistralArgumentCompletions("set endpoint.region "), []);
+test("completion: 'set serverTool' offers the full-argument key value", () => {
+	const items = mistralArgumentCompletions("set serverTool");
+	assert.deepEqual(items.map((item) => item.value), ["set serverTools"]);
+	assert.equal(items[0]!.label, "serverTools");
 });
 
 test("completion: models.rateCard is never offered", () => {
 	const items = mistralArgumentCompletions("set ");
+	assert.ok(!items.some((item) => item.value === "set models.rateCard"));
 	assert.ok(!items.some((item) => item.value === "models.rateCard"));
+});
+
+test("completion: boolean key value position offers true/false", () => {
+	const items = mistralArgumentCompletions("set rag.streaming ");
+	assert.deepEqual(items.map((item) => item.value), ["set rag.streaming true", "set rag.streaming false"]);
+	assert.deepEqual(items.map((item) => item.label), ["true", "false"]);
+});
+
+test("completion: boolean key value position filters by typed value", () => {
+	const items = mistralArgumentCompletions("set rag.streaming t");
+	assert.deepEqual(items.map((item) => item.value), ["set rag.streaming true"]);
+});
+
+test("completion: region key value position offers global/eu/us", () => {
+	const items = mistralArgumentCompletions("set endpoint.region ");
+	assert.deepEqual(items.map((item) => item.value), [
+		"set endpoint.region global",
+		"set endpoint.region eu",
+		"set endpoint.region us",
+	]);
+});
+
+test("completion: string key value position offers nothing", () => {
+	assert.deepEqual(mistralArgumentCompletions("set agentId "), []);
+});
+
+test("completion: unknown key value position offers nothing", () => {
+	assert.deepEqual(mistralArgumentCompletions("set bogus "), []);
+});
+
+test("completion: beyond-value tokens offer nothing", () => {
+	assert.deepEqual(mistralArgumentCompletions("set agentId foo bar"), []);
+	assert.deepEqual(mistralArgumentCompletions("set serverTools +web_search extra"), []);
+});
+
+test("completion: serverTools value position offers the known + tokens (undeped: static)", () => {
+	const items = mistralArgumentCompletions("set serverTools ");
+	assert.deepEqual(items.map((item) => item.value), [
+		"set serverTools +web_search",
+		"set serverTools +web_search_premium",
+		"set serverTools +image_generation",
+		"set serverTools +code_interpreter",
+	]);
+});
+
+test("completion: connectors value position offers no + hints without deps (static only)", () => {
+	assert.deepEqual(mistralArgumentCompletions("set connectors "), []);
+	assert.deepEqual(mistralArgumentCompletions("set connectorTools.autoLoad "), []);
+});
+
+test("completion: '+w' prefix filters the full +token", () => {
+	const items = mistralArgumentCompletions("set serverTools +w");
+	assert.deepEqual(items.map((item) => item.value), [
+		"set serverTools +web_search",
+		"set serverTools +web_search_premium",
+	]);
+});
+
+test("completion: with deps, user-scope - hints come from the user file", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	const target = setUserConfigTargetPath(env, memoryExists(fs));
+	fs.files.set(target, JSON.stringify({ serverTools: ["web_search"] }));
+	const items = mistralArgumentCompletions("set serverTools ", { env, readFile: memoryRead(fs) });
+	const values = items.map((item) => item.value);
+	assert.ok(values.includes("set serverTools -web_search"), "must offer -web_search");
+	// Known tools stay first; current entries join the + candidates.
+	assert.ok(values.includes("set serverTools +web_search"));
+	assert.ok(values.indexOf("set serverTools +code_interpreter") < values.indexOf("set serverTools -web_search"));
+});
+
+test("completion: with deps, connectors + and - hints come from the user file", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	const target = setUserConfigTargetPath(env, memoryExists(fs));
+	fs.files.set(target, JSON.stringify({ connectors: ["notion"] }));
+	const items = mistralArgumentCompletions("set connectors ", { env, readFile: memoryRead(fs) });
+	assert.deepEqual(items.map((item) => item.value), ["set connectors +notion", "set connectors -notion"]);
+});
+
+test("completion: --project line reads the project file for - hints when trusted", () => {
+	const fs = emptyFs();
+	const cwd = "/proj";
+	fs.files.set(projectConfigPath(cwd), JSON.stringify({ serverTools: ["web_search"] }));
+	const items = mistralArgumentCompletions("set --project serverTools ", {
+		cwd,
+		projectTrusted: true,
+		readFile: memoryRead(fs),
+	});
+	const values = items.map((item) => item.value);
+	assert.ok(values.includes("set --project serverTools -web_search"));
+	assert.ok(values.every((value) => value.startsWith("set --project serverTools")));
+});
+
+test("completion: untrusted project line never reads the project file", () => {
+	const fs = emptyFs();
+	const cwd = "/proj";
+	fs.files.set(projectConfigPath(cwd), JSON.stringify({ serverTools: ["web_search"] }));
+	let reads = 0;
+	const readFile = (path: string): string => {
+		reads += 1;
+		if (path === projectConfigPath(cwd)) throw new Error("project file must not be read without trust");
+		return memoryRead(fs)(path);
+	};
+	const items = mistralArgumentCompletions("set --project serverTools ", {
+		cwd,
+		projectTrusted: false,
+		readFile,
+	});
+	// Static known tools only; no dynamic - hints, no project read.
+	assert.deepEqual(items.map((item) => item.value), [
+		"set --project serverTools +web_search",
+		"set --project serverTools +web_search_premium",
+		"set --project serverTools +image_generation",
+		"set --project serverTools +code_interpreter",
+	]);
+	assert.ok(reads === 0, `project readFile must never be called, got ${reads} reads`);
+});
+
+test("completion: every offered value starts with the typed prefix's token model", () => {
+	// pi's best-match highlight contract: item.value must start with the
+	// stored prefix (the full argument text) for the editor to highlight it.
+	for (const prefix of ["set ", "set serverTool", "set --project ", "set serverTools +w"]) {
+		const items = mistralArgumentCompletions(prefix);
+		for (const item of items) {
+			assert.ok(
+				item.value.startsWith(prefix.trim()) || prefix.trim().length === 0,
+				`item ${JSON.stringify(item.value)} must start with the typed text of ${JSON.stringify(prefix)}`,
+			);
+		}
+	}
+});
+
+// --- real-provider completion regressions (pi-tui coupling) ----------------
+
+/**
+ * The REAL CombinedAutocompleteProvider over the extension's completion,
+ * wrapped the way pi's addAutocompleteProvider chain wraps it. basePath is a
+ * temp dir so the BASE provider's file completion has something to find (the
+ * wrapper must beat it on forced Tab, not win by an empty directory).
+ */
+function buildWrappedProvider(basePath: string) {
+	const base = new CombinedAutocompleteProvider(
+		[{ name: "mistral", getArgumentCompletions: (prefix: string) => mistralArgumentCompletions(prefix) }],
+		basePath,
+		null,
+	);
+	return {
+		base,
+		wrapped: mistralAutocompleteProviderWrapper(base, () => ({ cwd: basePath, projectTrusted: false })),
+	};
+}
+
+/** A temp basePath holding one file, so base file completion has candidates. */
+function tempBasePath(): string {
+	const dir = mkdtempSync(join(tmpdir(), "mistral-completion-regression-"));
+	writeFileSync(join(dir, "a-file.txt"), "x");
+	return dir;
+}
+
+const noForce = { force: false, signal: new AbortController().signal };
+const forced = { force: true, signal: new AbortController().signal };
+
+test("regression (apply bug): applying a key item over 'set ' keeps the set token", async () => {
+	const basePath = tempBasePath();
+	try {
+		const { wrapped } = buildWrappedProvider(basePath);
+		const line = "/mistral set ";
+		const suggestions = await wrapped.getSuggestions([line], 0, line.length, noForce);
+		assert.ok(suggestions && suggestions.items.length > 0, "key items must be offered");
+		assert.equal(suggestions!.prefix, "set ");
+		const applied = wrapped.applyCompletion([line], 0, line.length, suggestions!.items[0]!, suggestions!.prefix);
+		assert.match(applied.lines[0]!, /^\/mistral set \S+$/);
+		assert.notEqual(applied.lines[0], "/mistral agentId");
+	} finally {
+		rmSync(basePath, { recursive: true, force: true });
+	}
+});
+
+test("regression (apply bug): applying over 'set serverTool' completes to set serverTools", async () => {
+	const basePath = tempBasePath();
+	try {
+		const { wrapped } = buildWrappedProvider(basePath);
+		const line = "/mistral set serverTool";
+		const suggestions = await wrapped.getSuggestions([line], 0, line.length, noForce);
+		assert.ok(suggestions, "key items must be offered");
+		assert.equal(suggestions!.prefix, "set serverTool");
+		const applied = wrapped.applyCompletion([line], 0, line.length, suggestions!.items[0]!, suggestions!.prefix);
+		assert.equal(applied.lines[0], "/mistral set serverTools");
+	} finally {
+		rmSync(basePath, { recursive: true, force: true });
+	}
+});
+
+test("regression (apply bug): every item value starts with the stored prefix", async () => {
+	const basePath = tempBasePath();
+	try {
+		const { wrapped } = buildWrappedProvider(basePath);
+		for (const line of ["/mistral set ", "/mistral set serverTool", "/mistral set serverTools ", "/mistral set --project "]) {
+			const suggestions = await wrapped.getSuggestions([line], 0, line.length, noForce);
+			assert.ok(suggestions, `items expected for ${JSON.stringify(line)}`);
+			for (const item of suggestions!.items) {
+				assert.ok(
+					item.value.startsWith(suggestions!.prefix),
+					`item ${JSON.stringify(item.value)} must start with the stored prefix ${JSON.stringify(suggestions!.prefix)}`,
+				);
+			}
+		}
+	} finally {
+		rmSync(basePath, { recursive: true, force: true });
+	}
+});
+
+test("regression (Tab bug): forced Tab at 'set ' returns key items, not files", async () => {
+	const basePath = tempBasePath();
+	try {
+		const { wrapped } = buildWrappedProvider(basePath);
+		const line = "/mistral set ";
+		const suggestions = await wrapped.getSuggestions([line], 0, line.length, forced);
+		assert.ok(suggestions && suggestions.items.length > 0, "forced request must reach the extension");
+		for (const item of suggestions!.items) {
+			assert.ok(!item.value.includes(".txt"), `no file items expected, got ${JSON.stringify(item.value)}`);
+		}
+		assert.ok(suggestions!.items.some((item) => item.value === "set serverTools"));
+	} finally {
+		rmSync(basePath, { recursive: true, force: true });
+	}
+});
+
+test("regression (Tab bug): the BASE provider alone answers forced Tab with file items", async () => {
+	// Pins the mechanism: without the wrapper, pi-tui's forced request skips
+	// getArgumentCompletions entirely and lands in path completion.
+	const basePath = tempBasePath();
+	try {
+		const { base } = buildWrappedProvider(basePath);
+		const line = "/mistral set ";
+		const suggestions = await base.getSuggestions([line], 0, line.length, forced);
+		assert.ok(suggestions && suggestions.items.length > 0, "file completion must have candidates");
+		assert.ok(suggestions!.items.some((item) => item.value.includes(".txt")), "expected a file item");
+	} finally {
+		rmSync(basePath, { recursive: true, force: true });
+	}
+});
+
+test("regression (Tab bug): forced Tab at 'set serverTool' auto-applies the single item", async () => {
+	const basePath = tempBasePath();
+	try {
+		const { wrapped } = buildWrappedProvider(basePath);
+		const line = "/mistral set serverTool";
+		const suggestions = await wrapped.getSuggestions([line], 0, line.length, forced);
+		assert.ok(suggestions, "forced request must reach the extension");
+		assert.equal(suggestions!.items.length, 1, "exactly one key matches the prefix");
+		assert.equal(suggestions!.items[0]!.value, "set serverTools");
+		// editor.js: forced + explicit Tab + single item => auto-apply.
+		const applied = wrapped.applyCompletion([line], 0, line.length, suggestions!.items[0]!, suggestions!.prefix);
+		assert.equal(applied.lines[0], "/mistral set serverTools");
+	} finally {
+		rmSync(basePath, { recursive: true, force: true });
+	}
+});
+
+test("regression (Tab bug): forced Tab at 'set serverTools ' offers + hints", async () => {
+	const basePath = tempBasePath();
+	try {
+		const { wrapped } = buildWrappedProvider(basePath);
+		const line = "/mistral set serverTools ";
+		const suggestions = await wrapped.getSuggestions([line], 0, line.length, forced);
+		assert.ok(suggestions && suggestions.items.length > 0, "value hints must be offered on forced Tab");
+		const values = suggestions!.items.map((item) => item.value);
+		assert.ok(values.includes("set serverTools +web_search"));
+		assert.ok(values.every((value) => value.startsWith("set serverTools")));
+	} finally {
+		rmSync(basePath, { recursive: true, force: true });
+	}
+});
+
+test("regression (Tab bug): forced Tab at 'set --project ' offers the keys", async () => {
+	const basePath = tempBasePath();
+	try {
+		const { wrapped } = buildWrappedProvider(basePath);
+		const line = "/mistral set --project ";
+		const suggestions = await wrapped.getSuggestions([line], 0, line.length, forced);
+		assert.ok(suggestions && suggestions.items.length >= 13, "key items must be offered");
+		assert.ok(suggestions!.items.some((item) => item.value === "set --project serverTools"));
+	} finally {
+		rmSync(basePath, { recursive: true, force: true });
+	}
+});
+
+test("wrapper: command-name position delegates to the base provider", async () => {
+	const basePath = tempBasePath();
+	try {
+		const { wrapped } = buildWrappedProvider(basePath);
+		const line = "/mistral se";
+		const suggestions = await wrapped.getSuggestions([line], 0, line.length, noForce);
+		assert.ok(suggestions, "command-name completion must still work");
+		assert.deepEqual(suggestions!.items.map((item) => item.value), ["set"]);
+	} finally {
+		rmSync(basePath, { recursive: true, force: true });
+	}
+});
+
+test("wrapper: plain text delegates to the base provider", async () => {
+	const basePath = tempBasePath();
+	try {
+		const { wrapped } = buildWrappedProvider(basePath);
+		const line = "hello wor";
+		const wrappedSuggestions = await wrapped.getSuggestions([line], 0, line.length, noForce);
+		const baseSuggestions = await buildWrappedProvider(basePath).base.getSuggestions([line], 0, line.length, noForce);
+		assert.deepEqual(wrappedSuggestions, baseSuggestions);
+	} finally {
+		rmSync(basePath, { recursive: true, force: true });
+	}
+});
+
+test("wrapper: no mistral items yields null (no empty list)", async () => {
+	const basePath = tempBasePath();
+	try {
+		const { wrapped } = buildWrappedProvider(basePath);
+		const line = "/mistral set bogus ";
+		const suggestions = await wrapped.getSuggestions([line], 0, line.length, noForce);
+		assert.equal(suggestions, null);
+	} finally {
+		rmSync(basePath, { recursive: true, force: true });
+	}
+});
+
+test("wrapper: list-key value positions offer + hints (membership shape, hermetic cwd)", async () => {
+	// The wrapper reads the real user chain for dynamic hints, so exact
+	// machine-dependent lists are not asserted here — only shape and the
+	// static known-tool hints (exact − hint coverage lives in the pure
+	// function tests with seams).
+	const basePath = tempBasePath();
+	try {
+		const { wrapped } = buildWrappedProvider(basePath);
+		const line = "/mistral set serverTools ";
+		const suggestions = await wrapped.getSuggestions([line], 0, line.length, noForce);
+		assert.ok(suggestions, "value hints must be offered");
+		const values = suggestions!.items.map((item) => item.value);
+		assert.ok(values.includes("set serverTools +web_search"));
+		assert.ok(values.includes("set serverTools +code_interpreter"));
+		assert.ok(values.every((value) => value.startsWith("set serverTools ")));
+	} finally {
+		rmSync(basePath, { recursive: true, force: true });
+	}
 });
 
 // --- handler layer (dispatch, set wiring, refresh invariant) --------------
@@ -521,11 +1209,18 @@ test("handler: unknown subcommand -> error naming it and the usage", async () =>
 });
 
 test("handler: bare invocation renders the status card", async () => {
-	const { ctx, notifications } = makeCtx();
-	await handleMistralCommand("", ctx);
-	assert.equal(notifications.length, 1);
-	assert.match(notifications[0]!.message, /Mistral configuration/);
-	assert.match(notifications[0]!.message, /Auth: configured \(stored credential\)/);
+	const dir = mkdtempSync(join(tmpdir(), "mistral-commands-status-"));
+	try {
+		const { ctx, notifications } = makeCtx();
+		ctx.cwd = dir;
+		const env = { HOME: dir, PI_CODING_AGENT_DIR: dir, XDG_CONFIG_HOME: "" };
+		await handleMistralCommand("", ctx, { env });
+		assert.equal(notifications.length, 1);
+		assert.match(notifications[0]!.message, /Mistral configuration/);
+		assert.match(notifications[0]!.message, /Auth: configured \(stored credential\)/);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
 });
 
 test("handler: set with no key -> usage error", async () => {
@@ -533,7 +1228,7 @@ test("handler: set with no key -> usage error", async () => {
 	await handleMistralCommand("set", ctx);
 	assert.equal(notifications.length, 1);
 	assert.equal(notifications[0]!.type, "error");
-	assert.match(notifications[0]!.message, /Usage: \/mistral set <key> <value>/);
+	assert.match(notifications[0]!.message, /Usage: \/mistral set \[--project\] <key> <value>/);
 	assert.match(notifications[0]!.message, /Settable keys:/);
 });
 
@@ -565,7 +1260,7 @@ test("handler: set with a list key and no value clears the list (writes [])", as
 	}
 });
 
-test("handler: set refusal (bad value) does not refresh cached config or write", async () => {
+test("handler: set refusal (bad value) errors without writing", async () => {
 	const dir = mkdtempSync(join(tmpdir(), "mistral-commands-refuse-"));
 	try {
 		const { ctx, notifications } = makeCtx();
@@ -576,6 +1271,154 @@ test("handler: set refusal (bad value) does not refresh cached config or write",
 		assert.equal(notifications[0]!.type, "error");
 		assert.match(notifications[0]!.message, /must be global, eu or us/);
 		assert.equal(readdirSync(dir).includes("mistral-native.json"), false);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("handler: set --project writes <cwd>/.pi/mistral-native.json in a trusted project", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "mistral-commands-project-"));
+	try {
+		const { ctx, notifications } = makeCtx();
+		ctx.cwd = dir;
+		const env = { HOME: dir, PI_CODING_AGENT_DIR: dir, XDG_CONFIG_HOME: "" };
+		await handleMistralCommand("set --project serverTools web_search", ctx, { env });
+		const target = projectConfigPath(dir);
+		const written = JSON.parse(readFileSync(target, "utf8")) as { serverTools: string[] };
+		assert.deepEqual(written.serverTools, ["web_search"]);
+		assert.equal(notifications.length, 1);
+		assert.match(notifications[0]!.message, /\(project scope\)/);
+		assert.match(notifications[0]!.message, new RegExp(`written to: ${target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+		// The user chain stays untouched: --project writes the project file only.
+		assert.equal(existsSync(`${dir}/mistral-native.json`), false);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("handler: set --project in an untrusted project is refused without any file", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "mistral-commands-untrusted-"));
+	try {
+		const { ctx, notifications } = makeCtx();
+		ctx.cwd = dir;
+		ctx.isProjectTrusted = () => false;
+		const env = { HOME: dir, PI_CODING_AGENT_DIR: dir, XDG_CONFIG_HOME: "" };
+		await handleMistralCommand("set --project serverTools web_search", ctx, { env });
+		assert.equal(notifications.length, 1);
+		assert.equal(notifications[0]!.type, "error");
+		assert.match(notifications[0]!.message, /not trusted/);
+		assert.equal(existsSync(projectConfigPath(dir)), false, "no project file may be created");
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("handler: set --project with no key -> usage", async () => {
+	const { ctx, notifications } = makeCtx();
+	await handleMistralCommand("set --project", ctx);
+	assert.equal(notifications.length, 1);
+	assert.equal(notifications[0]!.type, "error");
+	assert.match(notifications[0]!.message, /Usage: \/mistral set \[--project\] <key> <value>/);
+});
+
+test("handler: set --project with a list key and no value clears the project list (writes [])", async () => {
+	// Real fs in a trusted temp project: the bare project-scope clear
+	// writes [] to projectConfigPath(cwd).
+	const dir = mkdtempSync(join(tmpdir(), "mistral-commands-project-clear-"));
+	try {
+		const { ctx, notifications } = makeCtx();
+		ctx.cwd = dir;
+		const env = { HOME: dir, PI_CODING_AGENT_DIR: dir, XDG_CONFIG_HOME: "" };
+		const target = projectConfigPath(dir);
+		await handleMistralCommand("set --project serverTools", ctx, { env });
+		const written = JSON.parse(readFileSync(target, "utf8")) as { serverTools: string[] };
+		assert.deepEqual(written.serverTools, []);
+		assert.equal(notifications.length, 1);
+		assert.match(notifications[0]!.message, /Saved: serverTools = \(empty list\) \(project scope\)/);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("handler: partial-skip mutation composes verify, note and target lines", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "mistral-commands-compose-"));
+	try {
+		const { ctx, notifications } = makeCtx();
+		ctx.cwd = dir;
+		const env = { HOME: dir, PI_CODING_AGENT_DIR: dir, XDG_CONFIG_HOME: "" };
+		const target = `${dir}/mistral-native.json`;
+		writeFileSync(target, JSON.stringify({ serverTools: ["web_search"] }));
+		await handleMistralCommand("set serverTools +web_search,+code_interpreter", ctx, { env });
+		assert.equal(notifications.length, 1);
+		assert.equal(notifications[0]!.type, "info");
+		const message = notifications[0]!.message;
+		// One notification carries all three parts: the Saved line, the
+		// skipped-entries note and the written-to line.
+		assert.match(message, /Saved: serverTools = web_search, code_interpreter \(user scope\)/);
+		assert.match(message, /skipped web_search \(already in the list\)/);
+		assert.match(message, new RegExp(`written to: ${target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("handler: set --project with a non-list key and no value -> missing value", async () => {
+	const { ctx, notifications } = makeCtx();
+	await handleMistralCommand("set --project agentId", ctx);
+	assert.equal(notifications.length, 1);
+	assert.equal(notifications[0]!.type, "error");
+	assert.match(notifications[0]!.message, /missing value for "agentId"/);
+});
+
+test("handler: a --project after the key is a flag-position error", async () => {
+	const { ctx, notifications } = makeCtx();
+	await handleMistralCommand("set serverTools --project", ctx);
+	assert.equal(notifications.length, 1);
+	assert.equal(notifications[0]!.type, "error");
+	assert.match(notifications[0]!.message, /--project flag goes before the key/);
+});
+
+test("handler: a second --project becomes the key and errors as unknown", async () => {
+	const { ctx, notifications } = makeCtx();
+	await handleMistralCommand("set --project --project agentId x", ctx);
+	assert.equal(notifications.length, 1);
+	assert.equal(notifications[0]!.type, "error");
+	assert.match(notifications[0]!.message, /unknown or unsupported key: "--project"/);
+});
+
+test("handler: project write with a user value present notes the override", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "mistral-commands-override-"));
+	try {
+		const { ctx, notifications } = makeCtx();
+		ctx.cwd = dir;
+		const env = { HOME: dir, PI_CODING_AGENT_DIR: dir, XDG_CONFIG_HOME: "" };
+		// A user-scope value exists; the project write must note that it
+		// overrides it in this project.
+		setUserConfigKey("agentId", "user-agent", env);
+		await handleMistralCommand("set --project agentId project-agent", ctx, { env });
+		assert.equal(notifications.length, 1);
+		assert.match(notifications[0]!.message, /Saved: agentId = project-agent \(project scope\)/);
+		assert.match(notifications[0]!.message, /overrides the user-scope value user-agent/);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("handler: no-op mutation notifies the note only, without writing", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "mistral-commands-noop-"));
+	try {
+		const { ctx, notifications } = makeCtx();
+		ctx.cwd = dir;
+		const env = { HOME: dir, PI_CODING_AGENT_DIR: dir, XDG_CONFIG_HOME: "" };
+		const target = `${dir}/mistral-native.json`;
+		writeFileSync(target, JSON.stringify({ serverTools: ["web_search"] }));
+		const before = readFileSync(target, "utf8");
+		await handleMistralCommand("set serverTools +web_search", ctx, { env });
+		assert.equal(notifications.length, 1);
+		assert.equal(notifications[0]!.type, "info");
+		assert.match(notifications[0]!.message, /nothing added/);
+		assert.doesNotMatch(notifications[0]!.message, /Saved:/);
+		assert.equal(readFileSync(target, "utf8"), before);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
@@ -602,4 +1445,59 @@ test("status card: an unrecognized MISTRAL_RAG_STREAMING value falls to the defa
 	const project = { value: undefined, path: undefined, warning: undefined };
 	const card = buildStatusCard({ user, project }, undefined, true, { MISTRAL_RAG_STREAMING: "banana" });
 	assert.match(card, /RAG streaming: true  \[default\]/);
+});
+
+// --- registration (session_start wiring, wrapper-once guard) ----------------
+
+test("registration: session_start wires the autocomplete wrapper once per ui context", async () => {
+	const commands: Array<{ name: string; options: Record<string, unknown> }> = [];
+	const sessionStartHandlers: Array<(event: unknown, ctx: unknown) => void> = [];
+	const providers: Array<(current: unknown) => unknown> = [];
+	const pi = {
+		registerCommand: (name: string, options: Record<string, unknown>) => {
+			commands.push({ name, options });
+		},
+		on: (event: string, handler: (event: unknown, ctx: unknown) => void) => {
+			if (event === "session_start") sessionStartHandlers.push(handler);
+		},
+	} as never;
+	registerMistralCommands(pi);
+	assert.equal(commands.length, 1);
+	assert.equal(commands[0]!.name, "mistral");
+	assert.equal(sessionStartHandlers.length, 1, "one session_start handler");
+	const makeCtx = (cwd: string, trusted: boolean) => ({
+		cwd,
+		isProjectTrusted: () => trusted,
+		ui: { addAutocompleteProvider: (factory: (current: unknown) => unknown) => { providers.push(factory); } },
+	}) as never;
+	// Same ui context: pi re-fires session_start within a session (e.g.
+	// /reload) — re-registering would stack duplicate wrappers, so the SAME
+	// context registers exactly once.
+	const ctxA = makeCtx("/a", true);
+	sessionStartHandlers[0]!(undefined, ctxA);
+	sessionStartHandlers[0]!(undefined, ctxA);
+	sessionStartHandlers[0]!(undefined, ctxA);
+	assert.equal(providers.length, 1, "same ui context registers once");
+	// A FRESH ui context (pi clears its wrapper list on session replacement
+	// — /new, /resume, /fork — and re-fires session_start with a new ui
+	// context): the wrapper MUST register again or Tab completion dies.
+	sessionStartHandlers[0]!(undefined, makeCtx("/b", false));
+	assert.equal(providers.length, 2, "a fresh ui context registers again");
+	// The latest factory produces a working wrapper over the real provider.
+	const basePath = tempBasePath();
+	try {
+		const base = new CombinedAutocompleteProvider(
+			[{ name: "mistral", getArgumentCompletions: (prefix: string) => mistralArgumentCompletions(prefix) }],
+			basePath,
+			null,
+		);
+		const wrapped = providers[providers.length - 1]!(base) as ReturnType<typeof mistralAutocompleteProviderWrapper>;
+		const line = "/mistral set serverTool";
+		const signal = new AbortController().signal;
+		const suggestions = await wrapped.getSuggestions([line], 0, line.length, { force: true, signal });
+		assert.ok(suggestions !== null);
+		assert.equal(suggestions!.items[0]!.value, "set serverTools");
+	} finally {
+		rmSync(basePath, { recursive: true, force: true });
+	}
 });

@@ -153,7 +153,8 @@ Credentials are scoped by provider id: an existing `mistral` entry in
 Behavioral settings (region endpoint, server-side tools, connectors,
 rate-card overrides and more) live in the optional `mistral-native.json`
 file or environment variables; the `/mistral` command family shows every
-effective value and writes user-scope keys. Full reference:
+effective value and writes user-scope keys by default and project-scope
+keys with `--project`. Full reference:
 [docs/configuration.md](docs/configuration.md).
 
 ## Development

@@ -882,10 +882,11 @@ export function getEffectiveMistralConfig(): MistralFileConfig | undefined {
  * via the provided `notify` when set) and add/refresh the project scope for
  * `cwd` (only when `projectTrusted`); the config-value protocol is applied
  * over the credential-adjacent fields when the effective config is built
- * (`getEffectiveMistralConfig`). Returns the warning, if any.
+ * (`getEffectiveMistralConfig`). `env` carries the user-scope chain
+ * (default: process env). Returns the warning, if any.
  */
-export function refreshMistralConfig(cwd: string, projectTrusted: boolean, notify?: (message: string, type?: "info" | "warning" | "error") => void): string | undefined {
-	const user = loadUserMistralConfig();
+export function refreshMistralConfig(cwd: string, projectTrusted: boolean, notify?: (message: string, type?: "info" | "warning" | "error") => void, env: Record<string, string | undefined> = process.env): string | undefined {
+	const user = loadUserMistralConfig(env);
 	if (user.warning !== undefined) notify?.(user.warning, "warning");
 	const project = projectTrusted ? loadProjectMistralConfig(cwd) : { value: undefined, path: undefined, warning: undefined };
 	if (project.warning !== undefined) notify?.(project.warning, "warning");
