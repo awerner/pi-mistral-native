@@ -122,6 +122,8 @@ test('isAdrPage recognizes ADR directories', () => {
   assert.equal(isAdrPage('docs/dev/adr/0002-x.md'), true);
   assert.equal(isAdrPage('docs/dev/adr/process/0007-x.md'), true);
   assert.equal(isAdrPage('docs/stream.md'), false);
+  // Developer docs under docs/dev/ are not ADR pages.
+  assert.equal(isAdrPage('docs/dev/development.md'), false);
 });
 
 test('buildFrontmatter injects title and description', () => {
