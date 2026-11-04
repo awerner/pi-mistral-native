@@ -1,4 +1,4 @@
-/* Blue block design tokens (docs/design-tokens.md), mapped onto Starlight's
+/* Blue block design tokens (docs/dev/design-tokens.md), mapped onto Starlight's
    CSS custom properties for both light and dark modes.
 
    Starlight's color tokens are THEME-RELATIVE, not literal colors:
@@ -14,7 +14,7 @@
    text-on-dark #E8F0FA (dark-theme foreground). */
 
 :root {
-  /* Blue block palette (docs/design-tokens.md). */
+  /* Blue block palette (docs/dev/design-tokens.md). */
   --sl-color-sky: #4cc9ff;
   --sl-color-azure: #1fa7ff;
   --sl-color-primary: #0b7fe0;

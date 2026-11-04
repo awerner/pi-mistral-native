@@ -43,9 +43,9 @@ export default defineConfig({
 export { sidebarConfig };
 
 // The sidebar mirrors the repository's documentation surfaces in three
-// top-level groups. ADR entries are derived from the docs directory at
-// config load so page numbers, order and suffixes follow the source of
-// truth without being re-listed here by hand.
+// top-level groups. Developer pages and ADR entries are derived from the
+// docs directory at config load so page numbers, order and suffixes follow
+// the source of truth without being re-listed here by hand.
 function sidebarConfig() {
   return [
     { label: 'Getting started', items: [{ label: 'Welcome', link: '/' }] },
@@ -63,14 +63,14 @@ function sidebarConfig() {
     {
       label: 'Developer',
       items: [
-        entry('development'),
-        entry('testing'),
-        entry('publishing'),
-        entry('hosting'),
-        entry('design-tokens'),
+        entry('dev/development'),
+        entry('dev/testing'),
+        entry('dev/publishing'),
+        entry('dev/hosting'),
+        entry('dev/design-tokens'),
         {
           label: 'Architecture ADRs',
-          items: [entry('adr', 'Index'), ...adrEntries(docsRoot, 'adr')],
+          items: [entry('dev/adr', 'Index'), ...adrEntries(docsRoot, 'dev/adr')],
         },
       ],
     },

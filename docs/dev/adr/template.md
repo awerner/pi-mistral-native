@@ -3,7 +3,7 @@
 - **Status**: Trial | Accepted | Superseded by NNNN
 - **Date**: YYYY-MM-DD
 
-Architecture ADRs live in `docs/adr/`, numbered sequentially and
+Architecture ADRs live in `docs/dev/adr/`, numbered sequentially and
 indexed in [README.md](README.md).
 
 Status legend:

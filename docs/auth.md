@@ -31,8 +31,6 @@ Two credential sources, checked in this order:
 A `!command` entry in `auth.json` (e.g. resolving the key from a secret
 manager) is also supported — pi resolves it itself, cross-platform.
 
-*Decisions: [ADR 0004 — API-key credential chain without Mistral OAuth](adr/0004-api-key-credential-chain-without-mistral-oauth.md)*
-
 ### `/login mistral-native`
 
 Run `/login mistral-native` in pi: the provider registers a **native
@@ -52,8 +50,6 @@ selection writes `endpoint.region` to the user-scope
 region selection stays). pi also forwards the typed prompts to RPC
 clients, so remote sessions get the same guided flow.
 
-*Decisions: [ADR 0010 — Configuration via mistral-native.json](adr/0010-configuration-via-mistral-native-json.md); [ADR 0012 — Selectable region endpoint with per-family routing](adr/0012-selectable-region-endpoints.md)*
-
 ### Provider-id scoping
 
 Credentials are scoped by provider id. An existing `mistral` entry in
@@ -72,8 +68,6 @@ store a key for this provider.
   static guard in the test suite, so no code path can print key
   material.
 
-*Decisions: [ADR 0004 — API-key credential chain without Mistral OAuth](adr/0004-api-key-credential-chain-without-mistral-oauth.md)*
-
 ## Advanced: why API-key only
 
 Mistral offers **no OAuth flow for API access** — no device-code grant,
@@ -84,8 +78,6 @@ provider therefore registers API-key auth only. If Mistral ever
 publishes OAuth endpoints, the provider's additive `oauth` registration
 surface remains available and the API-key-only decision gets
 superseded.
-
-*Decisions: [ADR 0004 — API-key credential chain without Mistral OAuth](adr/0004-api-key-credential-chain-without-mistral-oauth.md)*
 
 ## Notes
 
@@ -103,5 +95,3 @@ superseded.
 - Caveat: a **project-scope** `endpoint.region` still wins over the
   login's user-scope write (project > user), so in a project that sets
   its own region the login selection appears ineffective.
-
-*Decisions: [ADR 0010 — Configuration via mistral-native.json](adr/0010-configuration-via-mistral-native-json.md)*

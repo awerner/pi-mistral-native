@@ -2,9 +2,9 @@
 
 Source of truth for the pi-mistral-native visual identity. Ingestion source
 for the documentation website and for any future design
-iterations of the README banner ([`assets/banner.svg`](../assets/banner.svg),
-[`assets/banner.png`](../assets/banner.png), editable design study:
-[`assets/banner-source.html`](../assets/banner-source.html)).
+iterations of the README banner ([`assets/banner.svg`](../../assets/banner.svg),
+[`assets/banner.png`](../../assets/banner.png), editable design study:
+[`assets/banner-source.html`](../../assets/banner-source.html)).
 
 Derivation: Mistral's visual language uses discrete, hard-edged rectangles,
 near-zero border radius and one saturated hue ramp (live mistral.ai logo:
@@ -104,5 +104,5 @@ settled still — by design, every element's base style is its final state
 ## ADR status note
 
 This file is a design-token handover, not an ADR; no ADR is required for
-assets + README + docs changes (see `docs/adr/README.md` criteria — no
+assets + README + docs changes (see `docs/dev/adr/README.md` criteria — no
 architectural decision is taken here).

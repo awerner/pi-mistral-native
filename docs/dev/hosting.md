@@ -3,7 +3,7 @@
 The documentation website is hosted on GitHub Pages at
 <https://awerner.github.io/pi-mistral-native/>, deployed automatically from
 the repository. The site is an Astro/Starlight project in
-[`website/`](../website/) that ingests the repository docs (`docs/**/*.md`
+[`website/`](../../website/) that ingests the repository docs (`docs/**/*.md`
 and `README.md`) as a content collection — the docs remain the single
 source of truth; the website build verifies them (page count, sidebar
 slugs, asset sync).
@@ -21,7 +21,7 @@ slugs, asset sync).
 ## How the deploy works
 
 The deploy is a single GitHub Actions workflow,
-[`.github/workflows/pages.yml`](../.github/workflows/pages.yml). On push to
+[`.github/workflows/pages.yml`](../../.github/workflows/pages.yml). On push to
 `main` (filtered to the paths above) it:
 
 1. Checks out the repository and installs the website dependencies.

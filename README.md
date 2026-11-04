@@ -24,8 +24,6 @@ that's it: the provider is registered, the model catalog refreshes from
 Mistral's live model list, and the knowledge, OCR and connector tools are
 available in every session. No configuration file is required.
 
-*Decisions: [ADR 0004 — API-key credential chain without Mistral OAuth](docs/adr/0004-api-key-credential-chain-without-mistral-oauth.md)*
-
 ## What you can do
 
 Everything below works inside your normal pi session — no separate
@@ -117,8 +115,6 @@ natively:
 The evidence and design rationale live in the Advanced sections of
 [stream.md](docs/stream.md) and [catalog.md](docs/catalog.md).
 
-*Decisions: [ADR 0002 — Mistral-native provider for pi](docs/adr/0002-mistral-native-provider-for-pi.md); [ADR 0008 — Direct fetch over vendor SDK](docs/adr/0008-direct-fetch-over-vendor-sdk.md); [ADR 0014 — Content chunk coverage: map or reject, never drop](docs/adr/0014-content-chunk-coverage.md)*
-
 ## Install
 
 The package installs as a pi package:
@@ -160,12 +156,10 @@ file or environment variables; the `/mistral` command family shows every
 effective value and writes user-scope keys. Full reference:
 [docs/configuration.md](docs/configuration.md).
 
-*Decisions: [ADR 0004 — API-key credential chain without Mistral OAuth](docs/adr/0004-api-key-credential-chain-without-mistral-oauth.md); [ADR 0010 — Configuration via mistral-native.json](docs/adr/0010-configuration-via-mistral-native-json.md); [ADR 0016 — `/mistral` command family: show, set, test](docs/adr/0016-mistral-command-family.md)*
-
 ## Development
 
 Build and test commands and the repository layout live in
-[docs/development.md](docs/development.md).
+[docs/dev/development.md](docs/dev/development.md).
 
 ## License
 

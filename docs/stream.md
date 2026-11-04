@@ -21,8 +21,6 @@
 No configuration needed — the Quickstart in the
 [README](../README.md#quickstart) is all it takes.
 
-*Decisions: [ADR 0014 — Content chunk coverage: map or reject, never drop](adr/0014-content-chunk-coverage.md)*
-
 ## How it works
 
 The provider registers a custom pi API id, `mistral-chat`, and
@@ -43,8 +41,6 @@ citations flow). The assembled message exposes pi's `thinking` and
 
 Every other content-chunk type — and any unknown type — is rejected
 with a clear error naming the type: no silent content loss.
-
-*Decisions: [ADR 0014 — Content chunk coverage: map or reject, never drop](adr/0014-content-chunk-coverage.md)*
 
 ### Tool calls
 
@@ -68,8 +64,6 @@ This holds in both the client path and server-tools mode (where the
 continuation joins the most recent still-open, not-yet-folded
 candidate).
 
-*Decisions: [ADR 0019 — Tool-call continuation chunks append to the open call](adr/0019-tool-call-continuation-chunks.md)*
-
 ### Usage and cost
 
 Each stream carries a usage object that maps to pi's `Usage` — input
@@ -80,8 +74,6 @@ estimate**, never a billed provider total: Mistral's chat wire format
 reports token counts only (billed totals live behind the admin-only
 `/v1/admin/usage` endpoint), so the cost block is explicitly marked
 with pi-ai's usage cost flag `totalFromProvider: false`.
-
-*Decisions: [ADR 0021 — Cost estimates marked as not provider-billed](adr/0021-cost-estimates-marked-not-billed.md)*
 
 ### Context overflow
 
@@ -139,8 +131,6 @@ per-request input combined with a huge cache read means the history
 lives server-side — duplicated side effects there are provider-state
 corruption, not an agent bug.
 
-*Decisions: [ADR 0008 — Direct fetch over vendor SDK](adr/0008-direct-fetch-over-vendor-sdk.md)*
-
 ## Advanced: request shape
 
 Requests are `POST {baseUrl}/chat/completions` with `stream: true` and
@@ -156,8 +146,6 @@ the block-array thinking mapping is this package's core
 differentiator, and a plugin that installs into foreign pi sessions
 carries zero transitive dependencies as a feature (supply-chain
 exposure included).
-
-*Decisions: [ADR 0008 — Direct fetch over vendor SDK](adr/0008-direct-fetch-over-vendor-sdk.md)*
 
 ## Advanced: event protocol
 
@@ -195,8 +183,6 @@ billed amount, every cost block — chunk-level usage, choice-level usage
 and the zero-usage fallback — is emitted with `totalFromProvider:
 false`, marking it as a catalog estimate rather than a provider-billed
 total.
-
-*Decisions: [ADR 0021 — Cost estimates marked as not provider-billed](adr/0021-cost-estimates-marked-not-billed.md)*
 
 ## Advanced: overflow and retry details
 
@@ -245,5 +231,3 @@ models flagged `reasoning`.
   instead. A regional setting warns once per session start about this
   split (see [configuration.md](configuration.md) and
   [server-tools.md](server-tools.md)).
-
-*Decisions: [ADR 0007 — Server-side tools as opaque content](adr/0007-server-side-tools-as-opaque-content.md); [ADR 0012 — Selectable region endpoint with per-family routing](adr/0012-selectable-region-endpoints.md)*

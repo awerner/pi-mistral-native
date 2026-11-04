@@ -11,8 +11,6 @@ The API key is **not** configured in this file — see
 [auth.md](auth.md) for the credential chain (`/login mistral-native` or
 the `MISTRAL_API_KEY` environment variable).
 
-*Decisions: [ADR 0004 — API-key credential chain without Mistral OAuth](adr/0004-api-key-credential-chain-without-mistral-oauth.md); [ADR 0010 — Configuration via mistral-native.json](adr/0010-configuration-via-mistral-native-json.md)*
-
 ## File locations
 
 ### User scope
@@ -43,8 +41,6 @@ The file is authored by hand or written by `/mistral set` (see
 region picker creates the user-scope file — only when no file exists
 anywhere in the chain — with just `endpoint.region`. A write never
 touches an existing file's other content.
-
-*Decisions: [ADR 0016 — `/mistral` command family: show, set, test](adr/0016-mistral-command-family.md)*
 
 ### Merging
 
@@ -155,8 +151,6 @@ grab-bag would defeat that.
 | `rag.defaultLibraryId` | string | unset | Default library for RAG queries (RESERVED) | — |
 | `ocr.defaultModel` | string | unset | Default OCR model (RESERVED) | — |
 
-*Decisions: [ADR 0011 — Client-side connector tools via the loader pattern](adr/0011-client-side-connector-tools.md); [ADR 0012 — Selectable region endpoint with per-family routing](adr/0012-selectable-region-endpoints.md); [ADR 0013 — Per-family rate card with sourced prices and visible fall-through](adr/0013-rate-card-sourced-prices.md); [ADR 0015 — Streaming RAG document query](adr/0015-streaming-rag-document-query.md)*
-
 ## Region endpoints
 
 The `endpoint` section selects Mistral's API region: `global`
@@ -198,8 +192,6 @@ outputs and processing; control-plane data (account configuration, API
 keys, billing, access management, analytics) may still be handled outside
 the selected geography.
 
-*Decisions: [ADR 0012 — Selectable region endpoint with per-family routing](adr/0012-selectable-region-endpoints.md)*
-
 ## Config-value protocol (credential-adjacent fields)
 
 `agentId` and `endpoint.baseUrl` are the designated credential-adjacent
@@ -219,8 +211,6 @@ resolves the whole value to **unset** (never an error, never logged).
 Resolved values are never logged. The API key itself is **not** a
 config-file field (see [auth.md](auth.md)).
 
-*Decisions: [ADR 0004 — API-key credential chain without Mistral OAuth](adr/0004-api-key-credential-chain-without-mistral-oauth.md)*
-
 ```jsonc
 {
   "agentId": "$MISTRAL_AGENT",
@@ -239,8 +229,6 @@ failing step (auth / network / http) with a fix hint. Every key in the
 table is settable except `models.rateCard` (hand-edit the file). Within
 the command family, only `set` writes: the first `set` creates the
 user-scope file (the env-first default stands).
-
-*Decisions: [ADR 0010 — Configuration via mistral-native.json](adr/0010-configuration-via-mistral-native-json.md); [ADR 0016 — `/mistral` command family: show, set, test](adr/0016-mistral-command-family.md)*
 
 ## Advanced
 

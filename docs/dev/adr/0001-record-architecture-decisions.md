@@ -18,9 +18,9 @@ fake decisions nobody actually made.
 
 ## Decision
 
-Record architecture decisions as lightweight ADRs in `docs/adr/`, one file
-per decision, numbered sequentially, following `docs/adr/template.md`. Not
-every change gets one — see the rule in `docs/adr/README.md` (architecture
+Record architecture decisions as lightweight ADRs in `docs/dev/adr/`, one file
+per decision, numbered sequentially, following `docs/dev/adr/template.md`. Not
+every change gets one — see the rule in `docs/dev/adr/README.md` (architecture
 change, rejected alternative, or accepted risk). Routine version bumps and
 bug fixes are just commits.
 

@@ -65,7 +65,7 @@ web-search strings are unchanged.
   They go into the model-facing `content`/`structuredContent` but never
   into the persisted `details`, which carry only `{tool, model, prompt,
   executed/skipped, chunk count}` — per the security rules in
-  [docs/knowledge-tools.md](../knowledge-tools.md).
+  [docs/knowledge-tools.md](../../knowledge-tools.md).
 - **Model**: the Conversations call runs under the same search model as web
   search — `knowledge.searchModel`, default `mistral-small-latest` — not
   under the chat model. A 400 with code 3004 is mapped defensively to the

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Copies the repository assets/ into the site's public dir so that ingested
-// docs (e.g. docs/design-tokens.md) can reference ../assets/… without the
+// docs (e.g. docs/dev/design-tokens.md) can reference ../../assets/… without the
 // site duplicating the files in a source location. The synced output is
 // tracked in the repository, so it must be refreshed (via this script on
 // any build) whenever the source assets change; the sync runs on every

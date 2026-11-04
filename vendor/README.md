@@ -11,9 +11,9 @@ Vendored copy of the official Mistral AI API OpenAPI specification
   `08a585fb75bcfa6ff968773134ee00060e0db283fc6b16f421f544e78ba8db92`.
 - Never edit by hand. Refresh by re-downloading and re-recording date and
   checksum here (decision: ADR
-  [0003](../docs/adr/0003-vendored-openapi-spec.md)).
+  [0003](../docs/dev/adr/0003-vendored-openapi-spec.md)).
 - The vendored spec is the reference for wire-format details of the native
   provider implementation (ADR
-  [0002](../docs/adr/0002-mistral-native-provider-for-pi.md)):
+  [0002](../docs/dev/adr/0002-mistral-native-provider-for-pi.md)):
   request schemas, `content` block arrays, thinking blocks, stream event
   shapes and tool definitions.

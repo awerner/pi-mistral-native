@@ -30,7 +30,13 @@ test('the Developer group carries the dev docs and design-tokens', () => {
   const developer = sidebarConfig().find((g) => g.label === 'Developer');
   assert.ok(developer, 'Developer group exists');
   const slugs = developer.items.filter((i) => i.slug).map((i) => i.slug);
-  for (const slug of ['development', 'testing', 'publishing', 'hosting', 'design-tokens']) {
+  for (const slug of [
+    'dev/development',
+    'dev/testing',
+    'dev/publishing',
+    'dev/hosting',
+    'dev/design-tokens',
+  ]) {
     assert.ok(slugs.includes(slug), `Developer links ${slug}`);
   }
 });
@@ -44,7 +50,7 @@ test('the Developer group nests an Architecture ADRs subgroup with ADR entries',
   assert.ok(adrGroup.items.length > 1, 'the ADR subgroup is non-empty beyond the Index');
   assert.deepEqual(
     adrGroup.items[0],
-    { slug: 'adr', label: 'Index' },
+    { slug: 'dev/adr', label: 'Index' },
     'the first ADR subgroup item is the Index entry',
   );
   // The entries following the Index are numbered ADR pages (never a
@@ -52,7 +58,7 @@ test('the Developer group nests an Architecture ADRs subgroup with ADR entries',
   const adrEntries = adrGroup.items.slice(1);
   assert.ok(adrEntries.length > 0, 'ADR entries follow the Index');
   for (const item of adrEntries) {
-    assert.match(item.slug, /^adr\//, 'ADR entry slugs sit under adr/');
+    assert.match(item.slug, /^dev\/adr\//, 'ADR entry slugs sit under dev/adr/');
     assert.equal(item.label, undefined, 'ADR entry labels derive from page titles');
   }
 });
