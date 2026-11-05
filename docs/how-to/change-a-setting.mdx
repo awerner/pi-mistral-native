@@ -1,3 +1,43 @@
 # Change a setting
 
-Smoke test page.
+import { Steps, Aside } from '@site/components';
+
+Write one configuration key without leaving pi. You need this whenever a setting should differ from its default.
+
+## Prerequisites
+
+- The `pi-mistral-native` package installed
+
+<Steps>
+
+1. See the current state:
+
+   ```
+   /mistral
+   ```
+
+   The status card lists every key's effective value and where it comes from.
+
+2. Write the key:
+
+   ```
+   /mistral set endpoint.region eu
+   ```
+
+   The write targets the [user scope](/reference/config-files/) by default. List keys accept `+entry` and `-entry` (see [the command reference](/reference/commands/)).
+
+3. Verify the change:
+
+   ```
+   /mistral
+   ```
+
+   The key shows its new value with `user file` provenance. The live session picks it up immediately; other running sessions pick it up at their next session start.
+
+</Steps>
+
+:::caution[A config file beats environment variables]
+If an environment variable like `MISTRAL_REGION` is set, the file write wins from now on — files outrank variables per key. The status card shows which layer supplied each value.
+:::
+
+See [/mistral commands](/reference/commands/) · [Configuration keys](/configuration/) · [Override settings for one project](/how-to/override-for-one-project/)

@@ -1,12 +1,48 @@
 # Config file locations and precedence
 
-import { FileTree, LinkCard } from '@site/components';
+import { FileTree } from '@site/components';
+
+Where `mistral-native.json` lives and which layer wins.
+
+## File locations
 
 <FileTree>
 
-- **mistral-native.json** — your settings
-- **dist/** — the built package
+- **mistral-native.json** — the config file, user scope
+- .pi
+  - **mistral-native.json** — the config file, project scope
 
 </FileTree>
 
-<LinkCard title="Configuration keys" description="Every key with its type, default and environment variable." href="/configuration/" />
+**User scope** — the first existing file wins:
+
+1. `$PI_CODING_AGENT_DIR/mistral-native.json`
+2. `$XDG_CONFIG_HOME/pi/mistral-native.json` — `~/.config/pi/mistral-native.json` when `XDG_CONFIG_HOME` is unset
+3. `<agent-dir>/mistral-native.json` — the agent dir is `PI_CODING_AGENT_DIR` if set, else `~/.pi/agent`
+4. `~/.pi/mistral-native.json` (legacy)
+
+**Project scope** — `<cwd>/.pi/mistral-native.json`, where cwd is the pi session's working directory. pi loads the project file **only when project trust is active**.
+
+## Precedence
+
+Highest wins: **project JSON > user JSON > environment variables > defaults.**
+
+Files win over environment variables per key. Nested section objects merge key-by-key: a project key wins, user keys survive otherwise. Environment variables apply for every key the merged files leave unset.
+
+Three environment variables have exceptions to the file-beats-env rule:
+
+| Variable | Exception |
+|---|---|
+| `MISTRAL_REGION` | Applies only when no config file sets `endpoint.region` |
+| `MISTRAL_CONNECTOR_TOOLS` | Applies only when no config file sets `connectorTools.enabled` |
+| `MISTRAL_RAG_STREAMING` | Applies only when no config file sets `rag.streaming` or `knowledge.streaming` |
+
+See [Environment variables](/reference/environment-variables/) for the full variable list.
+
+## Writing the file
+
+Both writers — `/mistral set` and the guided `/login` region picker — write the first existing file in the user-scope chain, else the chain head. `/mistral set --project` writes `<cwd>/.pi/mistral-native.json` and requires project trust.
+
+A write is merge-preserving: existing keys survive, only the written key changes. An existing file that is not valid JSON, or fails validation, is refused (or, for the login picker, left untouched with an error) — never clobbered.
+
+See [How configuration layers work](/concepts/config-layers/) · [Configuration keys](/configuration/)

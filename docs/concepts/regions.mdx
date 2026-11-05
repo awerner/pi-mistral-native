@@ -1,3 +1,19 @@
 # Regions and data residency
 
-Smoke test page.
+Why selecting a region moves some traffic but not all of it.
+
+Mistral offers three API regions: `global` (`api.mistral.ai`), `eu` (`api.eu.mistral.ai`) and `us` (`api.us.mistral.ai`). The regional endpoints serve chat completions and the model catalog — the surfaces your prompts and documents' queries touch. But not every Mistral service exists regionally: the Files, Agents and Batch APIs are global-only, so the knowledge tools, server-side tools, agent mode and connectors keep posting to the global endpoint even when a region is configured.
+
+The provider routes **per API family** rather than switching wholesale. The full matrix lives in [Region routing](/reference/region-routing/).
+
+## Cost
+
+Regional processing carries a **+10% token-rate surcharge** over the global rate card, applied to every resolved cost — built-in family rates and your own `models.rateCard` entries alike — so the cost display stays truthful. The static fallback catalog and restored snapshots keep global rates until the next successful regional refresh.
+
+## Data residency
+
+Regional inference covers model inputs, outputs and processing. Control-plane data — account configuration, API keys, billing, access management, analytics — may still be handled outside the selected geography.
+
+When a non-global region is active, pi shows one warning per session start naming the split and the surcharge.
+
+See [Use the EU or US region](/how-to/use-a-region/) · [Region routing](/reference/region-routing/)

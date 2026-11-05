@@ -1,3 +1,54 @@
 # Configuration error messages
 
-Smoke test page.
+The error messages a bad `mistral-native.json` produces, and what each one means. Validation is strict: unknown fields and invalid values are errors, and every error names the exact file path, the key's section-qualified name and the valid options.
+
+## Unknown field
+
+```text
+unknown field "serverToolss" in ~/.pi/agent/mistral-native.json; known fields: agentId, connectorTools, connectors, endpoint, knowledge, models, ocr, rag, serverTools
+```
+
+A typo in a top-level key. The message lists the known fields alphabetically.
+
+```text
+unknown field "endpoint.regiion" in ~/.pi/agent/mistral-native.json; known fields: baseUrl, region
+```
+
+The same check inside a section.
+
+## Invalid value
+
+```text
+field "endpoint.region" in ~/.pi/agent/mistral-native.json must be one of: "global", "eu", "us"; got "moon"
+```
+
+```text
+field "serverTools" in ~/.pi/agent/mistral-native.json must be an array of strings; known tools: web_search, web_search_premium, image_generation, code_interpreter
+```
+
+```text
+field "models.rateCard[0].rates.input" in ~/.pi/agent/mistral-native.json must be a non-negative number
+```
+
+## Malformed JSON
+
+```text
+failed to parse ~/.pi/agent/mistral-native.json: Expected double-quoted property name in JSON at position 16
+```
+
+## JSON `null`
+
+```text
+field "serverTools" in ~/.pi/agent/mistral-native.json must not be null; omit the key to leave it unset
+```
+
+`null` is a validation error, not "unset" — omit the key instead.
+
+## Degraded mode
+
+pi never crashes on a bad file:
+
+- no file → defaults plus environment variables
+- malformed or invalid file → the file is **ignored** (environment-only degraded mode) and the error is shown as a warning when the session starts
+
+See [Fix a configuration error](/how-to/fix-a-configuration-error/) · [Configuration keys](/configuration/)

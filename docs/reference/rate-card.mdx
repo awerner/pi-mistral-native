@@ -1,3 +1,27 @@
 # Built-in rate card
 
-Smoke test page.
+The built-in per-family prices, in USD per million tokens. The first entry whose `match` string is a substring of the model id applies.
+
+| Family | Input | Output | Cache read |
+|---|---|---|---|
+| mistral-large | 0.70 | 2.10 | 0.07 |
+| mistral-medium | 1.50 | 7.50 | 0.15 |
+| mistral-small | 0.15 | 0.60 | 0.015 |
+| magistral | 2.00 | 5.00 | 0.20 |
+| codestral | 0.30 | 0.90 | 0.03 |
+| ministral | 0.15 | 0.15 | 0.015 |
+| pixtral-large | 2.00 | 6.00 | 0.20 |
+| pixtral | 0.15 | 0.15 | 0.015 |
+| devstral | 0.40 | 2.00 | 0.04 |
+| open-mistral | 0.15 | 0.15 | 0.015 |
+| catch-all | 0.70 | 2.10 | 0.07 |
+
+Cache write is 0 everywhere: Mistral bills cache reads at 10% of the input rate and publishes no separate cache-write price.
+
+Model ids that hit the catch-all (or match nothing) get fall-through pricing and are flagged approximate; pi shows a once-per-session warning. Setting `models.fallThrough` to `false` swaps the catch-all rates for a zero-cost placeholder, still flagged approximate.
+
+Config entries in `models.rateCard` are checked **before** this card: a same-`match` entry shadows the built-in, and new match strings work. Regional endpoints carry a +10% surcharge on every resolved rate whenever the region is not `global`.
+
+All costs shown in pi are catalog estimates, never billed provider totals.
+
+See [Set your own prices](/how-to/set-your-own-prices/) · [Models and cost estimates](/concepts/models-and-costs/)

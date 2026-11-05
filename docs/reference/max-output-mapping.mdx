@@ -1,3 +1,22 @@
 # Max-output mapping
 
-Smoke test page.
+How the provider derives a model's maximum output tokens. Mistral's API returns no per-model max-output field, but it enforces a per-model completion-token ceiling that the model pages do not document: a request with a larger `max_tokens` fails with `400 invalid_request_max_tokens` (code 3058).
+
+The mapping, checked most-specific-first:
+
+1. **Documented output limit** — for the models where Mistral documents an explicit output token limit
+2. **Wire-enforced completion ceiling** — for models whose ceiling was probed on the live API
+3. **Conservative fallback** (262144, capped at the context window) — everything else
+
+A value above the true ceiling hard-fails requests with `400` code 3058; a conservative one merely caps output.
+
+| Model family | Documented output limit | Context |
+|---|---|---|
+| zai-glm | 131072 | 1M |
+| deepseek | 131072 | 1M |
+
+| Model family | Wire-enforced completion ceiling | Context |
+|---|---|---|
+| mistral-large-4 | 262144 | 1M |
+
+See [Models and cost estimates](/concepts/models-and-costs/)

@@ -1,3 +1,40 @@
 # Fix a configuration error
 
-Smoke test page.
+import { Steps, Aside } from '@site/components';
+
+Resolve a warning pi shows at session start about `mistral-native.json`. You need this when a config file is malformed or fails validation.
+
+## Prerequisites
+
+- The warning message (it names the exact file and key)
+
+<Steps>
+
+1. Read the warning — it names the file path, the key and the valid options:
+
+   ```text
+   failed to parse ~/.pi/agent/mistral-native.json: Expected double-quoted property name in JSON at position 16
+   ```
+
+2. Open the named file and fix the named problem:
+
+   - **`failed to parse …`** — the file is not valid JSON. Remove comments (JSON has none), fix quotes and commas. Copyable examples on this site are strict JSON for exactly this reason.
+   - **`unknown field …`** — a typo in a key name; the message lists the known fields.
+   - **`must be one of: …`** — an invalid value; the message lists the allowed ones.
+   - **`must not be null`** — `null` is not "unset"; omit the key instead.
+
+3. Verify the fix:
+
+   ```
+   /mistral
+   ```
+
+   The warning is gone and the values show their provenance.
+
+</Steps>
+
+:::tip[The file is ignored, not fatal]
+A bad file never crashes pi: it is ignored (environment-only degraded mode) and the error surfaces as a warning at session start. Until you fix it, only environment variables apply.
+:::
+
+See [Configuration error messages](/reference/config-error-messages/) · [Configuration keys](/configuration/) · [Config file locations and precedence](/reference/config-files/)

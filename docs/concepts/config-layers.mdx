@@ -1,3 +1,37 @@
 # How configuration layers work
 
-Smoke test page.
+Why a setting has the value it has — and where to change it.
+
+Every setting resolves through four layers, highest wins: **project JSON > user JSON > environment variables > defaults.** The value you observe in pi is the *effective value*: the topmost layer that sets the key.
+
+## The layers
+
+| Layer | File | Who it is for |
+|---|---|---|
+| *Project scope* | `<cwd>/.pi/mistral-native.json` | One repository; loaded only with project trust |
+| *User scope* | The first existing file in the [user chain](/reference/config-files/), normally `~/.pi/agent/mistral-native.json` | You, on this machine |
+| Environment variables | `MISTRAL_*` | A single launch, a CI run, a wrapper script |
+| Defaults | — | The provider's built-in behavior |
+
+Two writers exist: hand-editing and `/mistral set` (user scope by default, project scope with `--project`). Both write the first existing file in the chain — never a new file elsewhere — and both merge, preserving every other key.
+
+## Why files beat environment variables
+
+Most tools read environment variables last-wins. This provider inverts that: a file key outranks the variable. The reason is ownership — a file is a durable, reviewable artifact (the project file even travels in git), while environment variables are ambient. When both exist, the deliberate choice wins.
+
+Three variables escape the rule only in one direction: `MISTRAL_REGION`, `MISTRAL_CONNECTOR_TOOLS` and `MISTRAL_RAG_STREAMING` apply when no file sets their key — the file still wins when it does.
+
+## Trust and the project file
+
+The project file sits inside the repository, so it is code: it travels with commits and reviews. pi loads it only for **trusted projects** — the same trust that gates pi's own project settings. An untrusted project's file is ignored, and `/mistral set --project` refuses to write it.
+
+## Glossary
+
+- ***User scope*** — the machine-wide file, resolved through the [user chain](/reference/config-files/).
+- ***Project scope*** — the per-repository file `<cwd>/.pi/mistral-native.json`, loaded only with project trust.
+- ***Effective value*** — what the topmost layer that sets a key produces; what `/mistral` displays.
+- ***Unset*** — no layer sets the key; the value falls through to defaults. An absent key is unset; JSON `null` is an error, not unset.
+- ***Region*** — the Mistral API region (`global`, `eu`, `us`) routing chat and the model catalog.
+- ***Gateway*** — an explicit `endpoint.baseUrl` standing in front of the Mistral API.
+
+See [Config file locations and precedence](/reference/config-files/) · [Environment variables](/reference/environment-variables/) · [Configuration keys](/configuration/)

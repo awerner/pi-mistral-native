@@ -1,3 +1,21 @@
 # Models and cost estimates
 
-Smoke test page.
+Why the model list is always current and what the costs mean.
+
+The model catalog refreshes from Mistral's live model list, so newly released models appear and retired ones disappear without any package update. Startup works offline: the last fetched snapshot restores automatically, and a static fallback applies on the very first start.
+
+Rules for which models appear: only chat-capable models; internal and archived models are dropped; deprecated models are dropped — unless that would drop every eligible model. Vision-capable models accept image input; reasoning-capable models expose thinking levels.
+
+## Where prices come from
+
+The live model list carries no prices, so costs come from a sourced [family rate card](/reference/rate-card/): the first entry whose `match` string is a substring of the model id applies, with a catch-all so every id gets a price. Every entry carries a source and a last-verified date, so drift stays auditable. Your own `models.rateCard` entries are checked before the built-in card.
+
+## What the costs mean
+
+Every cost shown in pi is a **catalog estimate, not a billed provider total**. Mistral's wire formats report token counts only — billed totals live behind an admin-only endpoint — so the provider marks every usage cost block as an estimate. Model ids without a rate-card entry get fall-through pricing (the catch-all rates) and are flagged approximate; `models.fallThrough: false` swaps that for a zero-cost placeholder, still flagged approximate.
+
+## Output limits
+
+A model's maximum output tokens derive from Mistral's wire-enforced completion ceilings and documented output limits — the API rejects a larger `max_tokens` with `400` code 3058. The mapping tables live in [Max-output mapping](/reference/max-output-mapping/).
+
+See [Built-in rate card](/reference/rate-card/) · [Set your own prices](/how-to/set-your-own-prices/)

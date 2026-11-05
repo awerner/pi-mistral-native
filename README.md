@@ -47,13 +47,13 @@ One setting, no client-side glue:
 ```
 
 Web search ships as the model-callable `mistral_web_search` pi tool
-(see [docs/server-tools.md](docs/server-tools.md)) — registered by
+(see [Server-side and client-side tools](docs/concepts/tools.mdx)) — registered by
 default, running under a search model that defaults to
 `mistral-small-latest` and is configurable via `knowledge.searchModel`.
 The same Conversations-backed pattern powers the `mistral_code_interpreter`
 pi tool, which runs Python server-side and returns captured output plus
 generated files as download links (see
-[docs/knowledge-tools.md](docs/knowledge-tools.md)).
+[the Tools reference](docs/reference/tools.mdx)).
 
 **Extract text from images and PDFs (OCR).** Point the agent at a
 screenshot, scan or PDF and get per-page markdown back.
@@ -86,12 +86,11 @@ one key (or one prompt during `/login`):
 effective setting and where it comes from, `/mistral set <key> <value>`
 writes one, `/mistral test` checks the live connection.
 
-Details per feature: [streaming](docs/stream.md),
-[model catalog](docs/catalog.md),
-[authentication](docs/auth.md),
-[knowledge tools](docs/knowledge-tools.md),
-[server-side tools and connectors](docs/server-tools.md),
-[configuration](docs/configuration.md).
+Documentation is structured by Diátaxis — the website at
+<https://awerner.github.io/pi-mistral-native/> has [how-to
+guides](https://awerner.github.io/pi-mistral-native/how-to/change-a-setting/),
+[reference pages](https://awerner.github.io/pi-mistral-native/configuration/)
+and [concept pages](https://awerner.github.io/pi-mistral-native/concepts/config-layers/).
 
 ## Why not just the built-in Mistral provider?
 
@@ -112,8 +111,9 @@ natively:
 - **Chat only** — here the whole non-chat surface (knowledge/RAG, OCR,
   connectors, server-side tools) is exposed as pi tools.
 
-The evidence and design rationale live in the Advanced sections of
-[stream.md](docs/stream.md) and [catalog.md](docs/catalog.md).
+The evidence and design rationale live in the architecture ADRs
+([streaming](docs/dev/adr/0019-tool-call-continuation-chunks.md),
+[model catalog](docs/dev/adr/0013-rate-card-sourced-prices.md)).
 
 ## Install
 
@@ -155,12 +155,12 @@ rate-card overrides and more) live in the optional `mistral-native.json`
 file or environment variables; the `/mistral` command family shows every
 effective value and writes user-scope keys by default and project-scope
 keys with `--project`. Full reference:
-[docs/configuration.md](docs/configuration.md).
+[Configuration keys](docs/configuration.mdx).
 
 ## Development
 
 Build and test commands and the repository layout live in
-[docs/dev/development.md](docs/dev/development.md).
+[Development](docs/contributing/development.md).
 
 ## License
 

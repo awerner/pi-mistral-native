@@ -1,3 +1,51 @@
 # Your first Mistral session
 
-Smoke test page.
+import { Steps, Aside } from '@site/components';
+
+At the end of this page you have installed pi-mistral-native, configured an API key, selected the EU region, and sent your first chat message.
+
+## Prerequisites
+
+- The [pi coding agent](https://github.com/earendil-works/pi) installed
+- Node.js 22 or later
+- An API key from [La Plateforme](https://console.mistral.ai/api-keys)
+
+<Steps>
+
+1. Install the package:
+
+   ```
+   pi install npm:pi-mistral-native
+   ```
+
+   The provider registers — the model catalog refreshes from Mistral's live model list.
+
+2. Log in:
+
+   ```
+   /login mistral-native
+   ```
+
+   Paste your API key at the prompt (no echo), then pick the region — choose **EU** to keep inference inside the EU.
+
+3. Check the connection:
+
+   ```
+   /mistral test
+   ```
+
+   The probe confirms the regional endpoint answers with a model list.
+
+4. Start a chat — pick a `mistral-native/…` model and say hello. Reasoning models stream their thinking next to the answer.
+
+</Steps>
+
+:::caution[Only chat moves to the EU region]
+Knowledge tools, server-side tools, agent mode and connectors keep using the global endpoint — those services are not available regionally. Regional token prices are 10% higher.
+:::
+
+Where to go next:
+
+- [Change a setting](/how-to/change-a-setting/) — every effective value and where it comes from
+- [Query your documents](/how-to/query-your-documents/) — upload once, ask with citations
+- [Search the web](/how-to/search-the-web/) — current answers with sources

@@ -25,7 +25,7 @@ and pull request.
 | `test/config.test.ts` | The `mistral-native.json` configuration layer: user-scope resolution chain (each hop, first existing wins), project scope and project-over-user merge, JSON-over-env precedence, config-value protocol (`$VAR`, `${VAR}`, `!cmd`, escapes), strict validation with named-path errors (loader warns, never throws), reserved-and-parsed sections incl. `MISTRAL_REGION`, region resolution and the surcharge multiplier (`resolveMistralRegionBaseUrl` precedence incl. empty/whitespace values, `MISTRAL_REGION_BASE_URLS` mapping, `applyRegionSurcharge` purity/rounding), and stream integration with an injected file config. |
 | `test/commands.test.ts` | The `/mistral` command family: status-card provenance, scope-aware `set` (user scope default, `--project` with trust refusal), atomic write-then-verify with validation refusals, list `+`/`-` mutation, value completion with full-argument item values, and the real pi-tui autocomplete provider driven for natural-typing and forced-Tab regression (applying a suggestion never drops preceding tokens). |
 
-*Decisions: [ADR 0004 — API-key credential chain without Mistral OAuth](adr/0004-api-key-credential-chain-without-mistral-oauth.md); [ADR 0005 — OCR, embeddings, moderations/classifications as pi tools](adr/0005-ocr-embeddings-moderations-as-pi-tools.md); [ADR 0006 — Knowledge API tools](adr/0006-knowledge-api-tools.md); [ADR 0010 — Configuration via mistral-native.json](adr/0010-configuration-via-mistral-native-json.md); [ADR 0012 — Selectable region endpoint with per-family routing](adr/0012-selectable-region-endpoints.md); [ADR 0016 — `/mistral` command family: show, set, test](adr/0016-mistral-command-family.md); [ADR 0022 — Project-scope writes and list mutation for `/mistral set`](adr/0022-mistral-set-scope-and-list-mutation.md)*
+*Decisions: [ADR 0004 — API-key credential chain without Mistral OAuth](../dev/adr/0004-api-key-credential-chain-without-mistral-oauth.md); [ADR 0005 — OCR, embeddings, moderations/classifications as pi tools](../dev/adr/0005-ocr-embeddings-moderations-as-pi-tools.md); [ADR 0006 — Knowledge API tools](../dev/adr/0006-knowledge-api-tools.md); [ADR 0010 — Configuration via mistral-native.json](../dev/adr/0010-configuration-via-mistral-native-json.md); [ADR 0012 — Selectable region endpoint with per-family routing](../dev/adr/0012-selectable-region-endpoints.md); [ADR 0016 — `/mistral` command family: show, set, test](../dev/adr/0016-mistral-command-family.md); [ADR 0022 — Project-scope writes and list mutation for `/mistral set`](../dev/adr/0022-mistral-set-scope-and-list-mutation.md)*
 
 ## Custom-provider checklist coverage
 
@@ -47,7 +47,7 @@ provider must cover; the two stream suites map to it as follows:
 | Cross-provider session handoff | `integration.test.ts` — foreign-api assistant + tool results replay |
 | Authentication refresh and cancellation | N/A — the provider is API-key only (`test/auth.test.ts` covers the chain, `mistral.test.ts` covers abort of the model-catalog refresh). Live OAuth semantics do not exist for Mistral's API. |
 
-*Decisions: [ADR 0004 — API-key credential chain without Mistral OAuth](adr/0004-api-key-credential-chain-without-mistral-oauth.md)*
+*Decisions: [ADR 0004 — API-key credential chain without Mistral OAuth](../dev/adr/0004-api-key-credential-chain-without-mistral-oauth.md)*
 
 ## Live verification
 
@@ -56,7 +56,7 @@ live-API behavior (actual
 Mistral streaming quirks, rate limits, catalog contents) is verified
 manually — CI never contacts `api.mistral.ai`.
 
-*Decisions: [ADR 0003 — Vendored OpenAPI spec](adr/0003-vendored-openapi-spec.md)*
+*Decisions: [ADR 0003 — Vendored OpenAPI spec](../dev/adr/0003-vendored-openapi-spec.md)*
 
 ## Live smoke test
 

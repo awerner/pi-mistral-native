@@ -1,3 +1,18 @@
 # Server-side and client-side tools
 
-Smoke test page.
+Why the same connector can run in two different places.
+
+Mistral can execute tools in two ways, and the provider exposes both:
+
+**Server-side tools** run inside one streamed chat response, on Mistral's side. You enable them per session — `serverTools` for the built-ins (image generation), `connectors` for connector tools, `agentId` for a hosted agent — and the model calls them mid-response. Executed calls fold into the answer as text blocks; they never become pi tool calls, because pi would execute those locally a second time. Chat completions accepts only `image_generation` and connectors; the other built-ins are Conversations-API-only and are dropped with a warning.
+
+**Client-side tools** run through the loader pattern: `mistral_connector_load` pulls an authenticated connector's MCP tools into your pi session as ordinary pi tools (namespaced `mistral_cn_<connector>`), so the agent sees real tool schemas and can compose multi-step workflows with any provider. Loaded tools are usable from the next model request.
+
+## When to use which
+
+- Server-side: zero client glue, the model orchestrates, one setting. Best when a connector is supported server-side and you want it always on.
+- Client-side: the tools appear as first-class pi tools, work with any provider, and compose with everything else in the session. Best for multi-step workflows or unsupported server-side surfaces.
+
+Web search and the code interpreter are neither: they are model-callable pi tools (`mistral_web_search`, `mistral_code_interpreter`) running over one-shot stateless Conversations calls under a dedicated search model.
+
+See [Enable connectors and connector tools](/how-to/enable-connectors/) · [Search the web](/how-to/search-the-web/) · [Tools](/reference/tools/)

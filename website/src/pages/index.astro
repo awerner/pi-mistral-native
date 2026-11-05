@@ -24,48 +24,72 @@ pi /login mistral-native`;
 const capabilities = [
   {
     title: 'Chat with Mistral models — including reasoning',
-    href: withBase('/stream/'),
+    href: withBase('/concepts/chat-streaming/'),
     text: 'Pick any `mistral-native/…` model and chat as usual: thinking streams into proper thinking blocks, tool calls execute, usage and cost are shown.',
   },
   {
     title: 'Use Mistral connectors as tools',
-    href: withBase('/server-tools/'),
+    href: withBase('/how-to/enable-connectors/'),
     text: 'Outlook, SharePoint, Notion, Google Drive, … — grant access once; the connector\u2019s MCP tools become ordinary pi tools your agent can call.',
   },
   {
     title: 'Run server-side tools mid-chat',
-    href: withBase('/server-tools/'),
+    href: withBase('/concepts/tools/'),
     text: 'Web search, image generation and code execution with one setting — no client-side glue.',
   },
   {
     title: 'Extract text from images and PDFs (OCR)',
-    href: withBase('/knowledge-tools/'),
+    href: withBase('/reference/tools/'),
     text: 'Point the agent at a screenshot, scan or PDF and get per-page markdown back with `mistral_ocr`.',
   },
   {
     title: 'Search your own documents (RAG)',
-    href: withBase('/knowledge-tools/'),
+    href: withBase('/how-to/query-your-documents/'),
     text: 'Upload a file once, then ask questions about it — answers come back with citations linking to the source passages.',
   },
   {
     title: 'An always-current model list with estimated prices',
-    href: withBase('/catalog/'),
+    href: withBase('/concepts/models-and-costs/'),
     text: 'New and retired Mistral models show up (or disappear) without a package update, each priced from a sourced rate card — costs are catalog estimates, marked as such.',
   },
   {
     title: 'Check and shape content',
-    href: withBase('/knowledge-tools/'),
+    href: withBase('/reference/tools/'),
     text: 'Moderations (policy flags with scores), embeddings, and classification against your fine-tuned models — all as tools.',
   },
   {
     title: 'Route through the EU or US region',
-    href: withBase('/auth/'),
+    href: withBase('/how-to/use-a-region/'),
     text: 'Data-residency routing with one key (or one prompt during `/login`).',
   },
   {
     title: 'Configure everything without leaving pi',
     href: withBase('/configuration/'),
     text: 'The `/mistral` command family shows every effective setting, writes user-scope keys by default (project-scope with `--project`) and checks the live connection.',
+  },
+];
+
+// The four documentation sections (Diátaxis): where a reader goes next.
+const sections = [
+  {
+    title: 'Get started',
+    href: withBase('/get-started/first-session/'),
+    text: 'Install, log in, pick a region, and chat — one guided path.',
+  },
+  {
+    title: 'How-to guides',
+    href: withBase('/how-to/change-a-setting/'),
+    text: 'Get a task done: set a key, change a setting, use a region, query documents.',
+  },
+  {
+    title: 'Reference',
+    href: withBase('/configuration/'),
+    text: 'Look it up: configuration keys, commands, tools, environment variables.',
+  },
+  {
+    title: 'Concepts',
+    href: withBase('/concepts/config-layers/'),
+    text: 'Understand why: configuration layers, regions, tools, streaming.',
   },
 ];
 ---
@@ -119,10 +143,23 @@ const capabilities = [
       }
     </div>
 
+    <h2 id="where-to-go-next">Where to go next</h2>
+
+    <div class="capability-grid">
+      {
+        sections.map((section) => (
+          <a class="capability-card" href={section.href}>
+            <span class="capability-title">{section.title}</span>
+            <span class="capability-text">{section.text}</span>
+          </a>
+        ))
+      }
+    </div>
+
     <h2 id="install">Install</h2>
 
     <p>
-      The package installs as a pi package; Node.js ≥ 22 is required. See the <a href={withBase('/dev/development/')}>development docs</a> for building from a local
+      The package installs as a pi package; Node.js ≥ 22 is required. See the <a href={withBase('/contributing/development/')}>development docs</a> for building from a local
       checkout.
     </p>
   </Fragment>

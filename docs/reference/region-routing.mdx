@@ -1,3 +1,32 @@
 # Region routing
 
-Smoke test page.
+How each API family routes when a region is configured.
+
+| API family | Region-aware | Behavior |
+|---|---|---|
+| Chat completions | yes | Posts to the resolved region endpoint |
+| Model catalog | yes | Fetches the region's model list; model availability differs per region |
+| Rate card | yes | Token rates carry the +10% regional surcharge whenever the region is not `global` |
+| Knowledge APIs (files, libraries, documents, OCR, embeddings) | no | Stay on `api.mistral.ai` |
+| Server-side tools and agent mode | no | Stay on `api.mistral.ai` — the Agents API is not available regionally, even for agent-mode chat requests |
+| Connectors and connector management | no | Stay on `api.mistral.ai` |
+
+## Endpoints
+
+| Region | Base URL |
+|---|---|
+| `global` | `https://api.mistral.ai/v1` |
+| `eu` | `https://api.eu.mistral.ai/v1` |
+| `us` | `https://api.us.mistral.ai/v1` |
+
+## Base URL precedence
+
+1. An explicit `endpoint.baseUrl` — a gateway declaration: it applies to **every** chat mode, including server-tools and agent-mode chat
+2. The configured region — routes only plain chat regionally
+3. With no endpoint configuration at all, the model's registered base URL applies; pi's `models.json` model-level overrides keep working
+
+The model catalog resolves the same way, with pi's own model-level base URL override winning over both.
+
+When a non-global region is active, pi shows one warning per session start naming the regional split and the surcharge.
+
+See [Use the EU or US region](/how-to/use-a-region/) · [Regions and data residency](/concepts/regions/) · [Route requests through a gateway](/how-to/route-through-a-gateway/)

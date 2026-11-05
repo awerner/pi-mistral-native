@@ -26,11 +26,12 @@ test('the top-level sidebar is exactly the five Diátaxis groups', () => {
   }
 });
 
-test('Get started carries Welcome and Your first Mistral session', () => {
+test('Get started links the landing-page Welcome and the first-session tutorial', () => {
   const group = sidebarConfig().find((g) => g.label === 'Get started');
   assert.ok(group, 'Get started group exists');
   assert.deepEqual(group.items, [
-    { slug: 'get-started', label: 'Welcome' },
+    // Welcome is the site-authored landing page — a link, not a slug.
+    { label: 'Welcome', link: '/' },
     { slug: 'get-started/first-session' },
   ]);
 });

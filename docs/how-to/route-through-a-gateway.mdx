@@ -1,3 +1,59 @@
 # Route requests through a gateway
 
-Smoke test page.
+import { Steps, Tabs, TabItem, Aside } from '@site/components';
+
+Send chat requests and the model catalog through your own endpoint — a proxy, an auditing gateway, or a self-hosted relay. You need this when your network requires a middle hop.
+
+## Prerequisites
+
+- The `pi-mistral-native` package installed
+- A gateway that proxies Mistral's chat-completions and models endpoints
+
+<Steps>
+
+1. Set the base URL. Pick one method:
+
+   <Tabs syncKey="config-method">
+   <TabItem label="Command">
+
+   ```
+   /mistral set endpoint.baseUrl https://gateway.example.com/mistral/v1
+   ```
+
+   </TabItem>
+   <TabItem label="File">
+
+   Add this to your [user config file](/reference/config-files/):
+
+   ```json
+   { "endpoint": { "baseUrl": "https://gateway.example.com/mistral/v1" } }
+   ```
+
+   </TabItem>
+   </Tabs>
+
+2. Verify the endpoint:
+
+   ```
+   /mistral
+   ```
+
+   The status card shows `Effective chat endpoint:` with your URL.
+
+3. Confirm the gateway answers:
+
+   ```
+   /mistral test
+   ```
+
+   The probe hits the same endpoint the chat stream posts to — a `$VAR` or `!command` base URL is honored here too.
+
+</Steps>
+
+:::caution[A gateway applies to every chat mode]
+An explicit `endpoint.baseUrl` overrides the region mapping for all chat — plain chat, server-tools chat and agent-mode chat alike. A bare region, by contrast, routes only plain chat regionally.
+:::
+
+The value supports the config-value protocol (`$VAR`, `${VAR}`, `!command`) — see [Keep secrets out of the config file](/how-to/keep-secrets-out-of-the-config-file/).
+
+See [Region routing](/reference/region-routing/) · [Configuration keys](/configuration/)

@@ -4,7 +4,7 @@ import { satteri } from '@astrojs/markdown-satteri';
 import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { dropFirstH1Plugin } from './src/loader/drop-first-h1-plugin.js';
+import { dropFirstH1Plugin, rewriteLinksPlugin } from './src/loader/docs-plugins.js';
 
 const docsRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../docs');
 
@@ -49,7 +49,7 @@ export default defineConfig({
     // one. It runs on both the Markdown and the MDX pipeline.
     processor: satteri({
       features: { directive: true },
-      mdastPlugins: [dropFirstH1Plugin()],
+      mdastPlugins: [dropFirstH1Plugin(), rewriteLinksPlugin('/pi-mistral-native/')],
     }),
   },
   integrations: [
@@ -97,7 +97,13 @@ function sidebarConfig() {
   return [
     {
       label: 'Get started',
-      items: [entry('get-started', 'Welcome'), entry('get-started/first-session')],
+      items: [
+        // The Welcome page is the site landing page (src/pages/index.astro,
+        // site-authored over the Starlight splash template) — a link, not a
+        // collection slug.
+        { label: 'Welcome', link: '/' },
+        entry('get-started/first-session'),
+      ],
     },
     {
       label: 'How-to guides',

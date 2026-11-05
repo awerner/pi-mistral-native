@@ -33,8 +33,6 @@ import {
   buildFrontmatter,
   docsPathToSlug,
   docsPathToFilePath,
-  dropFirstH1,
-  rewriteLinks,
 } from './helpers.js';
 
 const DOCS_ROOT = fileURLToPath(new URL('../../../docs', import.meta.url));
@@ -46,6 +44,8 @@ async function* walkMarkdown(dir) {
     if (entry.isDirectory()) {
       yield* walkMarkdown(entryPath);
     } else if (entry.isFile() && (entry.name.endsWith('.mdx') || entry.name.endsWith('.md'))) {
+      // The ADR template is a writing aid, not a published page.
+      if (entry.name === 'template.md') continue;
       yield entryPath;
     }
   }
@@ -68,10 +68,12 @@ export function docsLoader() {
         const posixPath = filePath.split(path.sep).join('/');
         const docsPath = posixPath.slice(posixPath.indexOf('/docs/') + 1);
         const raw = await fs.readFile(filePath, 'utf8');
-        // The body drops the ingested first H1 (the frontmatter title renders
-        // as the page H1) before link rewriting; frontmatter and digest stay
-        // raw-based, so title generation and invalidation are unchanged.
-        const body = rewriteLinks(dropFirstH1(raw), docsPath, config.base);
+        // The body transformations (first-H1 drop, .md link rewriting) moved
+        // INTO the compile pipeline (src/loader/docs-plugins.js): with the
+        // deferred render, Vite compiles the on-disk file, so the loader's
+        // in-memory body never reaches the rendered output. Frontmatter is
+        // still built in memory here; the digest stays raw-based so title
+        // generation and invalidation are unchanged.
         const frontmatter = buildFrontmatter(docsPath, raw);
         const slug = docsPathToSlug(docsPath);
 
@@ -87,11 +89,10 @@ export function docsLoader() {
           // Git-based tooling (last-updated, edit links) reads it.
           filePath: docsPathToFilePath(docsPath),
           // Deferred render: the body is compiled by Vite at render time, not
-          // pre-rendered here. The digest covers the transformed body, the
-          // slug and the base (all three feed the rendered output).
-          body,
+          // pre-rendered here. The digest covers the raw body, the slug and
+          // the base (all three feed the rendered output).
           deferredRender: true,
-          digest: generateDigest(body + slug + config.base),
+          digest: generateDigest(raw + slug + config.base),
         });
       }
       logger.info(`Ingested ${entries.length} docs pages from ${DOCS_ROOT}`);

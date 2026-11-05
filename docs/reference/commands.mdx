@@ -1,3 +1,53 @@
 # /mistral commands
 
-Smoke test page.
+The `/mistral` command family: show every effective value, write one key, or test the connection.
+
+## `/mistral`
+
+Shows a status card: every key's effective value with its provenance (`project file`, `user file`, `env`, `default` or `unset`), the auth source label (never the key value), the effective chat endpoint, and the config chain with the loaded file marked. When no key is configured it prints:
+
+```text
+Auth: not configured — run /login mistral-native or set MISTRAL_API_KEY
+```
+
+## `/mistral set [--project] <key> <value>`
+
+Writes one key. The user scope is the default; `--project` writes `<cwd>/.pi/mistral-native.json` and is refused without project trust.
+
+```text
+/mistral set endpoint.region eu
+/mistral set --project agentId my-agent
+```
+
+List-kind keys (`serverTools`, `connectors`, `connectorTools.autoLoad`) accept mutation syntax:
+
+| Value | Effect |
+|---|---|
+| `+entry` | Appends the entry (deduplicated); `+a,+b` adds both |
+| `-entry` | Removes the entry; a no-op with a note when absent |
+| bare key | Clears the list |
+| comma-separated | Replaces the list wholesale |
+
+`+`/`-` prefixes are parsed only for list-kind keys — a string value starting with `+` or `-` is stored literally. A no-op mutation writes nothing.
+
+Writes are atomic and merge-preserving: an existing file that is not valid JSON or fails validation is refused with an error telling you to fix the file by hand; nothing is written on refusal. After a successful write the live session picks the value up immediately; other running sessions pick it up at their next session start.
+
+`models.rateCard` is not settable here (nested object) — hand-edit `mistral-native.json`. Unknown keys get the same Usage error, which lists all settable keys.
+
+## `/mistral test`
+
+Runs a live `GET /chat-endpoint/models` check. Failures name their step and carry a fix hint:
+
+| Step | Meaning |
+|---|---|
+| `auth` | No API key available, or the key was rejected (401/403) |
+| `network` | The endpoint could not be reached |
+| `http` | The endpoint answered, but not with a model list |
+
+The probe hits the same endpoint the chat stream posts to, including a gateway set through `endpoint.baseUrl`.
+
+## Completion
+
+Typing `/mistral` offers subcommands; the key position offers every settable key; the value position offers values per key kind — booleans (`true`/`false`), the region values (`global`/`eu`/`us`), and for list keys `+entry` and `-entry` hints (`+` hints for `serverTools` include the known tool names). Tab completes at every argument position.
+
+See [Configuration keys](/configuration/) · [Change a setting](/how-to/change-a-setting/) · [Fix a configuration error](/how-to/fix-a-configuration-error/)

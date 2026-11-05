@@ -1,3 +1,25 @@
 # Environment variables
 
-Smoke test page.
+Every `MISTRAL_*` variable the provider reads, in one table.
+
+| Variable | Sets | Notes |
+|---|---|---|
+| `MISTRAL_API_KEY` | The API key | The zero-configuration default; a stored credential from `/login mistral-native` wins over it |
+| `MISTRAL_SERVER_TOOLS` | `serverTools` | Comma or space separated; unknown values are ignored |
+| `MISTRAL_CONNECTORS` | `connectors` | Comma or space separated connector ids or names |
+| `MISTRAL_AGENT_ID` | `agentId` | A non-empty value after trimming switches to agent mode |
+| `MISTRAL_REGION` | `endpoint.region` | Must be exactly `global`, `eu` or `us` — case-sensitive, no trimming; `MISTRAL_REGION=EU` is silently ignored |
+| `MISTRAL_CONNECTOR_TOOLS` | `connectorTools.enabled` | `0`, `false` or `off` (case-insensitive) disable; any other non-empty value enables |
+| `MISTRAL_RAG_STREAMING` | `rag.streaming` | `0`, `false`, `off` or `no` disable; `1`, `true`, `on` or `yes` enable |
+
+## Precedence exceptions
+
+A config file wins over these variables per key — with three exceptions where the variable applies only when no file sets the key:
+
+- `MISTRAL_REGION` — applies only when no config file sets `endpoint.region`
+- `MISTRAL_CONNECTOR_TOOLS` — applies only when no config file sets `connectorTools.enabled`
+- `MISTRAL_RAG_STREAMING` — applies only when no config file sets `rag.streaming` or `knowledge.streaming`
+
+Every how-to that offers an environment variable states this rule where you act.
+
+See [Config file locations and precedence](/reference/config-files/) · [Credential chain](/reference/credential-chain/)

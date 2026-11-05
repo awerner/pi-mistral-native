@@ -1,3 +1,53 @@
-# internals
+# Internals
 
-Smoke test page.
+Implementation details behind the behavior described on the user pages — for contributors working on the extension itself. Everything here is observable behavior on the user pages; this page names the modules, hooks and wire shapes behind it.
+
+## Extension entry and registration
+
+The extension entry is `extensions/mistral.ts`: it registers the provider (`pi.registerProvider("mistral-native", …)` with the native `mistral-chat` `streamSimple`), the tool families, and the `/mistral` command family. Registration is unconditional; per-session behavior is resolved dynamically per call from the effective config, never re-registered at `session_start`.
+
+The `session_start` hook refreshes the config (user scope always, project scope only for trusted projects), surfaces loader warnings, records the region notice and the dropped-server-tools notice, refreshes the connector loader, and registers the autocomplete wrapper for the current ui context (a fresh ui context — after `/new`, `/resume` or `/fork` — must register again or Tab completion silently dies).
+
+## Configuration layer
+
+`extensions/mistral/config.ts` owns the whole file layer:
+
+- `userConfigPaths` — the four-hop user chain; `loadUserMistralConfig` takes the first existing file.
+- `validateMistralFileConfig` — strict, pure, synchronous validation; errors name the path, the section-qualified key and the valid options; loaders never throw (ENOENT → empty, malformed/invalid → warning; the file is ignored, env-only degraded mode).
+- `mergeMistralFileConfigs` — project wins per key; `mergeSection` merges nested section objects key-by-key.
+- `resolveConfigValueProtocol` — the local mirror of pi's `resolveConfigValue` (`$VAR`/`${VAR}`, `!command` with a 10s timeout and a per-process command cache, `$$`/`$!` escapes; failures resolve to unset, never logged). Applied only to the credential-adjacent fields `agentId` and `endpoint.baseUrl`.
+- `writeUserMistralRegion` — the login picker's surgical write: first existing file in the chain, else the chain head; parse-merge-write, atomic via temp sibling + rename; refuses to clobber an unparseable or non-object file.
+
+## Command family
+
+`extensions/mistral/commands.ts` implements `/mistral`, `/mistral set` and `/mistral test`:
+
+- `buildStatusCard` — one line per key with provenance via `resolveProvenance` (project file > user file > env > default/unset); env values count only when the effective layer's resolver honors them (`regionEnvHonored`, `ragStreamingEnvHonored`).
+- `setConfigKeyAtTarget` — the shared write core for both scopes: parse the target, refuse invalid JSON / non-object root / failing validation, compute the typed value (`+`/`-` list mutation over the target's own current list), merge, validate the whole, atomically write (temp + rename in the same directory).
+- `mistralArgumentCompletions` — the pure completion function; every item's `value` carries the complete new argument text (pi applies an item by replacing the entire argument string). The autocomplete-provider wrapper (registered per ui context) serves `/mistral` argument lines including forced Tab requests, and delegates everything else to the wrapped provider.
+
+## Stream
+
+The chat stream posts `stream: true` with `stream_options: { include_usage: true }` to `{baseUrl}/chat/completions`; deltas arrive as server-sent events terminated by `data: [DONE]`. Content routing: a plain string appends to text; typed block-array entries route by type (thinking entries join one thinking block, text appends, reference entries append citation markers); every other chunk type — and any unknown type — is rejected with an error naming the type. Tool-call deltas assemble by stream `index` (exact match first, then `id`); continuation chunks (no name AND no id) append to the most recently opened call. Overflow error wording is normalized into the `context_length_exceeded` marker; retries cover 408/409/429/5xx and network errors with interruptible backoff honoring `retry-after`.
+
+Server-execution surfaces post to the global endpoint when `serverExecutionPossible` (server tools, connectors or agent mode configured); executed calls fold into opaque text blocks via `formatServerToolReport` (`[Mistral server-side tool: …]`) and never become pi tool calls.
+
+## Catalog and pricing
+
+`refreshModels` runs in two phases: offline (restore the persisted snapshot; static fallback on first start) and network (fetch `GET /v1/models`, persist via `context.publish`). Model cards map per the documented rules (chat-capable only, drop internal/archived, deprecated dropped unless that empties the catalog). Pricing: `combinedRateCard` (config entries before `DEFAULT_RATES`), `resolveRates` (first substring match; `""` = catch-all, flagged approximate; `models.fallThrough: false` swaps to `ZERO_RATES`, still flagged), `MISTRAL_REGION_SURCHARGE` (1.1, rounded to 4 decimals) applied at the single rate-resolution point. Every cost block carries `totalFromProvider: false`.
+
+## Tools
+
+- Knowledge/document-intelligence tools (`extensions/mistral/knowledge.ts`): `mistralFetch` against `MISTRAL_BASE_URL` (global anchor); OCR model-facing markdown is capped with full text and page metadata in `structuredContent`; embed previews are 5-number in `details`.
+- Library/RAG tools (`extensions/tools/knowledge.ts` + `mistral-client.ts`): `queryLibraryStream` posts `tools: [{type:"document_library", library_ids}]` with `stream: true`; the streaming toggle resolves `rag.streaming > knowledge.streaming > MISTRAL_RAG_STREAMING > true`.
+- Web search and code interpreter (`extensions/tools/web-search.ts`, `code-interpreter.ts`): stateless one-shot `POST /v1/conversations` with `store: false` under `getEffectiveSearchModel()`; error 3004 (builtin connectors refused) maps to a friendly fix hint; skipped execution is reported as retry-worthy, distinct from an empty result.
+- Connectors (`extensions/tools/connectors.ts`): seven management tools over the global-default client.
+- Loader (`extensions/tools/loader.ts`): `connectorToolsEnabled` gates registration; `autoLoad` matches by connector NAME and warns on unauthenticated names; loaded tools register with `exposure: "deferred"` and activate on load (usable from the next model request); the three loader tools register only when discovery finds an authenticated connector.
+
+## Security invariants
+
+- The API key only ever reaches the outbound `Authorization: Bearer` header — never logs (the extension has no logging sinks; pinned by a static guard in the test suite), never error messages, never tool `details`.
+- Signed URLs (document downloads, connector auth URLs, code-interpreter files) ride in `content`/`structuredContent`, never in `details` (which pi persists to transcripts).
+- File uploads default to `visibility: "user"`, overriding the API's server-side default of `workspace`.
+
+*Decisions: [ADR 0002 — Mistral-native provider for pi](../dev/adr/0002-mistral-native-provider-for-pi.md); [ADR 0004 — API-key credential chain without Mistral OAuth](../dev/adr/0004-api-key-credential-chain-without-mistral-oauth.md); [ADR 0007 — Server-side tools as opaque content](../dev/adr/0007-server-side-tools-as-opaque-content.md); [ADR 0008 — Direct fetch over vendor SDK](../dev/adr/0008-direct-fetch-over-vendor-sdk.md); [ADR 0010 — Configuration via mistral-native.json](../dev/adr/0010-configuration-via-mistral-native-json.md); [ADR 0012 — Selectable region endpoint with per-family routing](../dev/adr/0012-selectable-region-endpoints.md); [ADR 0013 — Per-family rate card with sourced prices and visible fall-through](../dev/adr/0013-rate-card-sourced-prices.md); [ADR 0014 — Content chunk coverage: map or reject, never drop](../dev/adr/0014-content-chunk-coverage.md); [ADR 0016 — `/mistral` command family: show, set, test](../dev/adr/0016-mistral-command-family.md); [ADR 0017 — Documented max-output mapping over fixed clamp](../dev/adr/0017-documented-max-output-mapping.md); [ADR 0018 — Web search as a Conversations-backed tool](../dev/adr/0018-web-search-as-conversations-backed-tool.md); [ADR 0019 — Tool-call continuation chunks append to the open call](../dev/adr/0019-tool-call-continuation-chunks.md); [ADR 0020 — Code interpreter as a Conversations-backed tool](../dev/adr/0020-code-interpreter-as-conversations-backed-tool.md); [ADR 0021 — Cost estimates marked as not provider-billed](../dev/adr/0021-cost-estimates-marked-not-billed.md); [ADR 0022 — Project-scope writes and list mutation for `/mistral set`](../dev/adr/0022-mistral-set-scope-and-list-mutation.md)*
