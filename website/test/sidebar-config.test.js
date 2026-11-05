@@ -13,12 +13,12 @@ test('astro.config.mjs registers Starlight and defines the sidebar', () => {
   assert.ok(config.integrations.some((i) => i.name === '@astrojs/starlight'));
 });
 
-test('the top-level sidebar is exactly Getting started, Features, Developer', () => {
+test('the top-level sidebar is exactly the five Diátaxis groups', () => {
   const sidebar = sidebarConfig();
   assert.ok(Array.isArray(sidebar));
   assert.deepEqual(
     sidebar.map((group) => group.label),
-    ['Getting started', 'Features', 'Developer'],
+    ['Get started', 'How-to guides', 'Reference', 'Concepts', 'Contributing'],
   );
   // All top-level entries are groups, not links.
   for (const group of sidebar) {
@@ -26,25 +26,89 @@ test('the top-level sidebar is exactly Getting started, Features, Developer', ()
   }
 });
 
-test('the Developer group carries the dev docs and design-tokens', () => {
-  const developer = sidebarConfig().find((g) => g.label === 'Developer');
-  assert.ok(developer, 'Developer group exists');
-  const slugs = developer.items.filter((i) => i.slug).map((i) => i.slug);
+test('Get started carries Welcome and Your first Mistral session', () => {
+  const group = sidebarConfig().find((g) => g.label === 'Get started');
+  assert.ok(group, 'Get started group exists');
+  assert.deepEqual(group.items, [
+    { slug: 'get-started', label: 'Welcome' },
+    { slug: 'get-started/first-session' },
+  ]);
+});
+
+test('How-to guides carries the thirteen task pages', () => {
+  const group = sidebarConfig().find((g) => g.label === 'How-to guides');
+  assert.ok(group, 'How-to guides group exists');
+  const slugs = group.items.map((i) => i.slug);
+  assert.deepEqual(slugs, [
+    'how-to/set-up-api-key',
+    'how-to/change-a-setting',
+    'how-to/use-a-region',
+    'how-to/override-for-one-project',
+    'how-to/keep-secrets-out-of-the-config-file',
+    'how-to/route-through-a-gateway',
+    'how-to/use-a-mistral-agent',
+    'how-to/set-your-own-prices',
+    'how-to/enable-connectors',
+    'how-to/query-your-documents',
+    'how-to/search-the-web',
+    'how-to/run-code-with-the-code-interpreter',
+    'how-to/fix-a-configuration-error',
+  ]);
+});
+
+test('Reference carries Configuration keys at its head', () => {
+  const group = sidebarConfig().find((g) => g.label === 'Reference');
+  assert.ok(group, 'Reference group exists');
+  const slugs = group.items.map((i) => i.slug);
+  assert.deepEqual(slugs, [
+    'configuration',
+    'reference/config-files',
+    'reference/environment-variables',
+    'reference/commands',
+    'reference/tools',
+    'reference/region-routing',
+    'reference/credential-chain',
+    'reference/rate-card',
+    'reference/max-output-mapping',
+    'reference/config-error-messages',
+  ]);
+  // The URL exception: Configuration keys is labeled, the rest derive from
+  // their page titles.
+  assert.deepEqual(group.items[0], { slug: 'configuration', label: 'Configuration keys' });
+});
+
+test('Concepts carries the five explanation pages', () => {
+  const group = sidebarConfig().find((g) => g.label === 'Concepts');
+  assert.ok(group, 'Concepts group exists');
+  assert.deepEqual(group.items.map((i) => i.slug), [
+    'concepts/config-layers',
+    'concepts/regions',
+    'concepts/tools',
+    'concepts/models-and-costs',
+    'concepts/chat-streaming',
+  ]);
+});
+
+test('Contributing carries the dev docs, Internals and the ADR subgroup', () => {
+  const group = sidebarConfig().find((g) => g.label === 'Contributing');
+  assert.ok(group, 'Contributing group exists');
+  const slugs = group.items.filter((i) => i.slug).map((i) => i.slug);
   for (const slug of [
-    'dev/development',
-    'dev/testing',
-    'dev/publishing',
-    'dev/hosting',
-    'dev/design-tokens',
+    'contributing/development',
+    'contributing/testing',
+    'contributing/publishing',
+    'contributing/hosting',
+    'contributing/design-tokens',
+    'contributing/internals',
   ]) {
-    assert.ok(slugs.includes(slug), `Developer links ${slug}`);
+    assert.ok(slugs.includes(slug), `Contributing links ${slug}`);
   }
 });
 
-test('the Developer group nests an Architecture ADRs subgroup with ADR entries', () => {
-  const developer = sidebarConfig().find((g) => g.label === 'Developer');
-  const subgroups = developer.items.filter((i) => Array.isArray(i.items));
-  assert.equal(subgroups.length, 1, 'exactly one subgroup inside Developer');
+test('Contributing nests an Architecture ADRs subgroup with ADR entries', () => {
+  const group = sidebarConfig().find((g) => g.label === 'Contributing');
+  const subgroups = group.items.filter((i) => Array.isArray(i.items));
+  assert.equal(subgroups.length, 1, 'exactly one subgroup inside Contributing');
   const adrGroup = subgroups[0];
   assert.equal(adrGroup.label, 'Architecture ADRs');
   assert.ok(adrGroup.items.length > 1, 'the ADR subgroup is non-empty beyond the Index');

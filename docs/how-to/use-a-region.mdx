@@ -1,0 +1,41 @@
+# Use the EU or US region
+
+import { Steps, Tabs, TabItem, Aside, Badge } from '@astrojs/starlight/components';
+
+Send your chat requests to Mistral's EU or US endpoint, for example to keep inference inside the EU.
+
+<Steps>
+
+1. Set the region. Pick one method:
+
+   <Tabs syncKey="config-method">
+   <TabItem label="Command">
+   ```
+   /mistral set endpoint.region eu
+   ```
+   </TabItem>
+   <TabItem label="File">
+   Add this to your user config file:
+
+   ```json
+   { "endpoint": { "region": "eu" } }
+   ```
+   </TabItem>
+   <TabItem label="Environment">
+   ```sh
+   export MISTRAL_REGION=eu
+   ```
+   </TabItem>
+   </Tabs>
+
+2. Run `/mistral` and check that `endpoint.region` shows `eu`.
+
+3. Run `/mistral test` to confirm the regional endpoint answers.
+
+</Steps>
+
+:::caution[Only chat moves to the region]
+Knowledge tools, server-side tools, agent mode and connectors keep using the global endpoint. Regional token prices are 10% higher.
+:::
+
+A badge: <Badge text="Region-aware" />

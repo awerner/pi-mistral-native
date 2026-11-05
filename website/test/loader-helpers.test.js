@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildFrontmatter,
+  docsPathToFilePath,
   docsPathToSlug,
+  docsPathToType,
   dropFirstH1,
   extractAdrStatus,
   extractDescription,
@@ -16,13 +18,40 @@ import {
 } from '../src/loader/helpers.js';
 
 test('docsPathToSlug maps docs paths to site route slugs', () => {
-  assert.equal(docsPathToSlug('docs/stream.md'), 'stream');
+  assert.equal(docsPathToSlug('docs/get-started/index.mdx'), 'get-started');
+  assert.equal(docsPathToSlug('docs/how-to/use-a-region.mdx'), 'how-to/use-a-region');
+  assert.equal(docsPathToSlug('docs/configuration.mdx'), 'configuration');
+  assert.equal(docsPathToSlug('docs/reference/tools.mdx'), 'reference/tools');
+  assert.equal(docsPathToSlug('docs/concepts/regions.mdx'), 'concepts/regions');
+  assert.equal(docsPathToSlug('docs/contributing/internals.mdx'), 'contributing/internals');
   assert.equal(docsPathToSlug('docs/dev/adr/0002-mistral-native-provider-for-pi.md'), 'dev/adr/0002-mistral-native-provider-for-pi');
-  assert.equal(docsPathToSlug('docs/dev/adr/process/0007-adr-taxonomy.md'), 'dev/adr/process/0007-adr-taxonomy');
   assert.equal(docsPathToSlug('docs/dev/adr/README.md'), 'dev/adr');
-  assert.equal(docsPathToSlug('docs/dev/adr/process/README.md'), 'dev/adr/process');
   // The repo README maps to the landing page (site-authored, slug-less).
   assert.equal(docsPathToSlug('README.md'), '');
+});
+
+test('docsPathToSlug accepts .mdx section pages and .md ADR pages', () => {
+  assert.equal(docsPathToSlug('docs/reference/config-files.mdx'), 'reference/config-files');
+  assert.equal(docsPathToSlug('docs/dev/adr/0023-documentation-structured-by-diataxis.md'), 'dev/adr/0023-documentation-structured-by-diataxis');
+  assert.throws(() => docsPathToSlug('docs/stream.txt'), /Not a docs page/);
+});
+
+test('docsPathToFilePath returns the site-root-relative on-disk path for deferred rendering', () => {
+  assert.equal(docsPathToFilePath('docs/how-to/use-a-region.mdx'), '../docs/how-to/use-a-region.mdx');
+  assert.equal(docsPathToFilePath('docs/dev/adr/0002-x.md'), '../docs/dev/adr/0002-x.md');
+  assert.throws(() => docsPathToFilePath('README.md'), /Not a docs path/);
+});
+
+test('docsPathToType derives the Diátaxis type from the section folder', () => {
+  assert.equal(docsPathToType('docs/get-started/index.mdx'), 'tutorial');
+  assert.equal(docsPathToType('docs/how-to/use-a-region.mdx'), 'how-to');
+  assert.equal(docsPathToType('docs/configuration.mdx'), 'reference');
+  assert.equal(docsPathToType('docs/reference/tools.mdx'), 'reference');
+  assert.equal(docsPathToType('docs/concepts/regions.mdx'), 'concept');
+  assert.equal(docsPathToType('docs/contributing/internals.mdx'), 'reference');
+  assert.equal(docsPathToType('docs/dev/adr/0023-x.md'), 'concept');
+  // A page outside any section folder fails loudly — every page needs a type.
+  assert.throws(() => docsPathToType('docs/stream.md'), /Cannot derive the Diátaxis page type/);
 });
 
 test('docsPathToSlug rejects paths outside docs/ (other than the repo README)', () => {
@@ -120,26 +149,27 @@ test('extractAdrStatus accepts case variants of the superseded form', () => {
 
 test('isAdrPage recognizes ADR directories', () => {
   assert.equal(isAdrPage('docs/dev/adr/0002-x.md'), true);
-  assert.equal(isAdrPage('docs/dev/adr/process/0007-x.md'), true);
-  assert.equal(isAdrPage('docs/stream.md'), false);
-  // Developer docs under docs/dev/ are not ADR pages.
-  assert.equal(isAdrPage('docs/dev/development.md'), false);
+  assert.equal(isAdrPage('docs/dev/adr/0023-x.md'), true);
+  assert.equal(isAdrPage('docs/reference/tools.mdx'), false);
+  // Contributing docs under docs/contributing/ are not ADR pages.
+  assert.equal(isAdrPage('docs/contributing/internals.mdx'), false);
 });
 
-test('buildFrontmatter injects title and description', () => {
+test('buildFrontmatter injects title, description and the Diátaxis type', () => {
   const fm = buildFrontmatter(
-    'docs/stream.md',
-    '# Chat streaming\n\nFirst paragraph of the doc.',
+    'docs/concepts/chat-streaming.mdx',
+    '# How chat streaming works\n\nFirst paragraph of the doc.',
   );
-  assert.equal(fm.title, 'Chat streaming');
+  assert.equal(fm.title, 'How chat streaming works');
   assert.equal(fm.description, 'First paragraph of the doc.');
+  assert.equal(fm.type, 'concept');
   assert.equal(fm.adrStatus, undefined);
 });
 
 test('buildFrontmatter strips inline markdown from the title and emits matching titleHtml', () => {
-  const fm = buildFrontmatter('docs/stream.md', '# Chat streaming (`mistral-chat`)\n\nBody.');
-  assert.equal(fm.title, 'Chat streaming (mistral-chat)');
-  assert.equal(fm.titleHtml, 'Chat streaming (<code>mistral-chat</code>)');
+  const fm = buildFrontmatter('docs/concepts/chat-streaming.mdx', '# How chat streaming works (`mistral-chat`)\n\nBody.');
+  assert.equal(fm.title, 'How chat streaming works (mistral-chat)');
+  assert.equal(fm.titleHtml, 'How chat streaming works (<code>mistral-chat</code>)');
 });
 
 test('buildFrontmatter adds ADR status fields only for ADR pages', () => {
@@ -148,7 +178,7 @@ test('buildFrontmatter adds ADR status fields only for ADR pages', () => {
   assert.equal(adrFm.adrStatus, 'trial');
   assert.equal(adrFm.supersededBy, undefined);
 
-  const nonAdrFm = buildFrontmatter('docs/stream.md', adrBody);
+  const nonAdrFm = buildFrontmatter('docs/concepts/regions.mdx', adrBody);
   assert.equal(nonAdrFm.adrStatus, undefined);
 });
 
@@ -158,11 +188,11 @@ test('buildFrontmatter includes supersededBy for superseded ADRs', () => {
   assert.equal(fm.supersededBy, '0009');
 });
 
-test('rewriteLinks rewrites same-directory .md links', () => {
-  const body = 'See [configuration.md](configuration.md) for details.';
+test('rewriteLinks rewrites same-directory .mdx links', () => {
+  const body = 'See [Tools](tools.mdx) for details.';
   assert.equal(
-    rewriteLinks(body, 'docs/stream.md'),
-    'See [configuration.md](/configuration/) for details.',
+    rewriteLinks(body, 'docs/reference/commands.mdx'),
+    'See [Tools](/reference/tools/) for details.',
   );
 });
 
@@ -172,15 +202,15 @@ test('rewriteLinks rewrites links into the adr directories', () => {
     'See [0003](/dev/adr/0003-vendored-openapi-spec/).',
   );
   assert.equal(
-    rewriteLinks('See [process](dev/adr/process/0005-x.md).', 'docs/stream.md'),
-    'See [process](/dev/adr/process/0005-x/).',
+    rewriteLinks('See [ADR 0003](../dev/adr/0003-x.md).', 'docs/concepts/regions.mdx'),
+    'See [ADR 0003](/dev/adr/0003-x/).',
   );
 });
 
 test('rewriteLinks resolves relative paths from docs/dev/adr', () => {
   assert.equal(
-    rewriteLinks('Index: [process/0007](process/0007-adr-taxonomy.md).', 'docs/dev/adr/README.md'),
-    'Index: [process/0007](/dev/adr/process/0007-adr-taxonomy/).',
+    rewriteLinks('Index: [0007](0007-adr-taxonomy.md).', 'docs/dev/adr/README.md'),
+    'Index: [0007](/dev/adr/0007-adr-taxonomy/).',
   );
   assert.equal(
     rewriteLinks('Up: [docs index](../../../README.md).', 'docs/dev/adr/README.md'),
@@ -190,26 +220,26 @@ test('rewriteLinks resolves relative paths from docs/dev/adr', () => {
 
 test('rewriteLinks resolves the README Quickstart link to the landing page', () => {
   assert.equal(
-    rewriteLinks('[README](../README.md#quickstart).', 'docs/stream.md'),
+    rewriteLinks('[README](../README.md#quickstart).', 'docs/concepts/regions.mdx'),
     '[README](/#quickstart).',
   );
 });
 
 test('rewriteLinks preserves anchors', () => {
   assert.equal(
-    rewriteLinks('[rates](catalog.md#family-rate-card-default_rates).', 'docs/stream.md'),
-    '[rates](/catalog/#family-rate-card-default_rates).',
+    rewriteLinks('[rates](rate-card.mdx#catch-all).', 'docs/reference/tools.mdx'),
+    '[rates](/reference/rate-card/#catch-all).',
   );
 });
 
 test('rewriteLinks keeps links to repo-root assets that the site ships', () => {
   const body = 'Banner: [svg](../../assets/banner.svg) and [html](../../assets/banner-source.html).';
-  // ../../assets/… from docs/dev/design-tokens.md escapes docs/ but resolves
-  // to the repository assets synced onto the site root, so it keeps its
-  // link form.
-  assert.equal(rewriteLinks(body, 'docs/dev/design-tokens.md'), body);
+  // ../../assets/… from docs/contributing/design-tokens.mdx escapes docs/ but
+  // resolves to the repository assets synced onto the site root, so it keeps
+  // its link form.
+  assert.equal(rewriteLinks(body, 'docs/contributing/design-tokens.mdx'), body);
   const inside = 'See [the schema](config/mistral-native.json).';
-  assert.equal(rewriteLinks(inside, 'docs/stream.md'), inside);
+  assert.equal(rewriteLinks(inside, 'docs/reference/tools.mdx'), inside);
 });
 
 test('rewriteLinks strips non-.md relative links that resolve above the docs tree', () => {
@@ -222,11 +252,11 @@ test('rewriteLinks strips non-.md relative links that resolve above the docs tre
     'Vendored OpenAPI spec, ADR [0003](/dev/adr/0003-vendored-openapi-spec/).',
   );
   assert.equal(
-    rewriteLinks('[ci](../../.github/workflows/ci.yml)', 'docs/dev/development.md'),
+    rewriteLinks('[ci](../../.github/workflows/ci.yml)', 'docs/contributing/development.md'),
     'ci',
   );
   assert.equal(
-    rewriteLinks('[config](../../website/astro.config.mjs)', 'docs/dev/development.md'),
+    rewriteLinks('[config](../../website/astro.config.mjs)', 'docs/contributing/development.md'),
     'config',
   );
   assert.equal(
@@ -236,8 +266,8 @@ test('rewriteLinks strips non-.md relative links that resolve above the docs tre
 });
 
 test('rewriteLinks leaves absolute URLs and site-absolute links untouched', () => {
-  const body = 'See [pi](https://pi.dev) and [root](/stream/).';
-  assert.equal(rewriteLinks(body, 'docs/stream.md'), body);
+  const body = 'See [pi](https://pi.dev) and [root](/reference/tools/).';
+  assert.equal(rewriteLinks(body, 'docs/concepts/regions.mdx'), body);
 });
 
 test('rewriteLinks leaves .md links outside the mapped surface untouched', () => {
@@ -257,13 +287,13 @@ test('rewriteLinks never rewrites links inside fenced code blocks', () => {
     '',
     'After the fence: [0008](0008-reference-discipline.md).',
   ].join('\n');
-  const result = rewriteLinks(body, 'docs/dev/adr/process/0005-x.md');
+  const result = rewriteLinks(body, 'docs/dev/adr/0005-x.md');
   assert.ok(result.includes('](../0004-api-key-credential-chain-without-mistral-oauth.md)'),
     'fenced link must keep its literal .md target');
   assert.ok(!result.includes('](/dev/adr/0004-'), 'fenced link must not become a site route');
-  assert.ok(result.includes('](/dev/adr/process/0005-documentation-structure-and-adr-citation/)'),
+  assert.ok(result.includes('](/dev/adr/0005-documentation-structure-and-adr-citation/)'),
     'link before the fence is rewritten');
-  assert.ok(result.includes('](/dev/adr/process/0008-reference-discipline/)'),
+  assert.ok(result.includes('](/dev/adr/0008-reference-discipline/)'),
     'link after the fence is rewritten');
 });
 
@@ -273,18 +303,18 @@ test('rewriteLinks keeps non-.md text replacement out of fenced code blocks', ()
 });
 
 test('rewriteLinks does not toggle fences on backticks inside code spans', () => {
-  const body = 'Use ``` `markdown` ``` fences: [catalog](catalog.md).';
-  const result = rewriteLinks(body, 'docs/stream.md');
-  assert.ok(result.includes('](/catalog/)'),
+  const body = 'Use ``` `markdown` ``` fences: [rate card](rate-card.mdx).';
+  const result = rewriteLinks(body, 'docs/reference/tools.mdx');
+  assert.ok(result.includes('](/reference/rate-card/)'),
     'a fence-looking code span must not suppress rewriting');
 });
 
 test('transformDocsFile combines frontmatter injection and link rewriting', () => {
   const raw = '# 0007. Taxonomy\n\n- **Status**: Trial\n\nSee [0008](0008-reference-discipline.md).';
-  const result = transformDocsFile('docs/dev/adr/process/0007-adr-taxonomy.md', raw);
+  const result = transformDocsFile('docs/dev/adr/0007-adr-taxonomy.md', raw);
   assert.equal(result.frontmatter.title, '0007. Taxonomy');
   assert.equal(result.frontmatter.adrStatus, 'trial');
-  assert.ok(result.body.includes('](/dev/adr/process/0008-reference-discipline/)'));
+  assert.ok(result.body.includes('](/dev/adr/0008-reference-discipline/)'));
   assert.ok(!result.body.includes('](0008-'), 'raw .md link must be rewritten');
 });
 
@@ -312,10 +342,10 @@ test('withBase prefixes the deployment base onto site-absolute routes', () => {
 });
 
 test('rewriteLinks emits base-aware routes when a base is passed', () => {
-  // Doc-page .md link (docs/stream.md -> configuration.md).
+  // Doc-page .mdx link (docs/reference/commands.mdx -> tools.mdx).
   assert.equal(
-    rewriteLinks('See [configuration.md](configuration.md).', 'docs/stream.md', '/pi-mistral-native/'),
-    'See [configuration.md](/pi-mistral-native/configuration/).',
+    rewriteLinks('See [Tools](tools.mdx).', 'docs/reference/commands.mdx', '/pi-mistral-native/'),
+    'See [Tools](/pi-mistral-native/reference/tools/).',
   );
   // ADR-relative link (docs/dev/adr/0002-x.md -> 0003-....md).
   assert.equal(
@@ -324,40 +354,40 @@ test('rewriteLinks emits base-aware routes when a base is passed', () => {
   );
   // Landing-page Quickstart link from a docs page.
   assert.equal(
-    rewriteLinks('[README](../README.md#quickstart).', 'docs/stream.md', '/pi-mistral-native/'),
+    rewriteLinks('[README](../README.md#quickstart).', 'docs/concepts/regions.mdx', '/pi-mistral-native/'),
     '[README](/pi-mistral-native/#quickstart).',
   );
   // Anchors are preserved under the base.
   assert.equal(
-    rewriteLinks('[rates](catalog.md#family-rate-card-default_rates).', 'docs/stream.md', '/pi-mistral-native/'),
-    '[rates](/pi-mistral-native/catalog/#family-rate-card-default_rates).',
+    rewriteLinks('[rates](rate-card.mdx#catch-all).', 'docs/reference/tools.mdx', '/pi-mistral-native/'),
+    '[rates](/pi-mistral-native/reference/rate-card/#catch-all).',
   );
 });
 
 test('rewriteLinks leaves site-absolute links and absolute URLs alone even with a base', () => {
   // Authors write site-absolute links deliberately; the base must not be
   // double-prefixed, and stripping/removal behavior is base-independent.
-  const body = 'See [pi](https://pi.dev) and [root](/stream/).';
-  assert.equal(rewriteLinks(body, 'docs/stream.md', '/pi-mistral-native/'), body);
+  const body = 'See [pi](https://pi.dev) and [root](/reference/tools/).';
+  assert.equal(rewriteLinks(body, 'docs/concepts/regions.mdx', '/pi-mistral-native/'), body);
   assert.equal(
-    rewriteLinks('[ci](../../.github/workflows/ci.yml)', 'docs/dev/development.md', '/pi-mistral-native/'),
+    rewriteLinks('[ci](../../.github/workflows/ci.yml)', 'docs/contributing/development.md', '/pi-mistral-native/'),
     'ci',
   );
 });
 
 test('rewriteLinks keeps fenced-code links literal with a base set', () => {
   const body = '```markdown\n[ADR 0004](../0004-x.md)\n```\n\nReal [0008](0008-x.md).';
-  const result = rewriteLinks(body, 'docs/dev/adr/process/0007-x.md', '/pi-mistral-native/');
+  const result = rewriteLinks(body, 'docs/dev/adr/0007-x.md', '/pi-mistral-native/');
   assert.ok(result.includes('](../0004-x.md)'), 'fenced link keeps its literal .md target');
-  assert.ok(result.includes('](/pi-mistral-native/dev/adr/process/0008-x/)'),
+  assert.ok(result.includes('](/pi-mistral-native/dev/adr/0008-x/)'),
     'link outside the fence is base-aware rewritten');
 });
 
 test('transformDocsFile flows the base through to the link rewriter', () => {
   const raw = '# 0007. Taxonomy\n\n- **Status**: Trial\n\nSee [0008](0008-reference-discipline.md).';
-  const result = transformDocsFile('docs/dev/adr/process/0007-adr-taxonomy.md', raw, '/pi-mistral-native/');
+  const result = transformDocsFile('docs/dev/adr/0007-adr-taxonomy.md', raw, '/pi-mistral-native/');
   assert.equal(result.frontmatter.adrStatus, 'trial');
-  assert.ok(result.body.includes('](/pi-mistral-native/dev/adr/process/0008-reference-discipline/)'));
+  assert.ok(result.body.includes('](/pi-mistral-native/dev/adr/0008-reference-discipline/)'));
 });
 
 test('formatTitleHtml converts inline markdown to inline HTML', () => {
@@ -411,15 +441,15 @@ test('dropFirstH1 keeps every other line byte-identical', () => {
 });
 
 test('transformDocsFile drops the first H1 from the body but keeps it in the title', () => {
-  const raw = '# Chat streaming (`mistral-chat`)\n\nSee [configuration.md](configuration.md) for details.';
-  const result = transformDocsFile('docs/stream.md', raw);
+  const raw = '# How chat streaming works (`mistral-chat`)\n\nSee [Tools](../reference/tools.mdx) for details.';
+  const result = transformDocsFile('docs/concepts/chat-streaming.mdx', raw);
   assert.ok(!result.body.includes('# Chat streaming'), 'no level-1 heading line remains in the body');
   assert.ok(!/^#[^#]/m.test(result.body), 'no level-1 heading line remains in the body');
-  assert.equal(result.frontmatter.title, 'Chat streaming (mistral-chat)');
-  assert.equal(result.frontmatter.titleHtml, 'Chat streaming (<code>mistral-chat</code>)');
+  assert.equal(result.frontmatter.title, 'How chat streaming works (mistral-chat)');
+  assert.equal(result.frontmatter.titleHtml, 'How chat streaming works (<code>mistral-chat</code>)');
   assert.equal(
     result.body,
-    '\nSee [configuration.md](/configuration/) for details.',
+    '\nSee [Tools](/reference/tools/) for details.',
     'links are still rewritten after the H1 drop',
   );
 });

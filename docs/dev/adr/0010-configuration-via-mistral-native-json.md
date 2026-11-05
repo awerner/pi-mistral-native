@@ -22,9 +22,10 @@ pi-permission-system, billion-context):
    `!command`, `$$`/`$!` escapes) — the semantics of pi's own
    `resolveConfigValue`, which pi does not export through its package
    root, so the protocol is implemented locally.
-4. Environment variables as an override layer keep the ADR-0007 env-first
-   default intact: the zero-config `MISTRAL_API_KEY` setup must keep
-   working unchanged when no file exists.
+4. Environment variables as an override layer keep ADR
+   [0004](0004-api-key-credential-chain-without-mistral-oauth.md)'s
+   env-first default intact: the zero-config `MISTRAL_API_KEY` setup
+   must keep working unchanged when no file exists.
 
 ## Decision
 
@@ -36,7 +37,8 @@ trust). Precedence, highest wins: **project JSON > user JSON >
 environment variables > defaults**; project wins per key over user with
 key-by-key merging inside section objects. The API key itself NEVER moves
 into this file — it stays in pi's auth chain (`auth.json` credential via
-`/login mistral-native`, or `MISTRAL_API_KEY`, ADR 0004).
+`/login mistral-native`, or `MISTRAL_API_KEY`, ADR
+[0004](0004-api-key-credential-chain-without-mistral-oauth.md)).
 
 The schema is complete in one pass, including **reserved-and-parsed**
 sections: `endpoint`, `connectorTools`, `models`, `knowledge`/`rag`,
