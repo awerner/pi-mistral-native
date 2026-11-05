@@ -43,7 +43,7 @@ points (`pi.extensions: ["dist/extensions/*.js"]`):
   bundled. The `prepack` script runs the build so the tarball cannot ship
   stale or missing `dist/` output.
 
-*Decisions: [ADR 0009 — Ship built dist as the tarball surface](adr/0009-ship-built-dist-as-tarball-surface.md)*
+*Decisions: [ADR 0009 — Ship built dist as the tarball surface](../dev/adr/0009-ship-built-dist-as-tarball-surface.md)*
 
 ## Steps
 
@@ -181,4 +181,4 @@ loads nothing and only the missing provider in `--list-models` hints at it.
 - Never publish with agent-controlled credentials: npm credentials stay
   with the owner, on the owner's machine; agents document and verify only.
 
-*Decisions: [ADR 0008 — Direct fetch over vendor SDK](adr/0008-direct-fetch-over-vendor-sdk.md)*
+*Decisions: [ADR 0008 — Direct fetch over vendor SDK](../dev/adr/0008-direct-fetch-over-vendor-sdk.md)*

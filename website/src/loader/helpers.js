@@ -1,20 +1,21 @@
 // Ingestion helpers for the Starlight docs collection.
 //
-// The repository docs (docs/**/*.md) are the single source of truth and
+// The repository docs (docs/**/*.mdx) are the single source of truth and
 // carry no frontmatter; everything here transforms file content IN MEMORY
 // (frontmatter injection, title processing, ADR status parsing, first-H1
-// drop, .md link rewriting) without ever writing back to disk.
+// drop, .md link rewriting) without ever writing back to disk. Page bodies
+// are compiled by Vite at render time (MDX), so only metadata is built here.
 //
 // Import surfaces:
 //   - Node tests import from './src/loader/helpers.js' directly.
 //   - astro.config.mjs uses the same plain functions.
 
 /**
- * Resolve a POSIX-style docs-relative path (e.g. `docs/stream.md`,
- * `docs/dev/adr/0002-x.md`, `docs/dev/adr/README.md`) to its site route slug
- * (e.g. `stream`, `dev/adr/0002-x`, `dev/adr`). The repository root README
+ * Resolve a POSIX-style docs-relative path (e.g. `docs/how-to/x.mdx`,
+ * `docs/dev/adr/0002-x.mdx`, `docs/dev/adr/README.mdx`) to its site route slug
+ * (e.g. `how-to/x`, `dev/adr/0002-x`, `dev/adr`). The repository root README
  * (which the docs link as `../README.md` or `../../../README.md`) maps to
- * the empty slug: the site landing page.
+ * the empty slug: the site landing page; it is never ingested.
  */
 export function docsPathToSlug(docsPath) {
   const posixPath = docsPath.replaceAll('\\', '/');
@@ -24,17 +25,31 @@ export function docsPathToSlug(docsPath) {
   }
   let rest = posixPath.slice('docs/'.length);
   if (rest === 'README.md') return '';
-  // docs/<dir>/README.md collapses to the directory route (docs/dev/adr/README.md -> dev/adr).
-  if (rest.endsWith('/README.md')) {
-    return rest.slice(0, -'/README.md'.length);
+  // docs/<dir>/README.mdx or README.md collapses to the directory route
+  // (docs/dev/adr/README.md -> dev/adr).
+  // Both README.* and index.* collapse to the directory route
+  // (docs/get-started/index.mdx -> get-started, docs/dev/adr/README.md -> dev/adr).
+  const dirIndexMatch = rest.match(/^(.*)\/(?:README|index)\.mdx?$/);
+  if (dirIndexMatch) return dirIndexMatch[1];
+  if (/^(?:README|index)\.mdx?$/.test(rest)) return '';
+  if (!/\.mdx?$/.test(rest)) {
+    throw new Error(`Not a docs page: ${docsPath}`);
   }
-  if (rest.endsWith('README.md')) {
-    return rest.slice(0, -'README.md'.length).replaceAll(/\/+$/, '');
+  return rest.replace(/\.mdx?$/, '');
+}
+
+/**
+ * The on-disk file path for a docs page, RELATIVE TO THE SITE ROOT
+ * (e.g. `../docs/how-to/x.mdx`): the deferred-render pipeline imports the
+ * file through Vite, whose ids resolve against the site root, and the
+ * content store persists this path for Git-based tooling.
+ */
+export function docsPathToFilePath(docsPath) {
+  const posixPath = docsPath.replaceAll('\\', '/');
+  if (!posixPath.startsWith('docs/')) {
+    throw new Error(`Not a docs path: ${docsPath}`);
   }
-  if (!rest.endsWith('.md')) {
-    throw new Error(`Not a markdown file: ${docsPath}`);
-  }
-  return rest.slice(0, -'.md'.length);
+  return `../${posixPath}`;
 }
 
 /**
@@ -116,7 +131,7 @@ export function formatTitleHtml(text) {
   return escaped
     // [`code`](target) and [label](target) keep the label only
     .replace(/\[([^\]]*)\]\(([^)]*)\)/g, '$1')
-    // **bold** and *italic*
+    // **bold** and *italic**
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
     // `code spans`
@@ -128,7 +143,7 @@ export function formatTitleHtml(text) {
  * Prefix the Astro base path onto a site-absolute route ('/stream/' →
  * '/pi-mistral-native/stream/' when GitHub Pages serves the site from a
  * subpath). The default base '/' (dev server, plain Node) leaves routes
- * * unchanged; paths that do not start with '/' are returned untouched.
+ * unchanged; paths that do not start with '/' are returned untouched.
  */
 export function withBase(route, base = '/') {
   if (!route.startsWith('/') || base === '/' || base === '') return route;
@@ -215,12 +230,33 @@ export function extractAdrStatus(body) {
  * i.e. when the status line carries lifecycle meaning.
  */
 export function isAdrPage(docsPath) {
-  return /^docs\/dev\/adr\/.+\.md$/.test(docsPath);
+  return /^docs\/dev\/adr\/[^/]+\.mdx?$/.test(docsPath);
+}
+
+/**
+ * The Diátaxis page type for a docs path (ADR 0023, D1): ADR pages are
+ * `concept`; every other page's type comes from its section folder —
+ * Get started → tutorial, How-to guides → how-to, Reference → reference,
+ * Concepts → concept, Contributing → any type, defaulting to `reference`
+ * (its pages are fact pages about working on the code).
+ */
+export function docsPathToType(docsPath) {
+  if (isAdrPage(docsPath)) return 'concept';
+  const posixPath = docsPath.replaceAll('\\', '/');
+  // The one URL exception (ADR 0023, D2): Configuration keys lives at
+  // /configuration/, not under reference/.
+  if (posixPath === 'docs/configuration.mdx') return 'reference';
+  if (posixPath.startsWith('docs/get-started/')) return 'tutorial';
+  if (posixPath.startsWith('docs/how-to/')) return 'how-to';
+  if (posixPath.startsWith('docs/reference/')) return 'reference';
+  if (posixPath.startsWith('docs/concepts/')) return 'concept';
+  if (posixPath.startsWith('docs/contributing/')) return 'reference';
+  throw new Error(`Cannot derive the Diátaxis page type for ${docsPath}; move the page into a section folder (get-started/, how-to/, reference/, concepts/, contributing/)`);
 }
 
 /**
  * Rewrite relative links in a markdown body to their site form:
- *   - `.md` links resolve against the page's docs path and become site
+ *   - `.md(x)` links resolve against the page's docs path and become site
  *     routes (anchors preserved).
  *   - non-.md relative links resolving ABOVE the docs tree (e.g. a docs file
  *     linking `../vendor/…`) have no site route and no shipped artifact, so
@@ -269,7 +305,7 @@ function rewriteLinksInLine(line, dir, base) {
     // their route slug. Anything else has no site route: .md links stay
     // untouched, non-.md targets resolve outside the shipped site and lose
     // their link markup (the visible label remains as plain text).
-    if (pathPart.endsWith('.md') || /\.md$/.test(resolved)) {
+    if (pathPart.endsWith('.md') || pathPart.endsWith('.mdx') || /\.mdx?$/.test(resolved)) {
       if (resolved !== 'README.md' && !resolved.startsWith('docs/')) return whole;
       const slug = docsPathToSlug(resolved);
       const route = `/${slug}${slug ? '/' : ''}${anchor}`;
@@ -309,6 +345,7 @@ export function buildFrontmatter(docsPath, body) {
     title: stripInlineMarkdown(rawTitle),
     titleHtml: formatTitleHtml(rawTitle),
     description: extractDescription(body) ?? undefined,
+    type: docsPathToType(docsPath),
   };
   if (isAdrPage(docsPath)) {
     const status = extractAdrStatus(body);

@@ -5,25 +5,34 @@
 // rewriting all happen in memory here.
 //
 // Route mapping:
-//   docs/stream.md               -> slug `stream`             -> /stream/
-//   docs/dev/development.md      -> slug `dev/development`    -> /dev/development/
-//   docs/dev/adr/0002-x.md       -> slug `dev/adr/0002-x`     -> /dev/adr/0002-x/
-//   docs/dev/adr/README.md       -> slug `dev/adr`            -> /dev/adr/
+//   docs/get-started/index.mdx          -> slug `get-started`          -> /get-started/
+//   docs/how-to/use-a-region.mdx       -> slug `how-to/use-a-region`  -> /how-to/use-a-region/
+//   docs/configuration.mdx             -> slug `configuration`         -> /configuration/
+//   docs/dev/development.mdx           -> slug `dev/development`      -> /dev/development/
+//   docs/dev/adr/0002-x.mdx           -> slug `dev/adr/0002-x`       -> /dev/adr/0002-x/
+//   docs/dev/adr/README.mdx            -> slug `dev/adr`              -> /dev/adr/
 //
 // README.md at the repository root is NOT ingested (the site landing page is
 // site-authored and derives from it instead).
+//
+// The pages are MDX (Starlight components — Steps, Tabs, Aside, Badge,
+// FileTree, LinkCard — are Astro components, not Markdown), so the loader
+// does NOT pre-render bodies. It stores `deferredRender: true` and the real
+// on-disk file path; Astro's deferred-render pipeline imports each file
+// through Vite, where @astrojs/mdx compiles it and Starlight's components
+// resolve. Frontmatter (title, description, type, ADR badge data) is built
+// in memory here and validated against the content schema via parseData.
 //
 // The loader passes config.base through to the link rewriter so rewritten
 // routes carry the deployment base (GitHub Pages serves the site under
 // /pi-mistral-native/; Astro rewrites its own URLs but not raw markdown).
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import {
   buildFrontmatter,
   docsPathToSlug,
-  dropFirstH1,
-  rewriteLinks,
+  docsPathToFilePath,
 } from './helpers.js';
 
 const DOCS_ROOT = fileURLToPath(new URL('../../../docs', import.meta.url));
@@ -34,7 +43,9 @@ async function* walkMarkdown(dir) {
     const entryPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       yield* walkMarkdown(entryPath);
-    } else if (entry.isFile() && entry.name.endsWith('.md')) {
+    } else if (entry.isFile() && (entry.name.endsWith('.mdx') || entry.name.endsWith('.md'))) {
+      // The ADR template is a writing aid, not a published page.
+      if (entry.name === 'template.md') continue;
       yield entryPath;
     }
   }
@@ -43,7 +54,7 @@ async function* walkMarkdown(dir) {
 export function docsLoader() {
   return {
     name: 'pi-mistral-native-docs-loader',
-    async load({ config, store, logger, renderMarkdown, parseData, generateDigest }) {
+    async load({ config, store, logger, parseData, generateDigest }) {
       // Full re-scan on every load: clear the store so docs removed from the
       // repository never survive as stale site pages.
       store.clear();
@@ -57,45 +68,34 @@ export function docsLoader() {
         const posixPath = filePath.split(path.sep).join('/');
         const docsPath = posixPath.slice(posixPath.indexOf('/docs/') + 1);
         const raw = await fs.readFile(filePath, 'utf8');
-        // The body drops the ingested first H1 (the frontmatter title renders
-        // as the page H1) before link rewriting; frontmatter and digest stay
-        // raw-based, so title generation and invalidation are unchanged.
-        const body = rewriteLinks(dropFirstH1(raw), docsPath, config.base);
+        // The body transformations (first-H1 drop, .md link rewriting) moved
+        // INTO the compile pipeline (src/loader/docs-plugins.js): with the
+        // deferred render, Vite compiles the on-disk file, so the loader's
+        // in-memory body never reaches the rendered output. Frontmatter is
+        // still built in memory here; the digest stays raw-based so title
+        // generation and invalidation are unchanged.
         const frontmatter = buildFrontmatter(docsPath, raw);
         const slug = docsPathToSlug(docsPath);
 
         // parseData validates against the Starlight docs schema declared in
-        // src/content.config.ts (which extends it with the ADR badge fields).
+        // src/content.config.ts — including the required Diátaxis `type` enum,
+        // so a page without a valid type fails the build here loudly.
         const data = await parseData({ id: slug, data: frontmatter, filePath });
-        const rendered = await renderMarkdown(body, {
-          fileURL: docsStandinUrl(filePath, config),
-        });
         store.set({
           id: slug,
           data,
-          filePath: path.relative(fileURLToPath(config.root), filePath),
-          // The digest covers the file body, the slug and the base: the
-          // slug and the base both feed link rewriting, so a mapping or
-          // base change must invalidate the entry even when the file
-          // content itself is unchanged.
+          // The real on-disk file path (relative to the site root): the MDX
+          // compiler resolves imports (Starlight components) against it, and
+          // Git-based tooling (last-updated, edit links) reads it.
+          filePath: docsPathToFilePath(docsPath),
+          // Deferred render: the body is compiled by Vite at render time, not
+          // pre-rendered here. The digest covers the raw body, the slug and
+          // the base (all three feed the rendered output).
+          deferredRender: true,
           digest: generateDigest(raw + slug + config.base),
-          rendered,
         });
       }
       logger.info(`Ingested ${entries.length} docs pages from ${DOCS_ROOT}`);
     },
   };
-}
-
-// Astro's markdown renderer resolves relative image paths against the
-// file URL and treats out-of-root files as unknown. The ingested docs live
-// outside the site project, so a URL under <siteRoot>/docs/ (a virtual
-// location that never exists on disk) stands in; every relative path the
-// renderer would resolve is one the loader or the asset sync handles.
-// Must be a URL object (not a string): Expressive Code reads
-// file.url.protocol to decide how to resolve the code-block locale.
-function docsStandinUrl(filePath, config) {
-  const relFromDocs = path.relative(DOCS_ROOT, filePath).split(path.sep).join('/');
-  const rootUrl = pathToFileURL(fileURLToPath(config.root)).href;
-  return new URL(`./docs/${relFromDocs}`, rootUrl);
 }

@@ -3,8 +3,8 @@
 The documentation website is hosted on GitHub Pages at
 <https://awerner.github.io/pi-mistral-native/>, deployed automatically from
 the repository. The site is an Astro/Starlight project in
-[`website/`](../../website/) that ingests the repository docs (`docs/**/*.md`
-and `README.md`) as a content collection — the docs remain the single
+[`website/`](../../website/) that ingests the repository docs (`docs/**/*.mdx` and
+`docs/**/*.md`) as a content collection — the docs remain the single
 source of truth; the website build verifies them (page count, sidebar
 slugs, asset sync).
 

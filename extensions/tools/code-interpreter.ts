@@ -25,7 +25,7 @@
  * a `tool.execution` entry with an empty `result` array is a genuinely
  * executed run with no output. Generated files arrive as signed blob URLs:
  * they go into the model-facing content/structuredContent but never into
- * the persisted `details` (docs/knowledge-tools.md, security rules).
+ * the persisted `details` (docs/reference/tools.mdx, security rules).
  * mistral-small-latest / mistral-medium-latest / magistral-medium-latest
  * run the tool; the model comes from `knowledge.searchModel`
  * (default `mistral-small-latest`), and a 400 code 3004 refusal is mapped

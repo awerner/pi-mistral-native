@@ -1,0 +1,21 @@
+---
+// LinkCard wrapper for ingested MDX content: Starlight's <LinkCard> takes a
+// raw href, and GitHub Pages serves the site under a subpath, so a
+// site-absolute route ('/configuration/') must gain the deployment base
+// before it can be used as an href. Astro rewrites its own route URLs but
+// not props an author wrote by hand. Import from `@site/components`.
+import { LinkCard as StarlightLinkCard } from '@astrojs/starlight/components';
+
+interface Props {
+  title: string;
+  description?: string;
+  href: string;
+}
+
+const { title, description, href } = Astro.props;
+const base = import.meta.env.BASE_URL;
+const baseDir = base.endsWith('/') ? base : `${base}/`;
+const withBase = href.startsWith('/') ? `${baseDir}${href.slice(1)}` : href;
+---
+
+<StarlightLinkCard title={title} description={description} href={withBase} />

@@ -1,0 +1,34 @@
+# Search the web
+
+import { Steps, Aside } from '@site/components';
+
+Let the agent search the web and use the hits in its answer. You need this when the answer requires current information beyond the model's training data.
+
+## Prerequisites
+
+- The `pi-mistral-native` package installed
+- An API key configured ([Set up your API key](/how-to/set-up-api-key/))
+
+<Steps>
+
+1. Ask for a search in plain language:
+
+   ```
+   Search the web for the latest Mistral model releases and summarize them.
+   ```
+
+   `mistral_web_search` runs the search and returns the hits (url, title, description, snippets) to the model.
+
+2. Verify the sources — the answer cites the pages it used.
+
+</Steps>
+
+## Premium search
+
+`mistral_web_search_premium` delivers premium search quality and is **pay-per-use** — it costs extra per call, so opt in deliberately by asking for a premium search.
+
+:::caution[Zero hits is not an error]
+An executed search with no hits is an ordinary empty result. A skipped search (the backend decided not to search) is reported as retry-worthy — distinct from an empty result. The search model is `knowledge.searchModel` (default `mistral-small-latest`); a model that refuses the builtin connectors (mistral-large-4, error 3004) is reported with a fix hint.
+:::
+
+See [Tools](/reference/tools/) · [Configuration keys](/configuration/)

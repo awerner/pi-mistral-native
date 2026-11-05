@@ -1,0 +1,30 @@
+# Run code with the code interpreter
+
+import { Steps, Aside } from '@site/components';
+
+Have Python run server-side and get the output plus generated files back — for example, to compute, analyze data, or generate a plot. You need this when the answer requires actual execution, not just generation.
+
+## Prerequisites
+
+- The `pi-mistral-native` package installed
+- An API key configured ([Set up your API key](/how-to/set-up-api-key/))
+
+<Steps>
+
+1. Describe the task in plain language:
+
+   ```
+   Plot sin(x) over one period and give me the PNG.
+   ```
+
+   `mistral_code_interpreter` takes a `prompt` — what to compute, analyze or generate; the code itself is written server-side.
+
+2. Read the result — the executed code, captured output and generated files arrive as download links.
+
+</Steps>
+
+:::caution[The search model runs the tool]
+The code interpreter runs under `knowledge.searchModel` (default `mistral-small-latest`), independent of your chat model. A model that refuses the builtin connectors (mistral-large-4, error 3004) is reported with a fix hint. A skipped execution (no code run) is reported as retry-worthy — distinct from an executed run that produced no output; neither is an error.
+:::
+
+See [Tools](/reference/tools/) · [Configuration keys](/configuration/)

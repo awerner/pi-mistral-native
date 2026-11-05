@@ -1,0 +1,65 @@
+# Tools
+
+Every `mistral_*` tool your agent can call, grouped by task. Most tools register automatically; the loader tools appear once an authenticated connector is discovered — and only with the loader enabled.
+
+All tools resolve the API key per call through the [credential chain](/reference/credential-chain/).
+
+## Ask questions about your documents
+
+| Tool | Purpose |
+|---|---|
+| `mistral_document_upload` | Upload a file into a library (async processing) |
+| `mistral_document_query` | RAG query over one or more libraries, with citations |
+| `mistral_document_status` | Poll async processing status until `done` or `error` |
+| `mistral_document_list` | List a library's documents, with search and pagination |
+| `mistral_document_signed_url` | Short-lived (30 min) signed download URL |
+
+## Manage the document store
+
+| Tool | Purpose |
+|---|---|
+| `mistral_file_upload` | Upload a local file to the files API |
+| `mistral_library_create` | Create a document library for RAG indexing |
+| `mistral_library_list` | List libraries, with search and pagination |
+| `mistral_document_reprocess` | Queue re-indexing (billed again) |
+
+## Extract text and classify
+
+| Tool | Purpose |
+|---|---|
+| `mistral_ocr` | Image or PDF to per-page markdown |
+| `mistral_embed` | Texts to embedding vectors |
+| `mistral_moderate` | Fixed moderation categories with flags and scores |
+| `mistral_classify` | Score inputs against a fine-tuned model's training-time targets |
+
+## Search the web and run code
+
+| Tool | Purpose |
+|---|---|
+| `mistral_web_search` | Web search returning hits (url, title, description, snippets) |
+| `mistral_web_search_premium` | Premium search quality, pay-per-use |
+| `mistral_code_interpreter` | Execute Python server-side; returns output and generated files |
+
+## Manage connectors
+
+| Tool | Purpose |
+|---|---|
+| `mistral_connector_list` | List connectors (cursor pagination) |
+| `mistral_connector_tools` | List a connector's tools (requires authentication) |
+| `mistral_connector_auth_url` | OAuth authorization URL; open it to grant access |
+| `mistral_connector_activate` | Activate a connector for a scope |
+| `mistral_connector_deactivate` | Deactivate a connector for a scope |
+| `mistral_connector_share` | Share a connector with the workspace |
+| `mistral_connector_unshare` | Unshare a connector from the workspace |
+
+## Load connector tools client-side
+
+| Tool | Purpose |
+|---|---|
+| `mistral_connector_load` | Register an authenticated connector's MCP tools as ordinary pi tools |
+| `mistral_connector_unload` | Withdraw a connector's tools |
+| `mistral_connector_reload` | Refresh the loader's connector list |
+
+The loader tools register when session-start discovery finds at least one authenticated connector. Loaded tools are usable from the next model request.
+
+See [Query your documents](/how-to/query-your-documents/) · [Search the web](/how-to/search-the-web/) · [Run code with the code interpreter](/how-to/run-code-with-the-code-interpreter/) · [Enable connectors and connector tools](/how-to/enable-connectors/)

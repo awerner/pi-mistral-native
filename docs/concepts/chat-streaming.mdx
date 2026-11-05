@@ -1,0 +1,25 @@
+# How chat streaming works
+
+Why reasoning, tool calls and costs behave the way they do.
+
+Chat runs directly against Mistral's chat-completions streaming endpoint. Reasoning models stream their thinking as a **typed block array** — thinking and text entries mixed in one delta — and the stream routes each block by type: thinking entries join a single thinking block, text entries append to the answer. The assembled message exposes both as proper content blocks, so reasoning is visible, collapsible, next to the answer.
+
+## Tool calls
+
+Tool-call deltas arrive incrementally: a first delta carries the call id and function name, later deltas only argument fragments. Calls are assembled by stream index, arguments accumulate per block, and parallel calls interleave safely. Continuation chunks — deltas with neither a name nor an id — append to the most recently opened call instead of opening a phantom one.
+
+## What happens on failure
+
+- **Context overflow** — the stream normalizes Mistral's varying error wording into a stable marker, so pi reliably triggers compaction instead of showing a cryptic error.
+- **Transient failures** — timeouts, 429s, 5xx and network errors retry with interruptible exponential backoff honoring `retry-after`.
+- **Cancellation** — an abort keeps the partial answer and never hangs on the server closing the connection.
+
+## Usage and cost
+
+Each stream carries a usage object — input tokens excluding cached tokens, output, cache reads and writes, reasoning tokens — and cost is computed from the model's rate card as a catalog estimate, never a billed total.
+
+## Why the stateless endpoint
+
+pi's built-in Mistral provider runs on the stateful Conversations API, where the conversation history lives server-side. That API is classified Beta, and documented incidents show corrupted server-side state replaying stale tool calls — duplicated side effects in live sessions. This provider sends the full history in every request on the stateless GA endpoint: there is no server-side conversation state to corrupt.
+
+See [Models and cost estimates](/concepts/models-and-costs/)

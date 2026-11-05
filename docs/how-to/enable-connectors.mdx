@@ -1,0 +1,69 @@
+# Enable connectors and connector tools
+
+import { Steps, Tabs, TabItem, Aside } from '@site/components';
+
+Use Mistral connectors — Outlook, SharePoint, Notion, Google Drive, … — as tools your agent can call. You need this when the agent should read or act on a connected service.
+
+## Prerequisites
+
+- The `pi-mistral-native` package installed
+- An API key configured ([Set up your API key](/how-to/set-up-api-key/))
+
+<Steps>
+
+1. Grant access to the connector — ask the agent to run the auth tool:
+
+   ```
+   Get me the authorization URL for the Notion connector.
+   ```
+
+   `mistral_connector_auth_url` returns the URL; open it in a browser to grant access. The grant is stored on Mistral's side — nothing is stored locally.
+
+2. Load the connector's tools into the session:
+
+   ```
+   Load the Notion connector's tools.
+   ```
+
+   `mistral_connector_load` registers the connector's MCP tools as ordinary pi tools, usable from the next model request.
+
+3. Verify — the agent can now call the connector's tools directly:
+
+   ```
+   List my recent Notion pages.
+   ```
+
+</Steps>
+
+## Always-on variants
+
+Two config surfaces keep connectors available without loading them per session:
+
+<Tabs>
+<TabItem label="Server-side">
+
+Send the connector with every chat request — the model calls it server-side:
+
+```json
+{ "connectors": ["notion"] }
+```
+
+</TabItem>
+<TabItem label="Auto-load">
+
+Register and activate listed connectors at session start:
+
+```json
+{ "connectorTools": { "autoLoad": ["notion"] } }
+```
+
+A configured name that is not authenticated warns at session start — never skipped silently.
+
+</TabItem>
+</Tabs>
+
+:::caution[Connector traffic stays global]
+Connectors and their management tools keep using the global endpoint regardless of the configured region.
+:::
+
+See [Server-side and client-side tools](/concepts/tools/) · [Tools](/reference/tools/) · [Configuration keys](/configuration/)

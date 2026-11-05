@@ -1,0 +1,53 @@
+# Set up your API key
+
+import { Steps, Tabs, TabItem, Aside } from '@site/components';
+
+Give the provider an API key so pi can talk to Mistral. You need this once, before your first chat.
+
+## Prerequisites
+
+- pi installed, with the `pi-mistral-native` package installed (`pi install npm:pi-mistral-native`)
+- an API key from [La Plateforme](https://console.mistral.ai/api-keys)
+
+<Steps>
+
+1. Pick one method:
+
+   <Tabs syncKey="config-method">
+   <TabItem label="Command">
+
+   Run the guided login:
+
+   ```
+   /login mistral-native
+   ```
+
+   It prompts for the API key (no echo), then for the API region.
+
+   </TabItem>
+   <TabItem label="Environment">
+
+   ```sh
+   export MISTRAL_API_KEY=your-api-key
+   ```
+
+   The provider works with zero configuration — no login needed. A stored credential from a previous `/login` outranks the variable.
+
+   </TabItem>
+   </Tabs>
+
+2. Verify the key is configured:
+
+   ```
+   /mistral
+   ```
+
+   The status card shows `Auth: configured` with the source — never the key itself.
+
+</Steps>
+
+:::danger[The key never goes into the config file]
+`mistral-native.json` stores behavior settings only. The key lives in pi's credential storage (`/login`) or the environment — never in a file you might commit. Credentials are per provider: an existing `mistral` entry in `auth.json` belongs to a different provider, so run `/login mistral-native` — with the provider id — to store a key for this one.
+:::
+
+See [Credential chain](/reference/credential-chain/) · [Keep secrets out of the config file](/how-to/keep-secrets-out-of-the-config-file/)

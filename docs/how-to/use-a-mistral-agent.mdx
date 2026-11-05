@@ -1,0 +1,60 @@
+# Use a Mistral agent
+
+import { Steps, Tabs, TabItem, Aside } from '@site/components';
+
+Run a hosted Mistral agent in your pi session — its tool set executes on Mistral's side. You need this when you have configured an agent on La Plateforme and want pi to talk to it.
+
+## Prerequisites
+
+- The `pi-mistral-native` package installed
+- An agent configured on [La Plateforme](https://console.mistral.ai)
+
+<Steps>
+
+1. Set the agent id. Pick one method:
+
+   <Tabs syncKey="config-method">
+   <TabItem label="Command">
+
+   ```
+   /mistral set agentId my-agent
+   ```
+
+   </TabItem>
+   <TabItem label="File">
+
+   ```json
+   { "agentId": "my-agent" }
+   ```
+
+   </TabItem>
+   <TabItem label="Environment">
+
+   ```sh
+   export MISTRAL_AGENT_ID=my-agent
+   ```
+
+   Ignored if any config file sets `agentId`.
+
+   </TabItem>
+   </Tabs>
+
+2. Verify the mode:
+
+   ```
+   /mistral
+   ```
+
+   The status card shows `Agent id: my-agent`.
+
+3. Start a chat — requests now run through the Agents API with the agent's tool set.
+
+</Steps>
+
+:::caution[Agent mode posts globally]
+The Agents API is not available regionally: agent-mode chat posts to the global endpoint even when a region is configured.
+:::
+
+The value supports the config-value protocol (`$VAR`, `${VAR}`, `!command`) — see [Keep secrets out of the config file](/how-to/keep-secrets-out-of-the-config-file/).
+
+See [Configuration keys](/configuration/) · [Server-side and client-side tools](/concepts/tools/)

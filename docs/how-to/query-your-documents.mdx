@@ -1,0 +1,36 @@
+# Query your documents
+
+import { Steps, Aside } from '@site/components';
+
+Upload a file once, then ask questions about it with answers that cite the source passages. You need this when the agent should answer from your own documents.
+
+## Prerequisites
+
+- The `pi-mistral-native` package installed
+- An API key configured ([Set up your API key](/how-to/set-up-api-key/))
+
+<Steps>
+
+1. Create a library and upload the file — ask in plain language:
+
+   ```
+   Create a library called "docs" and upload report.pdf into it.
+   ```
+
+   `mistral_library_create` creates the library; `mistral_document_upload` starts async processing. Duplicate content returns the existing document.
+
+2. Wait for processing, then ask your question:
+
+   ```
+   Poll the document status, then ask the library: what are the three key findings?
+   ```
+
+   `mistral_document_status` polls until `done`; `mistral_document_query` runs the RAG query — answers stream as they generate and come back with citations linking to the source passages.
+
+</Steps>
+
+:::tip[Streaming is the default]
+`rag.streaming` (default `true`) switches the query tool between the streaming path and the legacy one-shot request. Set `rag.streaming false` — or `MISTRAL_RAG_STREAMING=0` — to force the one-shot request; the variable applies only when no config file sets `rag.streaming` or `knowledge.streaming`. Uploading and re-indexing documents are billable Mistral operations; `mistral_document_reprocess` re-indexes after fixing a source file — billed again.
+:::
+
+See [Tools](/reference/tools/) · [Configuration keys](/configuration/)

@@ -2,13 +2,14 @@
 
 This is the developer and contributor document for pi-mistral-native:
 build commands, repository layout, and where everything lives. The
-project's documentation is structured in four layers:
+project's documentation follows the Diátaxis structure (ADR 0023):
 
 - `README.md` — the user landing page (features, status, install,
   configuration)
-- `docs/*.md` — user-facing feature docs (behavior, usage, limits)
-- `docs/dev/*.md` — developer docs for contributors and agents (this page,
-  testing, publishing, hosting, design-tokens)
+- `docs/get-started/`, `docs/how-to/`, `docs/reference/`,
+  `docs/concepts/` — user-facing pages, one Diátaxis type per section
+- `docs/contributing/` — developer docs for contributors (this page,
+  testing, publishing, hosting, design-tokens, internals)
 - `docs/dev/adr/` — architecture decision records
 
 `AGENTS.md` remains the agent entry point; `.pi/*.md` hold working
@@ -36,11 +37,11 @@ npm run build      # tsc to dist/ (git-ignored)
 | `extensions/tools/` | Library/RAG and connector tools: `mistral-client.ts` (shared HTTP client), `knowledge.ts` (9 pi tools for files, libraries, documents, RAG query), `connectors.ts` (7 connector management pi tools), `loader.ts` (client-side connector tool loader — mistral_connector_load/unload/reload) |
 | `test/` | `node --test` suites |
 | `vendor/mistral-openapi.yaml` | Vendored Mistral OpenAPI spec — wire-format reference, never edit by hand |
-| `docs/` | Feature pages: [stream.md](../stream.md), [catalog.md](../catalog.md), [auth.md](../auth.md), [knowledge-tools.md](../knowledge-tools.md), [server-tools.md](../server-tools.md), [configuration.md](../configuration.md) |
-| `docs/dev/` | Developer docs: [development.md](development.md) (this page), [testing.md](testing.md), [publishing.md](publishing.md), [hosting.md](hosting.md), [design-tokens.md](design-tokens.md) |
-| `docs/dev/adr/` | Decision records — index: [adr/README.md](adr/README.md) |
+| `docs/` | User pages: [Your first Mistral session](../get-started/first-session.mdx), [Change a setting](../how-to/change-a-setting.mdx), [Tools](../reference/tools.mdx), [How configuration layers work](../concepts/config-layers.mdx), [Configuration keys](../configuration.mdx) |
+| `docs/contributing/` | Developer docs: [Development](development.md) (this page), [Testing](testing.md), [Publishing](publishing.md), [Website hosting](hosting.md), [Design tokens](design-tokens.mdx), [Internals](internals.mdx) |
+| `docs/dev/adr/` | Decision records — index: [Architecture Decision Records](../dev/adr/README.md) |
 | `.pi/` | pi project configuration (loads only after project trust) |
 | `.pi/settings.json` | Project model defaults (`mistral-native/mistral-large-4`) |
 | `.pi/workflow.md` | Workflow reference (roles, stages, never-list) |
 
-*Decisions: [ADR 0003 — Vendored OpenAPI spec](adr/0003-vendored-openapi-spec.md); [ADR 0005 — OCR, embeddings, moderations/classifications as pi tools](adr/0005-ocr-embeddings-moderations-as-pi-tools.md); [ADR 0006 — Knowledge API tools](adr/0006-knowledge-api-tools.md); [ADR 0007 — Server-side tools as opaque content](adr/0007-server-side-tools-as-opaque-content.md); [ADR 0011 — Client-side connector tools via the loader pattern](adr/0011-client-side-connector-tools.md); [ADR 0015 — Streaming RAG document query](adr/0015-streaming-rag-document-query.md)*
+*Decisions: [ADR 0003 — Vendored OpenAPI spec](../dev/adr/0003-vendored-openapi-spec.md); [ADR 0005 — OCR, embeddings, moderations/classifications as pi tools](../dev/adr/0005-ocr-embeddings-moderations-as-pi-tools.md); [ADR 0006 — Knowledge API tools](../dev/adr/0006-knowledge-api-tools.md); [ADR 0007 — Server-side tools as opaque content](../dev/adr/0007-server-side-tools-as-opaque-content.md); [ADR 0011 — Client-side connector tools via the loader pattern](../dev/adr/0011-client-side-connector-tools.md); [ADR 0015 — Streaming RAG document query](../dev/adr/0015-streaming-rag-document-query.md); [ADR 0023 — Documentation structured by Diátaxis](../dev/adr/0023-documentation-structured-by-diataxis.md)*

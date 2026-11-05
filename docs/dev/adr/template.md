@@ -4,7 +4,7 @@
 - **Date**: YYYY-MM-DD
 
 Architecture ADRs live in `docs/dev/adr/`, numbered sequentially and
-indexed in [README.md](README.md).
+indexed in the [ADR index](README.md).
 
 Status legend:
 

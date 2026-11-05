@@ -1,0 +1,38 @@
+# Override settings for one project
+
+import { Steps, Aside } from '@site/components';
+
+Make one repository use different Mistral settings than your machine-wide defaults — for example, a project agent id or a project region. You need this when a repo's workflow requires its own configuration.
+
+## Prerequisites
+
+- The `pi-mistral-native` package installed
+- The project must be **trusted** in pi (pi loads the project file only for trusted projects)
+
+<Steps>
+
+1. Write the key to the project scope from inside the project directory:
+
+   ```
+   /mistral set --project agentId my-agent
+   ```
+
+   The write goes to `<cwd>/.pi/mistral-native.json`. Without `--project` the write targets your user scope instead.
+
+2. Verify the change:
+
+   ```
+   /mistral
+   ```
+
+   The key shows its new value with `project file` provenance.
+
+3. Commit the file, so every contributor of the repository sees the same override in review.
+
+</Steps>
+
+:::caution[Project wins, trust gates the file]
+A project-scope key outranks both your user file and environment variables — in this project. A project region also wins over the `/login` region picker's user-scope write, so in a project that sets its own region the login selection appears ineffective. An untrusted project's file is ignored entirely, and `/mistral set --project` refuses to write with an error naming the trust requirement.
+:::
+
+See [How configuration layers work](/concepts/config-layers/) · [Config file locations and precedence](/reference/config-files/) · [/mistral commands](/reference/commands/)

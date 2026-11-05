@@ -165,6 +165,16 @@ example and links.
   require MDX-capable content, which constrains the site's ingestion
   pipeline (Starlight's `Steps`, `Tabs`, `Badge`, `FileTree` and
   `LinkCard` are Astro components, not Markdown).
+- **Implementation note (D1):** the site derives `type` from the section
+  folder (get-started → tutorial, how-to → how-to, reference →
+  reference, concepts → concept, ADRs → concept) instead of reading a
+  declared frontmatter field — the docs carry no frontmatter, and
+  deriving it keeps one source of truth. The schema still validates the
+  value, so an unmapped folder fails the build. A page placed in the
+  wrong section therefore fails loudly rather than silently mislabeling.
+  The D3 concept row drops "ADR links" from its Contains column,
+  harmonized with the amended D4 rule 8 (zero ADR references on
+  user-facing pages).
 - **Known risk accepted:** The key reference stays hand-written and
   can drift from the config schema. Mitigation: a checklist item in
   the PR template. If drift happens anyway, a follow-up ADR adopts

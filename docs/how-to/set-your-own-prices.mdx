@@ -1,0 +1,46 @@
+# Set your own prices
+
+import { Steps, Aside } from '@site/components';
+
+Override or extend the model catalog's prices — for example, when you negotiated different rates or a new model is missing from the built-in card. You need this when the displayed costs should reflect your actual rates.
+
+## Prerequisites
+
+- The `pi-mistral-native` package installed
+
+<Steps>
+
+1. Add a rate-card entry to your [user config file](/reference/config-files/) — `models.rateCard` is not settable via `/mistral set`, so hand-edit the file:
+
+   ```json
+   {
+     "models": {
+       "rateCard": [
+         {
+           "match": "mistral-large",
+           "rates": { "input": 0.7, "output": 2.1, "cacheRead": 0.07, "cacheWrite": 0 }
+         }
+       ]
+     }
+   }
+   ```
+
+   Entries match model ids by substring — the first match wins, most-specific-first. A same-`match` entry shadows the built-in; a `match` of `""` prices the entire catalog.
+
+2. Verify the price in a chat — the usage cost reflects your entry.
+
+3. Optional — control unpriced models:
+
+   ```
+   /mistral set models.fallThrough false
+   ```
+
+   `false` gives models without a matching entry a zero-cost placeholder instead of the catch-all rates (still flagged approximate).
+
+</Steps>
+
+:::caution[Regional surcharge still applies]
+Whenever the region is not `global`, every resolved rate — your entries included — carries the +10% regional surcharge.
+:::
+
+See [Built-in rate card](/reference/rate-card/) · [Models and cost estimates](/concepts/models-and-costs/) · [Configuration keys](/configuration/)
