@@ -24,11 +24,7 @@ Have Python run server-side and get the output plus generated files back — for
 </Steps>
 
 :::caution[The search model runs the tool]
-The code interpreter runs under `knowledge.searchModel` (default `mistral-small-latest`), independent of your chat model. A model that refuses the builtin connectors (mistral-large-4, error 3004) is reported with a fix hint.
-:::
-
-:::tip[A skipped run is retry-worthy]
-If the backend skips execution (no code run), the result says so and suggests retrying — distinct from an executed run that produced no output. Neither is an error.
+The code interpreter runs under `knowledge.searchModel` (default `mistral-small-latest`), independent of your chat model. A model that refuses the builtin connectors (mistral-large-4, error 3004) is reported with a fix hint. A skipped execution (no code run) is reported as retry-worthy — distinct from an executed run that produced no output; neither is an error.
 :::
 
 See [Tools](/reference/tools/) · [Configuration keys](/configuration/)

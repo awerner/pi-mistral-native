@@ -28,7 +28,7 @@ Let the agent search the web and use the hits in its answer. You need this when 
 `mistral_web_search_premium` delivers premium search quality and is **pay-per-use** — it costs extra per call, so opt in deliberately by asking for a premium search.
 
 :::caution[Zero hits is not an error]
-When the backend decides not to search, the call returns an ordinary empty result. The search model is `knowledge.searchModel` (default `mistral-small-latest`); a model that refuses the builtin connectors (mistral-large-4, error 3004) is reported with a fix hint.
+An executed search with no hits is an ordinary empty result. A skipped search (the backend decided not to search) is reported as retry-worthy — distinct from an empty result. The search model is `knowledge.searchModel` (default `mistral-small-latest`); a model that refuses the builtin connectors (mistral-large-4, error 3004) is reported with a fix hint.
 :::
 
 See [Tools](/reference/tools/) · [Configuration keys](/configuration/)

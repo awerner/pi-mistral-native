@@ -4,7 +4,7 @@ The `/mistral` command family: show every effective value, write one key, or tes
 
 ## `/mistral`
 
-Shows a status card: every key's effective value with its provenance (`project file`, `user file`, `env`, `default` or `unset`), the auth source label (never the key value), the effective chat endpoint, and the config chain with the loaded file marked. When no key is configured it prints:
+Shows a status card: every key's effective value with its provenance (`project file`, `user file`, `env`, `default` or `unset`), the auth source label (never the key value), the effective chat endpoint, the config chain with the loaded file marked, the project-scope state, any unsupported server tools, and any loader warnings. When no key is configured it prints:
 
 ```text
 Auth: not configured — run /login mistral-native or set MISTRAL_API_KEY
@@ -36,7 +36,7 @@ Writes are atomic and merge-preserving: an existing file that is not valid JSON 
 
 ## `/mistral test`
 
-Runs a live `GET /chat-endpoint/models` check. Failures name their step and carry a fix hint:
+Runs a live `GET /models` check against the effective chat endpoint. Failures name their step and carry a fix hint:
 
 | Step | Meaning |
 |---|---|

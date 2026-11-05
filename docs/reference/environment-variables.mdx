@@ -12,14 +12,12 @@ Every `MISTRAL_*` variable the provider reads, in one table.
 | `MISTRAL_CONNECTOR_TOOLS` | `connectorTools.enabled` | `0`, `false` or `off` (case-insensitive) disable; any other non-empty value enables |
 | `MISTRAL_RAG_STREAMING` | `rag.streaming` | `0`, `false`, `off` or `no` disable; `1`, `true`, `on` or `yes` enable |
 
-## Precedence exceptions
+## Precedence
 
-A config file wins over these variables per key — with three exceptions where the variable applies only when no file sets the key:
+Every variable in this table applies only when no config file sets its key — the file wins per key, uniformly. Three variables have an extra nuance:
 
-- `MISTRAL_REGION` — applies only when no config file sets `endpoint.region`
-- `MISTRAL_CONNECTOR_TOOLS` — applies only when no config file sets `connectorTools.enabled`
-- `MISTRAL_RAG_STREAMING` — applies only when no config file sets `rag.streaming` or `knowledge.streaming`
-
-Every how-to that offers an environment variable states this rule where you act.
+- `MISTRAL_REGION` — the value must be exactly `global`, `eu` or `us` (case-sensitive, no trimming); any other value is ignored, even without a config file
+- `MISTRAL_CONNECTOR_TOOLS` — only `0`, `false` and `off` (case-insensitive) disable; any other non-empty value enables
+- `MISTRAL_RAG_STREAMING` — suppressed by either `rag.streaming` or `knowledge.streaming` in a config file
 
 See [Config file locations and precedence](/reference/config-files/) · [Credential chain](/reference/credential-chain/)

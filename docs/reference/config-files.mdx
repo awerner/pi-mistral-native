@@ -8,8 +8,12 @@ Where `mistral-native.json` lives and which layer wins.
 
 <FileTree>
 
-- **mistral-native.json** — the config file, user scope
-- .pi
+- **~/.config/pi/** (or `$XDG_CONFIG_HOME/pi/`)
+  - **mistral-native.json** — the config file, user scope
+- **~/.pi/**
+  - **agent/mistral-native.json** — the agent-dir hop of the user chain
+  - **mistral-native.json** — the legacy hop of the user chain
+- **your-project/.pi/**
   - **mistral-native.json** — the config file, project scope
 
 </FileTree>
@@ -27,17 +31,9 @@ Where `mistral-native.json` lives and which layer wins.
 
 Highest wins: **project JSON > user JSON > environment variables > defaults.**
 
-Files win over environment variables per key. Nested section objects merge key-by-key: a project key wins, user keys survive otherwise. Environment variables apply for every key the merged files leave unset.
+Files win over environment variables per key — uniformly, with no exceptions. Nested section objects merge key-by-key: a project key wins, user keys survive otherwise. Environment variables apply for every key the merged files leave unset.
 
-Three environment variables have exceptions to the file-beats-env rule:
-
-| Variable | Exception |
-|---|---|
-| `MISTRAL_REGION` | Applies only when no config file sets `endpoint.region` |
-| `MISTRAL_CONNECTOR_TOOLS` | Applies only when no config file sets `connectorTools.enabled` |
-| `MISTRAL_RAG_STREAMING` | Applies only when no config file sets `rag.streaming` or `knowledge.streaming` |
-
-See [Environment variables](/reference/environment-variables/) for the full variable list.
+See [Environment variables](/reference/environment-variables/) for the full variable list and their value nuances.
 
 ## Writing the file
 

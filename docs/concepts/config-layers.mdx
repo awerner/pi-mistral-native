@@ -9,17 +9,17 @@ Every setting resolves through four layers, highest wins: **project JSON > user 
 | Layer | File | Who it is for |
 |---|---|---|
 | *Project scope* | `<cwd>/.pi/mistral-native.json` | One repository; loaded only with project trust |
-| *User scope* | The first existing file in the [user chain](/reference/config-files/), normally `~/.pi/agent/mistral-native.json` | You, on this machine |
+| *User scope* | The first existing file in the [user chain](/reference/config-files/), normally `~/.config/pi/mistral-native.json` | You, on this machine |
 | Environment variables | `MISTRAL_*` | A single launch, a CI run, a wrapper script |
 | Defaults | — | The provider's built-in behavior |
 
-Two writers exist: hand-editing and `/mistral set` (user scope by default, project scope with `--project`). Both write the first existing file in the chain — never a new file elsewhere — and both merge, preserving every other key.
+Three writers exist: hand-editing, `/mistral set` (user scope by default, project scope with `--project`), and the `/login` region picker (which writes `endpoint.region` to the user scope). All write the first existing file in the chain — never a new file elsewhere — and all merge, preserving every other key.
 
 ## Why files beat environment variables
 
 Most tools read environment variables last-wins. This provider inverts that: a file key outranks the variable. The reason is ownership — a file is a durable, reviewable artifact (the project file even travels in git), while environment variables are ambient. When both exist, the deliberate choice wins.
 
-Three variables escape the rule only in one direction: `MISTRAL_REGION`, `MISTRAL_CONNECTOR_TOOLS` and `MISTRAL_RAG_STREAMING` apply when no file sets their key — the file still wins when it does.
+The rule is uniform — no variable escapes it. Two keys have a second file-side guard worth knowing: `MISTRAL_RAG_STREAMING` is suppressed by either `rag.streaming` or `knowledge.streaming`, and `MISTRAL_REGION` is honored only for the exact values `global`, `eu` and `us`.
 
 ## Trust and the project file
 

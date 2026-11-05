@@ -582,7 +582,7 @@ test("status card shows provenance per source layer", () => {
 	assert.match(card, /RAG default library: unset  \[unset\]/);
 	assert.match(card, /Region: global  \[default\]/);
 	// web_search is rejected by chat completions: the card names it.
-	assert.match(card, /\(web_search do not run in chat completions — use the mistral_web_search tool for web search; see docs\/server-tools\.md\)/);
+	assert.match(card, /\(web_search do not run in chat completions — use the mistral_web_search tool for web search; see https:\/\/awerner\.github\.io\/pi-mistral-native\/reference\/tools\/\)/);
 });
 
 test("status card shows the Web search model row with default provenance", () => {

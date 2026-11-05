@@ -1,6 +1,6 @@
 ---
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
-import { Card, CardGrid, Icon } from '@astrojs/starlight/components';
+import { Card, CardGrid } from '@astrojs/starlight/components';
 
 // Site-authored landing page, derived from the repository README: one-line
 // value proposition, quickstart and the capability cards. The README itself
@@ -33,9 +33,9 @@ const capabilities = [
     text: 'Outlook, SharePoint, Notion, Google Drive, … — grant access once; the connector\u2019s MCP tools become ordinary pi tools your agent can call.',
   },
   {
-    title: 'Run server-side tools mid-chat',
+    title: 'Run tools mid-chat',
     href: withBase('/concepts/tools/'),
-    text: 'Web search, image generation and code execution with one setting — no client-side glue.',
+    text: 'Image generation server-side with one setting; web search and code execution as dedicated tools — no client-side glue.',
   },
   {
     title: 'Extract text from images and PDFs (OCR)',
@@ -100,8 +100,9 @@ const sections = [
     description:
       'A Mistral-specific, optimized integration for the pi coding agent — not just chat.',
     template: 'splash',
-    // The landing page is the Diátaxis Welcome page (Get started section):
-    // a tutorial-type page per the content schema's required `type` enum.
+    // The landing page is the Diátaxis Welcome page (Get started section).
+    // `type` mirrors the docs schema's required enum for consistency; the
+    // field is inert here because this page is not in the docs collection.
     type: 'tutorial',
   }}
 >
@@ -145,16 +146,15 @@ const sections = [
 
     <h2 id="where-to-go-next">Where to go next</h2>
 
-    <div class="capability-grid">
+    <CardGrid>
       {
         sections.map((section) => (
-          <a class="capability-card" href={section.href}>
-            <span class="capability-title">{section.title}</span>
-            <span class="capability-text">{section.text}</span>
-          </a>
+          <Card title={section.title} href={section.href}>
+            {section.text}
+          </Card>
         ))
       }
-    </div>
+    </CardGrid>
 
     <h2 id="install">Install</h2>
 

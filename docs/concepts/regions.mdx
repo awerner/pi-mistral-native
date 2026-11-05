@@ -2,7 +2,7 @@
 
 Why selecting a region moves some traffic but not all of it.
 
-Mistral offers three API regions: `global` (`api.mistral.ai`), `eu` (`api.eu.mistral.ai`) and `us` (`api.us.mistral.ai`). The regional endpoints serve chat completions and the model catalog — the surfaces your prompts and documents' queries touch. But not every Mistral service exists regionally: the Files, Agents and Batch APIs are global-only, so the knowledge tools, server-side tools, agent mode and connectors keep posting to the global endpoint even when a region is configured.
+Mistral offers three API regions: `global` (`api.mistral.ai`), `eu` (`api.eu.mistral.ai`) and `us` (`api.us.mistral.ai`). The regional endpoints serve chat completions and the model catalog — the surfaces your chat prompts touch. But not every Mistral service exists regionally: the Files, Agents and Batch APIs are global-only, so the knowledge tools, server-side tools, agent mode and connectors keep posting to the global endpoint even when a region is configured.
 
 The provider routes **per API family** rather than switching wholesale. The full matrix lives in [Region routing](/reference/region-routing/).
 

@@ -8,7 +8,7 @@ Rules for which models appear: only chat-capable models; internal and archived m
 
 ## Where prices come from
 
-The live model list carries no prices, so costs come from a sourced [family rate card](/reference/rate-card/): the first entry whose `match` string is a substring of the model id applies, with a catch-all so every id gets a price. Every entry carries a source and a last-verified date, so drift stays auditable. Your own `models.rateCard` entries are checked before the built-in card.
+The live model list carries no prices, so costs come from a sourced [family rate card](/reference/rate-card/): the first entry whose `match` string is a substring of the model id applies, with a catch-all so every id gets a price. Each built-in rate was verified against Mistral's pricing pages at implementation time. Your own `models.rateCard` entries are checked before the built-in card.
 
 ## What the costs mean
 

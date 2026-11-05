@@ -4,7 +4,7 @@ Why the same connector can run in two different places.
 
 Mistral can execute tools in two ways, and the provider exposes both:
 
-**Server-side tools** run inside one streamed chat response, on Mistral's side. You enable them per session — `serverTools` for the built-ins (image generation), `connectors` for connector tools, `agentId` for a hosted agent — and the model calls them mid-response. Executed calls fold into the answer as text blocks; they never become pi tool calls, because pi would execute those locally a second time. Chat completions accepts only `image_generation` and connectors; the other built-ins are Conversations-API-only and are dropped with a warning.
+**Server-side tools** run inside one streamed chat response, on Mistral's side. You enable them through configuration — `serverTools` for the built-ins (image generation), `connectors` for connector tools, `agentId` for a hosted agent — and they ride along on every chat request; the model calls them mid-response. Executed calls fold into the answer as text blocks; they never become pi tool calls, because pi would execute those locally a second time. Chat completions accepts only `image_generation` and connectors; the other built-ins are Conversations-API-only and are dropped with a warning.
 
 **Client-side tools** run through the loader pattern: `mistral_connector_load` pulls an authenticated connector's MCP tools into your pi session as ordinary pi tools (namespaced `mistral_cn_<connector>`), so the agent sees real tool schemas and can compose multi-step workflows with any provider. Loaded tools are usable from the next model request.
 

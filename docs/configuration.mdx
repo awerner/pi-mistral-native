@@ -4,9 +4,11 @@ import { Badge } from '@site/components';
 
 Every key of `mistral-native.json`, grouped by section. All sections and keys are optional; an absent key is unset and falls through to lower-precedence layers.
 
+Every settable key accepts both `/mistral set <key> <value>` (user scope) and `/mistral set --project <key> <value>` (project scope, trusted projects only).
+
 ## `serverTools`
 
-### `serverTools` <Badge text="Server-side tools" />
+### `serverTools`
 
 Enabled Mistral built-in server-side tools, sent with every chat request.
 
@@ -24,7 +26,7 @@ Only `image_generation` runs in chat completions; the other three are dropped wi
 
 ## `connectors`
 
-### `connectors` <Badge text="Server-side tools" />
+### `connectors`
 
 Connector ids or names whose tools are sent with every chat request.
 
@@ -41,7 +43,7 @@ See [Enable connectors and connector tools](/how-to/enable-connectors/)
 
 ## `agentId`
 
-### `agentId` <Badge text="Agent mode" />
+### `agentId`
 
 The agent id that switches chat requests to Mistral's Agents API.
 
@@ -73,7 +75,7 @@ Selects the Mistral API region for chat requests and the model catalog.
 
 See [Use the EU or US region](/how-to/use-a-region/) · [Regions and data residency](/concepts/regions/)
 
-### `endpoint.baseUrl` <Badge text="Region-aware" />
+### `endpoint.baseUrl`
 
 An explicit API base URL for chat requests and the model catalog; wins over the region mapping.
 
@@ -96,7 +98,7 @@ Toggles the client-side connector tools loader.
 
 - **Type:** boolean
 - **Default:** `true`
-- **Environment variable:** `MISTRAL_CONNECTOR_TOOLS` (`0`, `false` or `off`, case-insensitive, disables; any other non-empty value enables)
+- **Environment variable:** `MISTRAL_CONNECTOR_TOOLS`, used only when no config file sets `connectorTools.enabled` (`0`, `false` or `off`, case-insensitive, disables; any other non-empty value enables)
 - **Set with:** `/mistral set connectorTools.enabled false`
 
 ```json
@@ -223,7 +225,7 @@ The default library for RAG queries.
 { "rag": { "defaultLibraryId": "lib-id" } }
 ```
 
-Reserved: validated and shown by `/mistral`, but no behavior derives from it yet.
+Reserved: validated and shown by `/mistral`, but no behavior derives from it.
 
 ## `ocr`
 
@@ -240,4 +242,4 @@ The default OCR model.
 { "ocr": { "defaultModel": "mistral-ocr-latest" } }
 ```
 
-Reserved: validated and shown by `/mistral`, but no behavior derives from it yet.
+Reserved: validated and shown by `/mistral`, but no behavior derives from it.

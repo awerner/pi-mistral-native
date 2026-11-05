@@ -37,7 +37,7 @@ npm run build      # tsc to dist/ (git-ignored)
 | `extensions/tools/` | Library/RAG and connector tools: `mistral-client.ts` (shared HTTP client), `knowledge.ts` (9 pi tools for files, libraries, documents, RAG query), `connectors.ts` (7 connector management pi tools), `loader.ts` (client-side connector tool loader — mistral_connector_load/unload/reload) |
 | `test/` | `node --test` suites |
 | `vendor/mistral-openapi.yaml` | Vendored Mistral OpenAPI spec — wire-format reference, never edit by hand |
-| `docs/` | User pages: [get-started](../get-started/first-session.mdx), [how-to](../how-to/change-a-setting.mdx), [reference](../reference/tools.mdx), [concepts](../concepts/config-layers.mdx), [Configuration keys](../configuration.mdx) |
+| `docs/` | User pages: [Your first Mistral session](../get-started/first-session.mdx), [Change a setting](../how-to/change-a-setting.mdx), [Tools](../reference/tools.mdx), [How configuration layers work](../concepts/config-layers.mdx), [Configuration keys](../configuration.mdx) |
 | `docs/contributing/` | Developer docs: [Development](development.md) (this page), [Testing](testing.md), [Publishing](publishing.md), [Website hosting](hosting.md), [Design tokens](design-tokens.mdx), [Internals](internals.mdx) |
 | `docs/dev/adr/` | Decision records — index: [Architecture Decision Records](../dev/adr/README.md) |
 | `.pi/` | pi project configuration (loads only after project trust) |

@@ -31,12 +31,8 @@ Make one repository use different Mistral settings than your machine-wide defaul
 
 </Steps>
 
-:::caution[Project wins over user and env]
-A project-scope key outranks both your user file and environment variables — in this project. A project region also wins over the `/login` region picker's user-scope write, so in a project that sets its own region the login selection appears ineffective.
-:::
-
-:::caution[No trust, no project file]
-An untrusted project's file is ignored entirely, and `/mistral set --project` refuses to write with an error naming the trust requirement.
+:::caution[Project wins, trust gates the file]
+A project-scope key outranks both your user file and environment variables — in this project. A project region also wins over the `/login` region picker's user-scope write, so in a project that sets its own region the login selection appears ineffective. An untrusted project's file is ignored entirely, and `/mistral set --project` refuses to write with an error naming the trust requirement.
 :::
 
 See [How configuration layers work](/concepts/config-layers/) · [Config file locations and precedence](/reference/config-files/) · [/mistral commands](/reference/commands/)

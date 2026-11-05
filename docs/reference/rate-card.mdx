@@ -18,7 +18,7 @@ The built-in per-family prices, in USD per million tokens. The first entry whose
 
 Cache write is 0 everywhere: Mistral bills cache reads at 10% of the input rate and publishes no separate cache-write price.
 
-Model ids that hit the catch-all (or match nothing) get fall-through pricing and are flagged approximate; pi shows a once-per-session warning. Setting `models.fallThrough` to `false` swaps the catch-all rates for a zero-cost placeholder, still flagged approximate.
+Model ids that hit the catch-all (or match nothing) get fall-through pricing and are flagged approximate; pi shows a warning at the next session start. Setting `models.fallThrough` to `false` swaps the catch-all rates for a zero-cost placeholder, still flagged approximate.
 
 Config entries in `models.rateCard` are checked **before** this card: a same-`match` entry shadows the built-in, and new match strings work. Regional endpoints carry a +10% surcharge on every resolved rate whenever the region is not `global`.
 

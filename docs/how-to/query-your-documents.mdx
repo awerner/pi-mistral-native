@@ -30,11 +30,7 @@ Upload a file once, then ask questions about it with answers that cite the sourc
 </Steps>
 
 :::tip[Streaming is the default]
-`rag.streaming` (default `true`) switches the query tool between the streaming path and the legacy one-shot request. Set `rag.streaming false` — or `MISTRAL_RAG_STREAMING=0` — to force the one-shot request; the variable applies only when no config file sets `rag.streaming` or `knowledge.streaming`.
-:::
-
-:::caution[Billable]
-Uploading and re-indexing documents are billable Mistral operations. `mistral_document_reprocess` re-indexes after fixing a source file — billed again.
+`rag.streaming` (default `true`) switches the query tool between the streaming path and the legacy one-shot request. Set `rag.streaming false` — or `MISTRAL_RAG_STREAMING=0` — to force the one-shot request; the variable applies only when no config file sets `rag.streaming` or `knowledge.streaming`. Uploading and re-indexing documents are billable Mistral operations; `mistral_document_reprocess` re-indexes after fixing a source file — billed again.
 :::
 
 See [Tools](/reference/tools/) · [Configuration keys](/configuration/)
