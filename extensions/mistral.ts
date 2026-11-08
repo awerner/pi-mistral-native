@@ -2424,7 +2424,7 @@ export function buildMistralNativeProvider(): Provider {
 	} as ProviderStreams;
 	return createProvider({
 		id: "mistral-native",
-		name: "Mistral",
+		name: "Mistral native",
 		baseUrl: MISTRAL_BASE_URL,
 		/*
 		 * No public Mistral OAuth endpoints exist, so the auth surface is

@@ -261,7 +261,7 @@ test("provider registers as a native pi-ai Provider object with API-key auth, no
 	const provider = capturedProvider();
 
 	assert.equal(provider.id, "mistral-native");
-	assert.equal(provider.name, "Mistral");
+	assert.equal(provider.name, "Mistral native");
 	assert.equal(provider.baseUrl, MISTRAL_BASE_URL);
 	/*
 	 * Native ApiKeyAuth present (the guided /login surface), no OAuth
