@@ -99,12 +99,11 @@ server-side counterpart):
    `{type:"connector"}` entries); configured-but-unsupported built-ins
    (`web_search`, `web_search_premium`, `code_interpreter`) are dropped
    with a once-per-session warning. Web search takes a tool-based path
-   instead: the `mistral_web_search`/`mistral_web_search_premium` pi
-   tools issue stateless one-shot Conversations calls (configured search
-   model `mistral-small-latest`), so the model composes search results
-   like any other pi tool — the same client-side reasoning model this ADR
-   champions for connectors. A forthcoming sibling ADR owns the
-   search-tool design details.
+   instead: the `web_search` pi tool issues stateless one-shot
+   Conversations calls (configured search model `mistral-small-latest`),
+   so the model composes search results like any other pi tool — the same
+   client-side reasoning model this ADR champions for connectors. A
+   forthcoming sibling ADR owns the search-tool design details.
 
 ## When client-side vs. server-side (ADR 0007)
 

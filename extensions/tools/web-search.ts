@@ -1,12 +1,13 @@
 /**
- * pi tools for Mistral's web search: `mistral_web_search` and
- * `mistral_web_search_premium` over stateless one-shot Conversations API
- * calls. The chat path stays on Chat Completions (ADR 0002); these tools
- * never continue a conversation — every call is a fresh
+ * pi tool for Mistral's web search: `web_search` over stateless one-shot
+ * Conversations API calls, with the optional `premium` parameter (default
+ * false) routing to the pay-per-use `web_search_premium` tool type. The
+ * chat path stays on Chat Completions (ADR 0002); the tool never
+ * continues a conversation — every call is a fresh
  * POST /v1/conversations with `store: false`, and the returned
  * `conversation_id` is discarded.
  *
- * Wire facts (Lead-probed 2026-11-03, fixtures in the test suite): the
+ * Wire facts (probed live 2026-11-03, fixtures in the test suite): the
  * request body uses `inputs[]`, NOT `messages[]` (the endpoint rejects
  * `messages` as extra_forbidden); the response's `outputs[]` carries a
  * `tool.execution` entry whose `info.result` is a JSON string mapping
@@ -228,21 +229,23 @@ function isConnectorRefusal(error: unknown): boolean {
 	return false;
 }
 
-/** Builds the two search tools sharing one handler over the toolType. */
-function defineSearchTool(
-	deps: WebSearchToolsDeps,
-	name: "mistral_web_search" | "mistral_web_search_premium",
-	label: string,
-	description: string,
-	toolType: SearchToolType,
-): AnyToolDefinition {
+/** Builds the web-search tool; the `premium` parameter routes to the premium tool type per call. */
+function defineSearchTool(deps: WebSearchToolsDeps): AnyToolDefinition {
 	const { getClient } = deps;
 	return defineTool({
-		name,
-		label,
-		description,
+		name: "web_search",
+		label: "Web search",
+		description:
+			"Search the web with Mistral's web_search connector and return the hits (url, title, description, snippets) for the query. " +
+			"Set premium to true for premium search quality — premium search is pay-per-use, costs extra per call, and the caller opts in deliberately.",
 		parameters: Type.Object({
 			query: Type.String({ description: "The web search query" }),
+			premium: Type.Optional(
+				Type.Boolean({
+					description:
+						"Set to true for premium search quality. Premium search is pay-per-use — it costs extra per call; the caller opts in deliberately. Default false.",
+				}),
+			),
 		}),
 		outputSchema: Type.Object({
 			hits: Type.Array(
@@ -260,7 +263,14 @@ function defineSearchTool(
 		}),
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			const model = getEffectiveSearchModel();
-			const baseDetails: Record<string, unknown> = { tool: name, model, query: params.query };
+			const toolType: SearchToolType = params.premium ? "web_search_premium" : "web_search";
+			const baseDetails: Record<string, unknown> = {
+				tool: "web_search",
+				model,
+				query: params.query,
+				// The tool name no longer encodes the variant — details keep it.
+				...(params.premium ? { premium: true } : {}),
+			};
 			try {
 				const client = await getClient(ctx, signal);
 				const response = await client.createConversation({
@@ -279,7 +289,7 @@ function defineSearchTool(
 					parsed = parseSearchResult(response, toolType);
 				} catch (error) {
 					return fail(
-						`${name} returned an unreadable search result: ${errorMessage(error)}`,
+						`web_search returned an unreadable search result: ${errorMessage(error)}`,
 						baseDetails,
 					);
 				}
@@ -311,33 +321,18 @@ function defineSearchTool(
 						baseDetails,
 					);
 				}
-				return fail(`${name} failed: ${errorMessage(error)}`, { ...baseDetails, error: errorMessage(error) });
+				return fail(`web_search failed: ${errorMessage(error)}`, { ...baseDetails, error: errorMessage(error) });
 			}
 		},
 	});
 }
 
 /**
- * Builds the two web-search tools. `getClient` is called once per execute
+ * Builds the web-search tool. `getClient` is called once per execute
  * call so each request uses the currently resolved API key and signal.
  */
 export function createWebSearchTools(deps: WebSearchToolsDeps): AnyToolDefinition[] {
-	const standard = defineSearchTool(
-		deps,
-		"mistral_web_search",
-		"Mistral web search",
-		"Search the web with Mistral's web_search connector and return the hits (url, title, description, snippets) for the query.",
-		"web_search",
-	);
-	const premium = defineSearchTool(
-		deps,
-		"mistral_web_search_premium",
-		"Mistral web search (premium)",
-		"Search the web with Mistral's premium web_search_premium connector and return the hits for the query. " +
-			"Premium search quality is pay-per-use — it costs extra per call, and the caller opts in deliberately by using this tool.",
-		"web_search_premium",
-	);
-	return [standard, premium];
+	return [defineSearchTool(deps)];
 }
 
 /**
@@ -354,7 +349,7 @@ async function resolveApiKey(ctx: ExtensionToolContext | undefined): Promise<str
 }
 
 /**
- * Registers the web-search tools with pi, wiring a lazy client factory that
+ * Registers the web-search tool with pi, wiring a lazy client factory that
  * resolves the API key per execute call. Tools pass pi's per-call abort
  * signal through to the client request.
  */

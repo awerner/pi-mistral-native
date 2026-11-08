@@ -46,7 +46,7 @@ One setting, no client-side glue:
 { "serverTools": ["image_generation"] }
 ```
 
-Web search ships as the model-callable `mistral_web_search` pi tool
+Web search ships as the model-callable `web_search` pi tool
 (see [Server-side and client-side tools](docs/concepts/tools.mdx)) — registered by
 default, running under a search model that defaults to
 `mistral-small-latest` and is configurable via `knowledge.searchModel`.

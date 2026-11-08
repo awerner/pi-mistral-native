@@ -531,8 +531,8 @@ test("registerCodeInterpreterTool registers mistral_code_interpreter with the ex
 	mistralExtension(stubPi as never);
 	const names = registeredTools.map((tool) => tool.name);
 	assert.ok(names.includes("mistral_code_interpreter"), "mistral_code_interpreter must be registered");
-	// Registered right after the web-search tools (the extension's order).
-	const searchIndex = names.indexOf("mistral_web_search");
+	// Registered right after the web-search tool (the extension's order).
+	const searchIndex = names.indexOf("web_search");
 	const interpreterIndex = names.indexOf("mistral_code_interpreter");
-	assert.ok(searchIndex >= 0 && interpreterIndex === searchIndex + 2, "code interpreter registers right after the web-search tools");
+	assert.ok(searchIndex >= 0 && interpreterIndex === searchIndex + 1, "code interpreter registers right after the web-search tool");
 });

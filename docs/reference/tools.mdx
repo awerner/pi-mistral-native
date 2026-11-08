@@ -1,6 +1,6 @@
 # Tools
 
-Every `mistral_*` tool your agent can call, grouped by task. Most tools register automatically; the loader tools appear once an authenticated connector is discovered — and only with the loader enabled.
+Every tool your agent can call, grouped by task. Most tools register automatically; the loader tools appear once an authenticated connector is discovered — and only with the loader enabled.
 
 All tools resolve the API key per call through the [credential chain](/reference/credential-chain/).
 
@@ -36,8 +36,7 @@ All tools resolve the API key per call through the [credential chain](/reference
 
 | Tool | Purpose |
 |---|---|
-| `mistral_web_search` | Web search returning hits (url, title, description, snippets) |
-| `mistral_web_search_premium` | Premium search quality, pay-per-use |
+| `web_search` | Web search returning hits (url, title, description, snippets); `premium: true` routes to pay-per-use premium search quality |
 | `mistral_code_interpreter` | Execute Python server-side; returns output and generated files |
 
 ## Manage connectors

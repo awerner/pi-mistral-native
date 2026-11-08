@@ -148,7 +148,7 @@ const SET_KEYS: Record<string, SetKeySpec> = {
 	"connectorTools.autoLoad": { kind: "list", description: "Connectors auto-loaded at session start (comma-separated; empty clears; +entry appends, -entry removes)" },
 	"models.fallThrough": { kind: "boolean", description: "Unpriced models fall through to catch-all rates" },
 	"knowledge.streaming": { kind: "boolean", description: "Knowledge tool streaming" },
-	"knowledge.searchModel": { kind: "string", description: "Web search model for the mistral_web_search tools" },
+	"knowledge.searchModel": { kind: "string", description: "Web search model for the web_search tool" },
 	"rag.streaming": { kind: "boolean", description: "RAG query streaming" },
 	"rag.defaultLibraryId": { kind: "string", description: "Default library for RAG queries" },
 	"ocr.defaultModel": { kind: "string", description: "Default OCR model" },
@@ -363,7 +363,7 @@ export function buildStatusCard(
 	const unsupportedServerTools = unsupportedChatCompletionsServerTools(parseServerToolsConfig(env, merged));
 	if (unsupportedServerTools.length > 0) {
 		lines.push(
-			`  (${unsupportedServerTools.join(" and ")} do not run in chat completions — use the mistral_web_search tool for web search; see https://awerner.github.io/pi-mistral-native/reference/tools/)`,
+			`  (${unsupportedServerTools.join(" and ")} do not run in chat completions — use the web_search tool for web search; see https://awerner.github.io/pi-mistral-native/reference/tools/)`,
 		);
 	}
 

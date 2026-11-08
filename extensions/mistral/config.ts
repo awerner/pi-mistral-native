@@ -37,7 +37,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 
-/** Default model for the web-search tools' Conversations calls (wire-verified 2026-11-03: mistral-large-4 refuses builtin connectors on /v1/conversations, error 3004; mistral-small-latest runs the search tool). */
+/** Default model for the web-search and code-interpreter tools' Conversations calls (wire-verified 2026-11-03: mistral-large-4 refuses builtin connectors on /v1/conversations, error 3004; mistral-small-latest runs the search tool). */
 export const DEFAULT_SEARCH_MODEL = "mistral-small-latest";
 
 /** Name of the config file in every scope (user and project). */
@@ -1040,7 +1040,7 @@ export function getEffectiveRagStreaming(
 // =============================================================================
 
 /**
- * The effective search model for the web-search tools' Conversations
+ * The effective search model for the web-search and code-interpreter tools' Conversations
  * calls: `knowledge.searchModel` from the merged file config (project >
  * user via getEffectiveMistralConfig), else DEFAULT_SEARCH_MODEL
  * ("mistral-small-latest"). Config-file only in this wave — there is no

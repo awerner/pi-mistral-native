@@ -69,3 +69,4 @@ Status legend:
 | [0021](0021-cost-estimates-marked-not-billed.md) | Cost estimates marked as not provider-billed | Trial |
 | [0022](0022-mistral-set-scope-and-list-mutation.md) | Project-scope writes and list mutation for `/mistral set` | Trial |
 | [0023](0023-documentation-structured-by-diataxis.md) | Documentation structured by Diátaxis, human reader first | Trial |
+| [0024](0024-web-search-canonical-name-and-premium-flag.md) | Web search canonical name and premium flag | Trial |

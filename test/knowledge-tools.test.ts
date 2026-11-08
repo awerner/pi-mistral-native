@@ -152,7 +152,7 @@ test("the extension registers the knowledge, web-search and connector tools", as
 	assert.equal(registeredProviders[0]?.name, "mistral-native");
 	// Main carries the OCR/embeddings/moderation/classification tools
 	// (extensions/mistral/knowledge.ts); below them ride the nine
-	// library/RAG tools, the two web-search tools and the seven
+	// library/RAG tools, the web-search tool and the seven
 	// connector tools.
 	/*
 	 * ADR 0005 — OCR, embeddings, moderations/classifications as pi tools;
@@ -172,8 +172,7 @@ test("the extension registers the knowledge, web-search and connector tools", as
 		"mistral_document_signed_url",
 		"mistral_document_reprocess",
 		"mistral_document_query",
-		"mistral_web_search",
-		"mistral_web_search_premium",
+		"web_search",
 		"mistral_code_interpreter",
 		"mistral_connector_list",
 		"mistral_connector_tools",

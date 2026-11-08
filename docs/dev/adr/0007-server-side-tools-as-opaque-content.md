@@ -83,10 +83,10 @@ builds on:
   unsupported types (`unsupportedChatCompletionsServerTools`) are dropped
   from the request and surface a once-per-session warning naming them and
   pointing at the alternatives — web search via the model-callable
-  `mistral_web_search` pi tool, code interpreter via hosted agent mode.
+  `web_search` pi tool, code interpreter via hosted agent mode.
   Agent mode keeps the full tool set server-side and never drops or
   warns. Web search is no longer a chat-completions entry at all: it
-  ships as the `mistral_web_search` pi tool (one-shot stateless
+  ships as the `web_search` pi tool (one-shot stateless
   Conversations backend; configured search model `mistral-small-latest`,
   because `mistral-large-4` refuses builtin connectors on
   `/v1/conversations` with error 3004). A forthcoming sibling ADR owns
@@ -126,7 +126,7 @@ builds on:
   Conversations/Agents-API-only, per-endpoint support verified on two
   models); their request declaration and folding paths remain covered by
   mocked tests modeled on the recorded `image_generation` wire shape.
-  Web search moved to the `mistral_web_search` pi tool; code interpreter
+  Web search moved to the `web_search` pi tool; code interpreter
   runs in hosted agent mode. Agent mode does not merge sampling
   parameters or reasoning effort — an agent's server-side configuration
   wins; revisit if the Agents API grows those fields. Connector tool
