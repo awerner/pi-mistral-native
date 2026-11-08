@@ -36,6 +36,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shadows it; a project-scope write notes when it overrides a
   differing user value.
 
+### Changed
+
+- **The provider now displays as "Mistral native" in pi's provider pickers.** The
+  display name (shown by `/login` and `/logout`) changes from "Mistral" to
+  "Mistral native", disambiguating the extension from pi's built-in Mistral
+  provider; the provider id `mistral-native` — CLI flags, config keys,
+  `auth.json` — is unchanged.
+
 ## [0.1.3] - 2026-11-03
 
 ### Added
