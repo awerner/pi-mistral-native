@@ -1,6 +1,6 @@
 ---
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 // Site-authored landing page, derived from the repository README: one-line
 // value proposition, quickstart and the capability cards. The README itself
@@ -107,6 +107,14 @@ const sections = [
   }}
 >
   <Fragment slot="default">
+    <img
+      class="hero-banner"
+      src={withBase('/assets/banner.svg')}
+      alt="A pi symbol built from blue blocks on an ink background — the pi-mistral-native banner"
+      width="1200"
+      height="400"
+    />
+
     <p>
       A Mistral-specific, optimized integration for the <a href="https://github.com/earendil-works/pi">pi coding agent</a> — not just chat.
       pi-mistral-native registers the native <code>mistral-native</code> provider and exposes Mistral's full feature surface as first-class pi
@@ -126,6 +134,16 @@ const sections = [
       connector tools are available in every session.
     </p>
 
+    <h2 id="where-to-go-next">Where to go next</h2>
+
+    <CardGrid>
+      {
+        sections.map((section) => (
+          <LinkCard title={section.title} description={section.text} href={section.href} />
+        ))
+      }
+    </CardGrid>
+
     <h2 id="what-you-can-do">What you can do</h2>
 
     <p>
@@ -144,18 +162,6 @@ const sections = [
       }
     </div>
 
-    <h2 id="where-to-go-next">Where to go next</h2>
-
-    <CardGrid>
-      {
-        sections.map((section) => (
-          <Card title={section.title} href={section.href}>
-            {section.text}
-          </Card>
-        ))
-      }
-    </CardGrid>
-
     <h2 id="install">Install</h2>
 
     <p>
@@ -166,6 +172,10 @@ const sections = [
 </StarlightPage>
 
 <style>
+  .hero-banner {
+    width: 100%;
+    height: auto;
+  }
   .capability-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
