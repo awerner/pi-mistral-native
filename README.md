@@ -111,9 +111,9 @@ natively:
 - **Chat only** — here the whole non-chat surface (knowledge/RAG, OCR,
   connectors, server-side tools) is exposed as pi tools.
 
-The evidence and design rationale live in the architecture ADRs
-([streaming](docs/dev/adr/0019-tool-call-continuation-chunks.md),
-[model catalog](docs/dev/adr/0013-rate-card-sourced-prices.md)).
+The streaming and model-catalog behavior is explained in the concept
+pages [How chat streaming works](docs/concepts/chat-streaming.mdx)
+and [Models and cost estimates](docs/concepts/models-and-costs.mdx).
 
 ## Install
 
