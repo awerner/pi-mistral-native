@@ -1,5 +1,5 @@
 /**
- * Mocked-HTTP unit tests for the Mistral web-search tools.
+ * Mocked-HTTP unit tests for the Mistral web-search tool.
  *
  * All HTTP is mocked via an injected fetch implementation; no network access
  * and no real API keys ("test-key" literal only). The fixtures mirror the
@@ -69,7 +69,7 @@ function createMockFetch() {
 	};
 }
 
-/** Builds the two tools with a client bound to the mock fetch. */
+/** Builds the tool with a client bound to the mock fetch. */
 function buildTools(mockFetch: typeof fetch) {
 	return createWebSearchTools({
 		getClient: async () => createMistralClient({ apiKey: "test-key", fetchImpl: mockFetch }),
@@ -143,11 +143,11 @@ const WEB_SEARCH_RESPONSE = {
 	guardrails: null,
 };
 
-test("mistral_web_search posts a stateless one-shot Conversations request and maps the hits", async () => {
+test("web_search posts a stateless one-shot Conversations request and maps the hits", async () => {
 	const mock = createMockFetch();
 	mock.respond(200, WEB_SEARCH_RESPONSE);
 	const tools = buildTools(mock.mockFetch);
-	const result = await execute(toolByName(tools, "mistral_web_search"), { query: "pi coding agent" });
+	const result = await execute(toolByName(tools, "web_search"), { query: "pi coding agent" });
 
 	const request = mock.requests[0];
 	assert.ok(request);
@@ -193,6 +193,8 @@ test("mistral_web_search posts a stateless one-shot Conversations request and ma
 	// The message.output text is discarded — never surfaced to the model.
 	const text = String(result.content[0]?.text);
 	assert.match(text, /Pi \(AI agent\)/);
+	// The standard variant carries no premium flag in the persisted details.
+	assert.equal((result.details as Record<string, unknown> | undefined)?.premium, undefined);
 	assert.match(text, /pi\.dev/);
 	assert.doesNotMatch(text, /SECRET-ASSISTANT-TEXT/);
 	assert.equal(result.isError, undefined);
@@ -213,7 +215,7 @@ test("mistral_web_search posts a stateless one-shot Conversations request and ma
 	});
 });
 
-test("mistral_web_search_premium sends the premium tool type and shares the parsing", async () => {
+test("premium: true sends the premium tool type and shares the parsing", async () => {
 	const mock = createMockFetch();
 	mock.respond(200, {
 		object: "conversation.response",
@@ -254,8 +256,9 @@ test("mistral_web_search_premium sends the premium tool type and shares the pars
 		guardrails: null,
 	});
 	const tools = buildTools(mock.mockFetch);
-	const result = await execute(toolByName(tools, "mistral_web_search_premium"), {
+	const result = await execute(toolByName(tools, "web_search"), {
 		query: "latest pi coding agent release notes",
+		premium: true,
 	});
 
 	const body = JSON.parse(String(mock.requests[0]?.body)) as Record<string, unknown>;
@@ -269,6 +272,8 @@ test("mistral_web_search_premium sends the premium tool type and shares the pars
 	assert.equal(hits?.length, 1);
 	assert.equal(hits?.[0]?.url, "https://pi.dev/changelog");
 	assert.equal((result.usage as Record<string, unknown> | undefined)?.input, 1054);
+	// The tool name no longer encodes the variant — the persisted details do.
+	assert.equal((result.details as Record<string, unknown> | undefined)?.premium, true);
 	assert.equal((result.usage as Record<string, unknown> | undefined)?.output, 624);
 	// message.output arrives as a content-chunk array here — still discarded.
 	assert.doesNotMatch(String(result.content[0]?.text), /SECRET-CHUNK-TEXT/);
@@ -296,7 +301,7 @@ test("a search-skip response (no tool.execution entry) maps to a distinct skippe
 		guardrails: null,
 	});
 	const tools = buildTools(mock.mockFetch);
-	const result = await execute(toolByName(tools, "mistral_web_search"), { query: "pi coding agent" });
+	const result = await execute(toolByName(tools, "web_search"), { query: "pi coding agent" });
 
 	assert.equal(result.isError, undefined, "a search skip is not an error");
 	assert.deepEqual(result.structuredContent?.hits, []);
@@ -347,7 +352,7 @@ test("a tool.execution entry with an empty hit map maps to the zero-hits ok resu
 		guardrails: null,
 	});
 	const tools = buildTools(mock.mockFetch);
-	const result = await execute(toolByName(tools, "mistral_web_search"), { query: "pi coding agent" });
+	const result = await execute(toolByName(tools, "web_search"), { query: "pi coding agent" });
 
 	assert.equal(result.isError, undefined, "zero hits is not an error");
 	assert.deepEqual(result.structuredContent?.hits, []);
@@ -373,7 +378,7 @@ test("a 400 code 3004 refusal maps to the friendly search-model error", async ()
 			code: 3004,
 		});
 		const tools = buildTools(mock.mockFetch);
-		const result = await execute(toolByName(tools, "mistral_web_search"), { query: "pi coding agent" });
+		const result = await execute(toolByName(tools, "web_search"), { query: "pi coding agent" });
 
 		const body = JSON.parse(String(mock.requests[0]?.body)) as Record<string, unknown>;
 		assert.equal(body.model, "mistral-large-4");
@@ -397,7 +402,7 @@ test("knowledge.searchModel from the config file overrides the request's model",
 		const mock = createMockFetch();
 		mock.respond(200, WEB_SEARCH_RESPONSE);
 		const tools = buildTools(mock.mockFetch);
-		await execute(toolByName(tools, "mistral_web_search"), { query: "pi coding agent" });
+		await execute(toolByName(tools, "web_search"), { query: "pi coding agent" });
 		const body = JSON.parse(String(mock.requests[0]?.body)) as Record<string, unknown>;
 		assert.equal(body.model, "mistral-medium-latest");
 	} finally {
@@ -409,14 +414,16 @@ test("the default search model is mistral-small-latest", () => {
 	assert.equal(DEFAULT_SEARCH_MODEL, "mistral-small-latest");
 });
 
-test("the premium description names the pay-per-use opt-in", () => {
+test("the tool and premium parameter descriptions name the pay-per-use opt-in", () => {
 	const tools = buildTools((async () => new Response("{}", { status: 200 })) as typeof fetch);
-	const premium = toolByName(tools, "mistral_web_search_premium");
-	assert.match(premium.description, /pay-per-use/);
-	assert.match(premium.description, /opts in deliberately/);
-	// The standard variant carries no cost warning.
-	const standard = toolByName(tools, "mistral_web_search");
-	assert.doesNotMatch(standard.description, /pay-per-use/);
+	const tool = toolByName(tools, "web_search");
+	assert.match(tool.description, /pay-per-use/);
+	assert.match(tool.description, /opts in deliberately/);
+	// The premium parameter carries its own cost warning.
+	const premium = (tool.parameters as unknown as { properties: { premium: { description?: string } } }).properties.premium;
+	assert.ok(premium?.description, "the premium parameter must have a description");
+	assert.match(premium.description!, /pay-per-use/);
+	assert.match(premium.description!, /opts in deliberately/);
 });
 
 test("an unreadable info.result fails with the unreadable-search-result message, never a raw dump", async () => {
@@ -437,7 +444,7 @@ test("an unreadable info.result fails with the unreadable-search-result message,
 		guardrails: null,
 	});
 	const tools = buildTools(mock.mockFetch);
-	const result = await execute(toolByName(tools, "mistral_web_search"), { query: "q" });
+	const result = await execute(toolByName(tools, "web_search"), { query: "q" });
 	assert.equal(result.isError, true);
 	const text = String(result.content[0]?.text);
 	assert.match(text, /unreadable search result/);
@@ -467,7 +474,7 @@ test("a matching tool.execution entry without a readable info.result fails with 
 		guardrails: null,
 	});
 	const tools = buildTools(mock.mockFetch);
-	const result = await execute(toolByName(tools, "mistral_web_search"), { query: "pi coding agent" });
+	const result = await execute(toolByName(tools, "web_search"), { query: "pi coding agent" });
 	assert.equal(result.isError, true);
 	const text = String(result.content[0]?.text);
 	assert.match(text, /unreadable search result/);
@@ -542,7 +549,7 @@ test("multiple matching tool.execution entries concatenate their hits in outputs
 		guardrails: null,
 	});
 	const tools = buildTools(mock.mockFetch);
-	const result = await execute(toolByName(tools, "mistral_web_search"), { query: "pi coding agent" });
+	const result = await execute(toolByName(tools, "web_search"), { query: "pi coding agent" });
 
 	assert.equal(result.isError, undefined);
 	const hits = result.structuredContent?.hits as Record<string, unknown>[];
@@ -557,7 +564,7 @@ test("multiple matching tool.execution entries concatenate their hits in outputs
 	assert.doesNotMatch(String(result.content[0]?.text), /SECRET-ASSISTANT-TEXT/);
 });
 
-test("registerWebSearchTools registers both tools with the extension", async () => {
+test("registerWebSearchTools registers the tool with the extension", async () => {
 	const { default: mistralExtension } = await import("../extensions/mistral.js");
 	const registeredTools: { name: string }[] = [];
 	const stubPi = {
@@ -572,10 +579,11 @@ test("registerWebSearchTools registers both tools with the extension", async () 
 	};
 	mistralExtension(stubPi as never);
 	const names = registeredTools.map((tool) => tool.name);
-	assert.ok(names.includes("mistral_web_search"), "mistral_web_search must be registered");
-	assert.ok(names.includes("mistral_web_search_premium"), "mistral_web_search_premium must be registered");
+	assert.ok(names.includes("web_search"), "web_search must be registered");
+	assert.ok(!names.includes("mistral_web_search"), "the prefixed name must be gone");
+	assert.ok(!names.includes("mistral_web_search_premium"), "the prefixed premium name must be gone");
 	// Registered after the knowledge tools (the extension's order).
 	const knowledgeIndex = names.indexOf("mistral_document_query");
-	const searchIndex = names.indexOf("mistral_web_search");
-	assert.ok(knowledgeIndex >= 0 && searchIndex > knowledgeIndex, "search tools register after the knowledge tools");
+	const searchIndex = names.indexOf("web_search");
+	assert.ok(knowledgeIndex >= 0 && searchIndex > knowledgeIndex, "the search tool registers after the knowledge tools");
 });

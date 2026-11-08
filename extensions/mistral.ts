@@ -2113,7 +2113,7 @@ function takeDroppedServerToolsNoticeMessage(): string | undefined {
 	surfacedDroppedServerToolsNotice = droppedServerToolsNotice;
 	return (
 		`mistral-native: server tools unavailable in chat completions: ${droppedServerToolsNotice.tools.join(", ")}` +
-		" — web search is available as the mistral_web_search tool; code interpreter runs in hosted agent mode (see https://awerner.github.io/pi-mistral-native/reference/tools/)"
+		" — web search is available as the web_search tool; code interpreter runs in hosted agent mode (see https://awerner.github.io/pi-mistral-native/reference/tools/)"
 	);
 }
 
@@ -2509,7 +2509,7 @@ export default function (pi: ExtensionAPI) {
 	// Library/RAG knowledge tools: files, libraries, documents and RAG queries.
 	registerKnowledgeTools(pi);
 
-	// Web-search tools over stateless one-shot Conversations calls.
+	// Web-search tool over stateless one-shot Conversations calls.
 	registerWebSearchTools(pi);
 
 	// Code-interpreter tool over a stateless one-shot Conversations call.

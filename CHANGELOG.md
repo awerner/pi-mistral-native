@@ -43,6 +43,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "Mistral native", disambiguating the extension from pi's built-in Mistral
   provider; the provider id `mistral-native` — CLI flags, config keys,
   `auth.json` — is unchanged.
+- **Web-search tools renamed to the canonical `web_search` tool with a
+  `premium` flag.** The two model-callable pi tools
+  `mistral_web_search` and `mistral_web_search_premium` collapse into one
+  `web_search` tool: `query` (required) plus `premium` (optional boolean,
+  default `false`); `premium: true` routes to the pay-per-use
+  `web_search_premium` Conversations tool type, and the cost warning now
+  appears in both the tool description and the `premium` parameter
+  description. Output schema, parsing and error handling are unchanged.
+  **Breaking for stored sessions:** transcripts recorded with
+  `mistral_web_search` / `mistral_web_search_premium` tool calls no longer
+  resolve the tool by name on replay (accepted pre-stable, 0.1.x). The
+  `serverTools` config values `web_search` / `web_search_premium`
+  (chat-completions built-ins) are a different surface and keep their
+  names.
 
 ## [0.1.3] - 2026-11-03
 

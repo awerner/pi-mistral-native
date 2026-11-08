@@ -41,15 +41,14 @@ cannot reuse the chat model either.
 
 ## Decision
 
-Web search ships as two client-side pi tools,
-`mistral_web_search` and `mistral_web_search_premium`
-(`extensions/tools/web-search.ts`), each running a **stateless one-shot
-Conversations call**: a fresh `POST /v1/conversations` with
+Web search ships as one client-side pi tool, `web_search`
+(`extensions/tools/web-search.ts`), running **stateless one-shot
+Conversations calls**: a fresh `POST /v1/conversations` with
 `inputs: [{role:"user", content: <query>}]`, `tools:
-[{type:"web_search"|"web_search_premium"}]`, `stream: false`, `store:
+[{type:"web_search"}]`, `stream: false`, `store:
 false` and a fixed top-level `instructions` string — "Always use the
 <tool> tool to search the web before answering. Never answer from
-memory." with the tool name substituted. Since `tool_choice` hard
+memory." with the tool type substituted. Since `tool_choice` hard
 forcing is 422-rejected for builtin connectors, `instructions` is the
 only lever to make the server-side agent run the search; it is
 probabilistic (LLM instruction-following), not a guarantee. The
@@ -74,10 +73,14 @@ conversation.
   models without builtin-connector support) maps to a friendly error
   naming the key and the default, not a raw dump — warn-on-unknown model
   ids happens at use time, not at config validation.
-- **Premium as a separate tool**: `mistral_web_search_premium` exists so
-  the caller opts in deliberately — its description states the premium
-  quality is pay-per-use. Both variants share the exact same request and
-  parsing path; only the tool type differs.
+- **Premium as a separate tool**: superseded — premium search quality
+  is now a boolean `premium` parameter of the single `web_search` tool
+  (default `false`), routing to the `web_search_premium` tool type per
+  call; see ADR [0024](0024-web-search-canonical-name-and-premium-flag.md).
+  The deliberate opt-in is preserved: the pay-per-use cost warning
+  appears in both the tool description and the `premium` parameter
+  description. Both variants share the exact same request and parsing
+  path; only the tool type differs.
 - The chat path is untouched: Chat Completions requests never declare
   web search (ADR
   [0007](0007-server-side-tools-as-opaque-content.md) filters the

@@ -17,7 +17,7 @@ Let the agent search the web and use the hits in its answer. You need this when 
    Search the web for the latest Mistral model releases and summarize them.
    ```
 
-   `mistral_web_search` runs the search and returns the hits (url, title, description, snippets) to the model.
+   `web_search` runs the search and returns the hits (url, title, description, snippets) to the model.
 
 2. Verify the sources — the answer cites the pages it used.
 
@@ -25,7 +25,7 @@ Let the agent search the web and use the hits in its answer. You need this when 
 
 ## Premium search
 
-`mistral_web_search_premium` delivers premium search quality and is **pay-per-use** — it costs extra per call, so opt in deliberately by asking for a premium search.
+Premium search quality is a parameter of the same tool: ask for a premium search and the model sets `premium: true` on the `web_search` call. Premium quality is **pay-per-use** — it costs extra per call, so opt in deliberately.
 
 :::caution[Zero hits is not an error]
 An executed search with no hits is an ordinary empty result. A skipped search (the backend decided not to search) is reported as retry-worthy — distinct from an empty result. The search model is `knowledge.searchModel` (default `mistral-small-latest`); a model that refuses the builtin connectors (mistral-large-4, error 3004) is reported with a fix hint.
