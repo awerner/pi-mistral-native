@@ -1,7 +1,7 @@
 # Website hosting
 
 The documentation website is hosted on GitHub Pages at
-<https://awerner.github.io/pi-mistral-native/>, deployed automatically from
+<https://mawoh.github.io/pi-mistral-native/>, deployed automatically from
 the repository. The site is an Astro/Starlight project in
 [`website/`](../../website/) that ingests the repository docs (`docs/**/*.mdx` and
 `docs/**/*.md`) as a content collection — the docs remain the single
@@ -11,7 +11,7 @@ slugs, asset sync).
 ## What you get
 
 - A public documentation site at
-  <https://awerner.github.io/pi-mistral-native/> on every push to `main`
+  <https://mawoh.github.io/pi-mistral-native/> on every push to `main`
   that changes `website/`, `docs/`, `assets/`, or `README.md`.
 - A sitemap and canonical URLs under the GitHub Pages base path
   (`/pi-mistral-native/`, configured in `website/astro.config.mjs`).

@@ -11,7 +11,7 @@ const docsRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 export default defineConfig({
   // Required for the sitemap integration and canonical URLs; GitHub Pages
   // serves the site under this host and the /pi-mistral-native/ subpath.
-  site: 'https://awerner.github.io',
+  site: 'https://mawoh.github.io',
   base: '/pi-mistral-native/',
   vite: {
     resolve: {
@@ -71,7 +71,7 @@ export default defineConfig({
         PageTitle: './src/components/PageTitle.astro',
       },
       social: [
-        { icon: 'github', label: 'GitHub', href: 'https://github.com/awerner/pi-mistral-native' },
+        { icon: 'github', label: 'GitHub', href: 'https://github.com/mawoh/pi-mistral-native' },
       ],
       // The ingested docs live outside the site project (../../docs), so
       // Starlight's Markdown transforms (asides, heading links) must run on

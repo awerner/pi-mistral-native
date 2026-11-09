@@ -363,7 +363,7 @@ export function buildStatusCard(
 	const unsupportedServerTools = unsupportedChatCompletionsServerTools(parseServerToolsConfig(env, merged));
 	if (unsupportedServerTools.length > 0) {
 		lines.push(
-			`  (${unsupportedServerTools.join(" and ")} do not run in chat completions — use the web_search tool for web search; see https://awerner.github.io/pi-mistral-native/reference/tools/)`,
+			`  (${unsupportedServerTools.join(" and ")} do not run in chat completions — use the web_search tool for web search; see https://mawoh.github.io/pi-mistral-native/reference/tools/)`,
 		);
 	}
 

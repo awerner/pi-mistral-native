@@ -87,10 +87,10 @@ effective setting and where it comes from, `/mistral set <key> <value>`
 writes one, `/mistral test` checks the live connection.
 
 Documentation is structured by Diátaxis — the website at
-<https://awerner.github.io/pi-mistral-native/> has [how-to
-guides](https://awerner.github.io/pi-mistral-native/how-to/change-a-setting/),
-[reference pages](https://awerner.github.io/pi-mistral-native/configuration/)
-and [concept pages](https://awerner.github.io/pi-mistral-native/concepts/config-layers/).
+<https://mawoh.github.io/pi-mistral-native/> has [how-to
+guides](https://mawoh.github.io/pi-mistral-native/how-to/change-a-setting/),
+[reference pages](https://mawoh.github.io/pi-mistral-native/configuration/)
+and [concept pages](https://mawoh.github.io/pi-mistral-native/concepts/config-layers/).
 
 ## Why not just the built-in Mistral provider?
 
@@ -164,4 +164,4 @@ Build and test commands and the repository layout live in
 
 ## License
 
-[MIT](LICENSE) — Copyright (c) 2026 Alexander Werner
+[MIT](LICENSE) — Copyright (c) 2026 MAWOH DevOps
