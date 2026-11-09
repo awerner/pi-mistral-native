@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Repository moved to the `mawoh` organisation.** The project moved from
+  `github.com/awerner/pi-mistral-native` to
+  `github.com/mawoh/pi-mistral-native`; GitHub redirects the old web and
+  git URLs. The documentation site now serves at
+  `mawoh.github.io/pi-mistral-native` — the previous
+  `awerner.github.io` address is not redirected.
+- **Copyright transferred to the new steward.** The copyright notice now
+  reads `Copyright (c) 2026 MAWOH DevOps <devops@mawoh.de>` — the previous
+  sole copyright holder assigned their 2026 copyright to the company.
+
 ## [0.2.0] - 2026-11-08
 
 ### Added
@@ -260,8 +274,9 @@ endpoints, all as first-class pi capabilities.
   cannot reproduce the 400 before the self-healing catalog refresh
   overwrites them.
 
-[unreleased]: https://github.com/awerner/pi-mistral-native/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/awerner/pi-mistral-native/compare/v0.1.3...v0.2.0
-[0.1.2]: https://github.com/awerner/pi-mistral-native/compare/v0.1.1...v0.1.2
-[0.1.1]: https://github.com/awerner/pi-mistral-native/releases/tag/v0.1.1
-[0.1.0]: https://github.com/awerner/pi-mistral-native/releases/tag/v0.1.0
+[unreleased]: https://github.com/mawoh/pi-mistral-native/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/mawoh/pi-mistral-native/compare/v0.1.3...v0.2.0
+[0.1.3]: https://github.com/mawoh/pi-mistral-native/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/mawoh/pi-mistral-native/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/mawoh/pi-mistral-native/releases/tag/v0.1.1
+[0.1.0]: https://github.com/mawoh/pi-mistral-native/releases/tag/v0.1.0

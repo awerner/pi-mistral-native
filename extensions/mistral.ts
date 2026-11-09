@@ -2113,7 +2113,7 @@ function takeDroppedServerToolsNoticeMessage(): string | undefined {
 	surfacedDroppedServerToolsNotice = droppedServerToolsNotice;
 	return (
 		`mistral-native: server tools unavailable in chat completions: ${droppedServerToolsNotice.tools.join(", ")}` +
-		" — web search is available as the web_search tool; code interpreter runs in hosted agent mode (see https://awerner.github.io/pi-mistral-native/reference/tools/)"
+		" — web search is available as the web_search tool; code interpreter runs in hosted agent mode (see https://mawoh.github.io/pi-mistral-native/reference/tools/)"
 	);
 }
 

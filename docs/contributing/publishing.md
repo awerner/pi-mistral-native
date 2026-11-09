@@ -128,7 +128,7 @@ points (`pi.extensions: ["dist/extensions/*.js"]`):
 
 7. **Tag and release** — `npm version` already created the tag; push it and
    optionally create a GitHub release for `v<version>` on
-   `https://github.com/awerner/pi-mistral-native` with the tarball attached:
+   `https://github.com/mawoh/pi-mistral-native` with the tarball attached:
 
    ```bash
    git push origin main --follow-tags

@@ -5,11 +5,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/awerner/pi-mistral-native.git"
+    "url": "git+https://github.com/mawoh/pi-mistral-native.git"
   },
-  "homepage": "https://awerner.github.io/pi-mistral-native/",
+  "homepage": "https://mawoh.github.io/pi-mistral-native/",
   "bugs": {
-    "url": "https://github.com/awerner/pi-mistral-native/issues"
+    "url": "https://github.com/mawoh/pi-mistral-native/issues"
   },
   "type": "module",
   "main": "dist/extensions/mistral.js",
@@ -47,7 +47,7 @@
     "extensions": [
       "dist/extensions/*.js"
     ],
-    "image": "https://raw.githubusercontent.com/awerner/pi-mistral-native/main/assets/banner.png"
+    "image": "https://raw.githubusercontent.com/mawoh/pi-mistral-native/main/assets/banner.png"
   },
   "devDependencies": {
     "@earendil-works/pi-tui": "^1.4.0",
