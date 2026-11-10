@@ -5,6 +5,37 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Automatic retries with configurable backoff for transient Mistral API
+  errors.** A 429 capacity blip, a 5xx or a timeout no longer fails a
+  request on the first response: the chat stream, the knowledge tools
+  (OCR, embeddings, moderations, classifications) and the
+  Conversations-backed tools retry transient statuses (408/409/429/5xx)
+  with full-jitter exponential backoff by default — up to 3 retries at a
+  1s → 2s → 4s ladder, honoring a server-requested `Retry-After` when
+  present. The policy is configurable via three new `mistral-native.json`
+  keys, settable through `/mistral set` in both scopes and shown on the
+  `/mistral` status card: `retry.maxAttempts` (default 3 — retries after
+  the initial request, so up to 4 requests in total), `retry.baseDelayMs`
+  (default 1000) and `retry.maxDelayMs` (default 30000). When retries
+  were attempted and the error is finally surfaced, the message keeps the
+  status and body excerpt and appends an attempts note, e.g.
+  `Mistral API error (429): … (after 4 attempts)`. The files/libraries
+  client (uploads, creates, deletes) retries statuses only — a network
+  error there may mean the server already acted, so it surfaces
+  immediately rather than risking a duplicated side effect.
+
+### Changed
+
+- **The server-delay ceiling tightened from 60s to `retry.maxDelayMs`
+  (default 30000).** A server-requested retry delay beyond the cap fails
+  fast with the asked duration in the error; delays between 30s and 60s,
+  which previously were waited out, now fail fast instead of stalling
+  the session.
+
 ## [0.3.0] - 2026-11-09
 
 ### Changed

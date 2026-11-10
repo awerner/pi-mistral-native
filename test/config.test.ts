@@ -507,7 +507,7 @@ test("validation: unknown top-level field names the field, file and known fields
 	const warning = validateWarning(json({ serverToolss: [] }));
 	assert.equal(
 		warning,
-		`unknown field "serverToolss" in ${VALIDATION_PATH}; known fields: agentId, connectorTools, connectors, endpoint, knowledge, models, ocr, rag, serverTools`,
+		`unknown field "serverToolss" in ${VALIDATION_PATH}; known fields: agentId, connectorTools, connectors, endpoint, knowledge, models, ocr, rag, retry, serverTools`,
 	);
 });
 

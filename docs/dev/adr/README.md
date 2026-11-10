@@ -70,3 +70,4 @@ Status legend:
 | [0022](0022-mistral-set-scope-and-list-mutation.md) | Project-scope writes and list mutation for `/mistral set` | Trial |
 | [0023](0023-documentation-structured-by-diataxis.md) | Documentation structured by Diátaxis, human reader first | Trial |
 | [0024](0024-web-search-canonical-name-and-premium-flag.md) | Web search canonical name and premium flag | Trial |
+| [0025](0025-staggered-retry-with-configurable-backoff.md) | Staggered retry with configurable backoff | Trial |

@@ -22,7 +22,9 @@
  * behavioral: it drives the rate-card overrides and the fall-through flag
  * of the dynamic catalog. The `endpoint` section is behavioral (selectable
  * region): chat completions and the model catalog route to the regional
- * base URL, everything else stays on the global endpoint.
+ * base URL, everything else stays on the global endpoint. The `retry`
+ * section is behavioral (shared retry policy): it drives the retry
+ * budget and backoff of the chat stream and the tool fetch paths.
  *
  * Decisions: ADR 0010 — Configuration via mistral-native.json aligned to
  * the pi ecosystem convention; ADR 0004 — API-key credential chain without
@@ -115,6 +117,23 @@ export interface OcrConfig {
 }
 
 /**
+ * `retry` section (behavioral): the shared retry policy of the chat
+ * stream and the tool fetch paths. All three keys are positive integers;
+ * `maxAttempts` counts RETRIES after the initial request, and
+ * `maxDelayMs` must be >= `baseDelayMs` (default 1000).
+ *
+ * ADR 0025 — Staggered retry with configurable backoff
+ */
+export interface RetryConfig {
+	/** Retries after the initial request (default 3 — up to 4 requests in total). */
+	maxAttempts: number | undefined;
+	/** Backoff base in ms; the delay ladder is baseDelayMs · 2^attempt (default 1000). */
+	baseDelayMs: number | undefined;
+	/** Ceiling for every wait incl. server-requested delays (default 30000). */
+	maxDelayMs: number | undefined;
+}
+
+/**
  * Validated shape of `mistral-native.json` (every section optional; an absent
  * key means "unset" and falls through to lower precedence layers). Fields are
  * optional-with-undefined so both absent keys and explicitly-undefined
@@ -130,6 +149,7 @@ export interface MistralFileConfig {
 	knowledge?: KnowledgeConfig | undefined;
 	rag?: RagConfig | undefined;
 	ocr?: OcrConfig | undefined;
+	retry?: RetryConfig | undefined;
 }
 
 /** Known top-level fields, alphabetical, for unknown-field error messages. */
@@ -142,6 +162,7 @@ const KNOWN_TOP_LEVEL_FIELDS = [
 	"models",
 	"ocr",
 	"rag",
+	"retry",
 	"serverTools",
 ];
 
@@ -571,6 +592,47 @@ export function validateMistralFileConfig(
 		ocr = { defaultModel: defaultModel.value };
 	}
 
+	/*
+	 * Retry section: all three keys are positive integers (0 is invalid —
+	 * retries cannot be disabled via config), and maxDelayMs must be >=
+	 * baseDelayMs, where baseDelayMs is this section's value when present,
+	 * else the built-in default. Cross-scope merges can still produce a
+	 * degenerate max < base pair (user file sets base 5000, project file
+	 * sets max 3000); the delay computation's min() simply caps every
+	 * delay at maxDelayMs — benign.
+	 *
+	 * ADR 0025 — Staggered retry with configurable backoff
+	 */
+	let retry: RetryConfig | undefined;
+	if (root.retry !== undefined) {
+		const section = sectionObject(root.retry, "retry", path);
+		if ("error" in section) return { error: section.error };
+		const unknown = rejectUnknownSectionKeys(section.object, ["maxAttempts", "baseDelayMs", "maxDelayMs"], "retry", path);
+		if (unknown !== undefined) return { error: unknown };
+		const positiveInteger = (key: string): { error?: undefined; value?: number } | { error: string; value?: undefined } => {
+			const raw = section.object[key];
+			if (raw === undefined) return {};
+			if (typeof raw !== "number" || !Number.isInteger(raw) || raw < 1) {
+				return {
+					error: `field "retry.${key}" in ${path} must be a positive integer; got ${JSON.stringify(raw) ?? String(raw)}`,
+				};
+			}
+			return { value: raw };
+		};
+		const maxAttempts = positiveInteger("maxAttempts");
+		if (maxAttempts.error !== undefined) return { error: maxAttempts.error };
+		const baseDelayMs = positiveInteger("baseDelayMs");
+		if (baseDelayMs.error !== undefined) return { error: baseDelayMs.error };
+		const maxDelayMs = positiveInteger("maxDelayMs");
+		if (maxDelayMs.error !== undefined) return { error: maxDelayMs.error };
+		if (maxDelayMs.value !== undefined && maxDelayMs.value < (baseDelayMs.value ?? DEFAULT_RETRY_BASE_DELAY_MS)) {
+			return {
+				error: `field "retry.maxDelayMs" in ${path} must be greater than or equal to retry.baseDelayMs (${DEFAULT_RETRY_BASE_DELAY_MS} by default)`,
+			};
+		}
+		retry = { maxAttempts: maxAttempts.value, baseDelayMs: baseDelayMs.value, maxDelayMs: maxDelayMs.value };
+	}
+
 	return {
 		config: {
 			serverTools: serverTools.value,
@@ -582,6 +644,7 @@ export function validateMistralFileConfig(
 			knowledge,
 			rag,
 			ocr,
+			retry,
 		},
 	};
 }
@@ -731,6 +794,7 @@ export function mergeMistralFileConfigs(
 		knowledge: mergeSection(user.knowledge, project.knowledge),
 		rag: mergeSection(user.rag, project.rag),
 		ocr: mergeSection(user.ocr, project.ocr),
+		retry: mergeSection(user.retry, project.retry),
 	};
 }
 
@@ -1053,4 +1117,30 @@ export function getEffectiveSearchModel(
 	fileConfig: MistralFileConfig | undefined = getEffectiveMistralConfig(),
 ): string {
 	return fileConfig?.knowledge?.searchModel ?? DEFAULT_SEARCH_MODEL;
+}
+
+// =============================================================================
+// Resolved retry policy (behavioral)
+// =============================================================================
+
+/** Built-in retry defaults, mirrored from extensions/mistral/retry.ts (no cycle: config is below retry's call sites). */
+export const DEFAULT_RETRY_BASE_DELAY_MS = 1000;
+
+/**
+ * The effective retry policy of the chat stream and the tool fetch paths:
+ * per-key fallback from the merged file config's `retry` section (project
+ * > user via getEffectiveMistralConfig) to the built-in defaults — 3
+ * retries, a 1000ms base, a 30000ms ceiling. Config-file only: there is no
+ * env-var layer for these keys. Pure over the given inputs; never logs.
+ *
+ * ADR 0025 — Staggered retry with configurable backoff
+ */
+export function getEffectiveRetryPolicy(
+	fileConfig: MistralFileConfig | undefined = getEffectiveMistralConfig(),
+): { maxAttempts: number; baseDelayMs: number; maxDelayMs: number } {
+	return {
+		maxAttempts: fileConfig?.retry?.maxAttempts ?? 3,
+		baseDelayMs: fileConfig?.retry?.baseDelayMs ?? DEFAULT_RETRY_BASE_DELAY_MS,
+		maxDelayMs: fileConfig?.retry?.maxDelayMs ?? 30000,
+	};
 }

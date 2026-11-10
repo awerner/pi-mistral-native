@@ -15,4 +15,6 @@ Mistral can execute tools in two ways, and the provider exposes both:
 
 Web search and the code interpreter are neither: they are model-callable pi tools (`web_search`, `mistral_code_interpreter`) running over one-shot stateless Conversations calls under a dedicated search model.
 
+Tool requests — the knowledge APIs and the Conversations-backed tools alike — retry transient errors (429s, 5xx) with the same configurable backoff policy as the chat stream, so a capacity blip does not fail a tool call. See [How retries and backoff work](/concepts/retries/)
+
 See [Enable connectors and connector tools](/how-to/enable-connectors/) · [Search the web](/how-to/search-the-web/) · [Tools](/reference/tools/)

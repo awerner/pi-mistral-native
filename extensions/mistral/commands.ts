@@ -43,6 +43,7 @@ import {
 	projectConfigPath,
 	validateMistralFileConfig,
 	getEffectiveEndpoint,
+	getEffectiveRetryPolicy,
 	getEffectiveRagStreaming,
 	resolveMistralRegionBaseUrl,
 	KNOWN_CONFIG_SERVER_TOOLS,
@@ -130,7 +131,7 @@ export interface CommandContext {
  *
  * ADR 0016 — /mistral command family: show, set, test
  */
-const SET_KEY_KINDS = ["boolean", "string", "list", "region"] as const;
+const SET_KEY_KINDS = ["boolean", "string", "list", "integer", "region"] as const;
 type SetKeyKind = (typeof SET_KEY_KINDS)[number];
 
 interface SetKeySpec {
@@ -152,6 +153,9 @@ const SET_KEYS: Record<string, SetKeySpec> = {
 	"rag.streaming": { kind: "boolean", description: "RAG query streaming" },
 	"rag.defaultLibraryId": { kind: "string", description: "Default library for RAG queries" },
 	"ocr.defaultModel": { kind: "string", description: "Default OCR model" },
+	"retry.maxAttempts": { kind: "integer", description: "Retries after the initial request for transient API errors" },
+	"retry.baseDelayMs": { kind: "integer", description: "Backoff base delay in milliseconds (doubles per attempt)" },
+	"retry.maxDelayMs": { kind: "integer", description: "Wait ceiling in milliseconds, incl. server-requested delays" },
 };
 
 /**
@@ -178,6 +182,14 @@ function parseRegionValue(value: string): MistralRegion | undefined {
 	return undefined;
 }
 
+/** Parse an integer set-value (trim, then all-digits); undefined otherwise — no sign, no decimals. */
+function parseIntegerValue(value: string): number | undefined {
+	const trimmed = value.trim();
+	if (!/^\d+$/.test(trimmed)) return undefined;
+	const parsed = Number.parseInt(trimmed, 10);
+	return parsed >= 1 ? parsed : undefined;
+}
+
 /** Where a provenance check found a value. */
 type SourceLabel =
 	| { source: "project file"; path: string }
@@ -202,6 +214,12 @@ function defaultDisplayFor(key: string, merged: MistralFileConfig | undefined, e
 	if (key === "connectorTools.enabled") return String(connectorToolsEnabled(env, merged));
 	if (key === "rag.streaming" || key === "knowledge.streaming") return String(getEffectiveRagStreaming(env, merged));
 	if (key === "knowledge.searchModel") return merged?.knowledge?.searchModel ?? DEFAULT_SEARCH_MODEL;
+	if (key === "retry.maxAttempts" || key === "retry.baseDelayMs" || key === "retry.maxDelayMs") {
+		const policy = getEffectiveRetryPolicy(merged);
+		if (key === "retry.maxAttempts") return String(policy.maxAttempts);
+		if (key === "retry.baseDelayMs") return `${policy.baseDelayMs} ms`;
+		return `${policy.maxDelayMs} ms`;
+	}
 	return "unset";
 }
 
@@ -342,6 +360,9 @@ export function buildStatusCard(
 		["rag.streaming", "RAG streaming", "MISTRAL_RAG_STREAMING", ragStreamingEnvHonored],
 		["rag.defaultLibraryId", "RAG default library", undefined, undefined],
 		["ocr.defaultModel", "OCR model", undefined, undefined],
+		["retry.maxAttempts", "Retry attempts", undefined, undefined],
+		["retry.baseDelayMs", "Retry base delay", undefined, undefined],
+		["retry.maxDelayMs", "Retry max delay", undefined, undefined],
 	];
 	for (const [key, display, envVariable, envHonored] of keyRows) {
 		const sourced = resolveProvenance(scopes, key, envVariable, env, envHonored);
@@ -602,6 +623,12 @@ function setConfigKeyAtTarget(
 			throw new Error(`invalid region for "endpoint.region": ${JSON.stringify(value)}; must be global, eu or us`);
 		}
 		typedValue = parsed;
+	} else if (spec.kind === "integer") {
+		const parsed = parseIntegerValue(value);
+		if (parsed === undefined) {
+			throw new Error(`invalid value for "${key}": ${JSON.stringify(value)}; must be a positive integer`);
+		}
+		typedValue = parsed;
 	} else if (spec.kind === "list") {
 		if (value.startsWith("+") || value.startsWith("-")) {
 			const mutation = listMutationOutcome(key, value, currentListEntries(root, key));
@@ -617,6 +644,11 @@ function setConfigKeyAtTarget(
 		}
 		typedValue = value;
 	}
+	/*
+	 * The merged whole must validate — this is where the retry cross-field
+	 * rule (maxDelayMs >= baseDelayMs) rejects a set that would break the
+	 * section's invariant against the file's existing keys.
+	 */
 	applyKeyToRoot(root, key, typedValue);
 	const mergedValidation = validateMistralFileConfig(root, target);
 	if (mergedValidation.error !== undefined || mergedValidation.config === undefined) {

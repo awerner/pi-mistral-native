@@ -22,7 +22,14 @@ import {
 	type MistralFetchFn,
 	type MistralRequestInit,
 } from "../extensions/mistral/api.js";
+import { setRetryTestSleep } from "../extensions/mistral/retry.js";
 import { registerKnowledgeTools } from "../extensions/mistral/knowledge.js";
+
+// Retries are on by default: a mocked 429/5xx would otherwise really
+// sleep between attempts. A no-op sleep seam keeps this suite fast and
+// deterministic (each test file runs in its own process, so a module-top
+// seam is safe).
+setRetryTestSleep(async () => {});
 
 /** Captured HTTP requests, filled by the injected fake fetch. */
 interface CapturedRequest {
@@ -41,6 +48,14 @@ function fakeFetch(captured: CapturedRequest[], responses: Array<{ status: numbe
 		const status = preset?.status ?? 200;
 		const body = preset !== undefined ? JSON.stringify(preset.body) : "{}";
 		return new Response(body, { status, headers: { "Content-Type": "application/json" } });
+	};
+}
+
+/** Fake fetch that ALWAYS answers `status`/`body` — a persistent failure the retry loop cannot outlast. */
+function alwaysFailingFetch(captured: CapturedRequest[], status: number, body: unknown): MistralFetchFn {
+	return async (url, init) => {
+		captured.push({ url, init, body: JSON.parse(init.body) as Record<string, unknown> });
+		return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 	};
 }
 
@@ -416,7 +431,9 @@ test("mistral_classify: request shape, per-input summary, raw results in structu
 test("non-2xx: thrown error contains status and a capped excerpt of the body", async () => {
 	const longBody = "x".repeat(2000);
 	const captured: CapturedRequest[] = [];
-	setMistralTestFetch(fakeFetch(captured, [{ status: 429, body: { message: `too many requests ${longBody}` } }]));
+	// The 429 is retryable, so the request must be retried until the budget
+	// is exhausted; the assertion pins the finally surfaced error shape.
+	setMistralTestFetch(alwaysFailingFetch(captured, 429, { message: `too many requests ${longBody}` }));
 	const { tools } = fakePi();
 
 	await assert.rejects(

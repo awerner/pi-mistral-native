@@ -78,7 +78,7 @@ test('Reference carries Configuration keys at its head', () => {
   assert.deepEqual(group.items[0], { slug: 'configuration', label: 'Configuration keys' });
 });
 
-test('Concepts carries the five explanation pages', () => {
+test('Concepts carries the six explanation pages', () => {
   const group = sidebarConfig().find((g) => g.label === 'Concepts');
   assert.ok(group, 'Concepts group exists');
   assert.deepEqual(group.items.map((i) => i.slug), [
@@ -87,6 +87,7 @@ test('Concepts carries the five explanation pages', () => {
     'concepts/tools',
     'concepts/models-and-costs',
     'concepts/chat-streaming',
+    'concepts/retries',
   ]);
 });
 

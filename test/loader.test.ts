@@ -25,7 +25,14 @@ import {
 } from "../extensions/tools/loader.js";
 import { setMistralConfigForTests } from "../extensions/mistral/config.js";
 import type { MistralFileConfig } from "../extensions/mistral/config.js";
+import { setRetryTestSleep } from "../extensions/mistral/retry.js";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
+
+// Retries are on by default: a mocked 429/5xx would otherwise really sleep
+// between attempts. A no-op sleep seam keeps this suite fast and
+// deterministic (each test file runs in its own process, so a module-top
+// seam is safe).
+setRetryTestSleep(async () => {});
 
 // =============================================================================
 // Harness: recording fetch mock (modeled on test/knowledge-tools.test.ts)
@@ -301,6 +308,8 @@ async function driveSessionStart(options: {
 	connectors?: unknown | undefined;
 	/** HTTP status of the discovery response (default 200). */
 	connectorsStatus?: number | undefined;
+	/** Extra copies of the discovery response for the retry loop (a retryable status is re-sent up to 3 times). */
+	discoveryRetries?: number | undefined;
 	toolsFor?: Record<string, unknown> | undefined;
 	env?: Record<string, string | undefined> | undefined;
 	config?: MistralFileConfig | null | undefined;
@@ -321,8 +330,11 @@ async function driveSessionStart(options: {
 	const notifications: Notification[] = [];
 	let active = [...(options.active ?? [])];
 	const mock = createMockFetch();
-	// Discovery request (+ autoLoad tool-list requests).
-	mock.respond(options.connectorsStatus ?? 200, options.connectors ?? CONNECTORS_RESPONSE);
+	// Discovery request (+ autoLoad tool-list requests); a retryable status
+	// is re-sent up to 3 times, so the mock needs a response per attempt.
+	for (let i = 0; i <= (options.discoveryRetries ?? 0); i++) {
+		mock.respond(options.connectorsStatus ?? 200, options.connectors ?? CONNECTORS_RESPONSE);
+	}
 	for (const tools of Object.values(options.toolsFor ?? {})) mock.respond(200, tools);
 	setConnectorLoaderTestFetch(mock.mockFetch);
 
@@ -916,7 +928,10 @@ test("connector tool execute maps thrown errors to isError with the server messa
 	harness.mock.respond(200, OUTLOOK_TOOLS);
 	await execute(harness.tools[0]!, { connector: "outlook" });
 	const search = lastRegistered(harness, "search_mail");
-	harness.mock.respond(500, { detail: "upstream exploded" });
+	// The 500 is retryable and the sleep seam is a no-op, so the mock's
+	// queue must answer every retry with the same persistent failure
+	// (initial request + 3 retries).
+	for (let i = 0; i < 4; i++) harness.mock.respond(500, { detail: "upstream exploded" });
 	const result = await execute(search, { query: "inbox" });
 	assert.equal(result.isError, true);
 	assert.ok((result.content[0]?.text ?? "").includes("upstream exploded"));
@@ -982,7 +997,13 @@ test("MISTRAL_CONNECTOR_TOOLS=0 disables the loader at session start", async () 
 });
 
 test("a discovery failure registers nothing and notifies a warning; never throws", async () => {
-	const { registered, notifications } = await driveSessionStart({ connectors: { detail: "boom" }, connectorsStatus: 500 });
+	// The 500 is retryable, so the discovery request is retried until the
+	// budget is exhausted (initial + 3 retries, no-op sleep seam).
+	const { registered, notifications } = await driveSessionStart({
+		connectors: { detail: "boom" },
+		connectorsStatus: 500,
+		discoveryRetries: 3,
+	});
 	assert.equal(registered.length, 0);
 	assert.equal(notifications.length, 1);
 	assert.equal(notifications[0]?.type, "warning");

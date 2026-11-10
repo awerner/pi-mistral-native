@@ -88,7 +88,15 @@ import type { ExtensionAPI, ProviderModelConfig } from "@earendil-works/pi-codin
 import { createMistralApiKeyAuth } from "./mistral/auth.js";
 import { registerMistralCommands } from "./mistral/commands.js";
 import { MISTRAL_BASE_URL } from "./mistral/api.js";
-import { getEffectiveEndpoint, getEffectiveMistralConfig, MISTRAL_REGION_BASE_URLS, refreshMistralConfig, resolveMistralRegionBaseUrl } from "./mistral/config.js";
+import {
+	attemptsNote,
+	DEFAULT_RETRY_POLICY,
+	isRetryableStatus,
+	retryDelayMs,
+	retrySleep,
+	type RetryPolicy,
+} from "./mistral/retry.js";
+import { getEffectiveEndpoint, getEffectiveMistralConfig, getEffectiveRetryPolicy, MISTRAL_REGION_BASE_URLS, refreshMistralConfig, resolveMistralRegionBaseUrl } from "./mistral/config.js";
 import type { MistralRegion } from "./mistral/config.js";
 import { registerKnowledgeTools as registerOcrKnowledgeTools } from "./mistral/knowledge.js";
 import {
@@ -1125,75 +1133,26 @@ function parseSseEvent(raw: string): { done?: boolean; data?: unknown } {
 }
 
 // =============================================================================
-// HTTP request with retry (mirrors pi-ai's retryProviderRequest policy)
+// HTTP request with retry (shared policy in extensions/mistral/retry.ts)
 // =============================================================================
-
-const DEFAULT_MAX_RETRY_DELAY_MS = 60_000;
-
-function sleepInterruptible(ms: number, signal: AbortSignal | undefined): Promise<void> {
-	return new Promise((resolve, reject) => {
-		if (signal?.aborted) {
-			reject(abortError());
-			return;
-		}
-		const onAbort = () => {
-			clearTimeout(timeout);
-			reject(abortError());
-		};
-		const timeout = setTimeout(() => {
-			signal?.removeEventListener("abort", onAbort);
-			resolve();
-		}, Math.max(0, ms));
-		signal?.addEventListener("abort", onAbort, { once: true });
-	});
-}
-
-function abortError(): Error {
-	const error = new Error("Request aborted");
-	error.name = "AbortError";
-	return error;
-}
-
-function isRetryableStatus(status: number): boolean {
-	return status === 408 || status === 409 || status === 429 || status >= 500;
-}
-
-function retryDelayMs(response: Response | undefined, attempt: number, maxRetryDelayMs: number): number {
-	const max = maxRetryDelayMs > 0 ? maxRetryDelayMs : Number.POSITIVE_INFINITY;
-	const retryAfterMs = response?.headers.get("retry-after-ms");
-	if (retryAfterMs) {
-		const value = Number.parseFloat(retryAfterMs);
-		if (Number.isFinite(value)) return validateServerDelay(value, max);
-	}
-	const retryAfter = response?.headers.get("retry-after");
-	if (retryAfter) {
-		const seconds = Number.parseFloat(retryAfter);
-		const delayMs = Number.isNaN(seconds) ? Date.parse(retryAfter) - Date.now() : seconds * 1000;
-		if (Number.isFinite(delayMs)) return validateServerDelay(delayMs, max);
-	}
-	const exponential = Math.min(0.5 * 2 ** attempt, 8) * 1000;
-	return exponential * (1 - Math.random() * 0.25);
-}
-
-function validateServerDelay(delayMs: number, maxDelayMs: number): number {
-	if (delayMs > maxDelayMs) {
-		throw new MistralApiError(
-			`Mistral API requested ${Math.ceil(delayMs / 1000)}s retry delay (max: ${Math.ceil(maxDelayMs / 1000)}s)`,
-		);
-	}
-	return delayMs;
-}
 
 /**
  * POST the chat-completions request and return the successful Response with
- * an unconsumed body. Retries transient failures (408/409/429/5xx and network
- * errors) with interruptible backoff, mirroring the OpenAI/Anthropic SDK
- * policy pi-ai reproduces. The per-attempt timeout is enforced by aborting
+ * an unconsumed body. Retries transient failures (408/409/429/5xx and
+ * network errors) with interruptible backoff, mirroring the OpenAI/Anthropic
+ * SDK policy pi-ai reproduces. The per-attempt timeout is enforced by aborting
  * the attempt's signal, not the caller's. `baseUrlOverride` replaces the
  * model's registered `baseUrl` when the effective config routes chat
  * completions to a regional endpoint.
  *
- * ADR 0012 — Selectable region endpoint with per-family routing
+ * Retry policy precedence: pi-ai's `SimpleStreamOptions.maxRetries` /
+ * `.maxRetryDelayMs` remain the runtime override inlet (pi never passes
+ * them today); the `retry` config keys are the default layer. A finally
+ * surfaced retryable error carries the attempts note after the body
+ * excerpt.
+ *
+ * Decisions: ADR 0012 — Selectable region endpoint with per-family routing;
+ * ADR 0025 — Staggered retry with configurable backoff
  */
 async function fetchChatCompletion(
 	model: Model<Api>,
@@ -1202,6 +1161,7 @@ async function fetchChatCompletion(
 	options: SimpleStreamOptions | undefined,
 	path = "chat/completions",
 	baseUrlOverride?: string,
+	retryPolicy: RetryPolicy = DEFAULT_RETRY_POLICY,
 ): Promise<Response> {
 	const url = `${(baseUrlOverride ?? model.baseUrl).replace(/\/+$/, "")}/${path}`;
 	const headers: Record<string, string> = {
@@ -1219,8 +1179,15 @@ async function fetchChatCompletion(
 	}
 
 	const fetchImpl = options?.fetch ?? globalThis.fetch;
-	const maxRetries = options?.maxRetries ?? 0;
-	const maxRetryDelayMs = options?.maxRetryDelayMs ?? DEFAULT_MAX_RETRY_DELAY_MS;
+	// pi-ai's runtime options stay the override inlet; the config keys are
+	// the default layer (maxAttempts bounds RETRIES, not total requests).
+	const maxRetries = options?.maxRetries ?? retryPolicy.maxAttempts;
+	const maxRetryDelayMs = options?.maxRetryDelayMs ?? retryPolicy.maxDelayMs;
+	const effectivePolicy: RetryPolicy = {
+		maxAttempts: maxRetries,
+		baseDelayMs: retryPolicy.baseDelayMs,
+		maxDelayMs: maxRetryDelayMs,
+	};
 	let attempt = 0;
 	for (;;) {
 		const controller = new AbortController();
@@ -1248,7 +1215,7 @@ async function fetchChatCompletion(
 			if (signal?.aborted) throw error;
 			if (timedOut) throw new MistralApiError(`Mistral API request timed out after ${options?.timeoutMs}ms`);
 			if (attempt < maxRetries) {
-				await sleepInterruptible(retryDelayMs(undefined, attempt, maxRetryDelayMs), signal);
+				await retrySleep(retryDelayMs(undefined, attempt, effectivePolicy), signal);
 				attempt++;
 				continue;
 			}
@@ -1262,13 +1229,13 @@ async function fetchChatCompletion(
 		if (isRetryableStatus(response.status) && attempt < maxRetries && !signal?.aborted) {
 			const retryResponse = response;
 			await retryResponse.text().catch(() => undefined);
-			await sleepInterruptible(retryDelayMs(response, attempt, maxRetryDelayMs), signal);
+			await retrySleep(retryDelayMs(response, attempt, effectivePolicy), signal);
 			attempt++;
 			continue;
 		}
 		const body = await response.text().catch(() => "");
 		throw new MistralApiError(
-			`Mistral API error (${response.status}): ${truncateText(body.trim(), MAX_PROVIDER_ERROR_BODY_CHARS)}`,
+			`Mistral API error (${response.status}): ${truncateText(body.trim(), MAX_PROVIDER_ERROR_BODY_CHARS)}${attemptsNote(attempt + 1)}`,
 			response.status,
 		);
 	}
@@ -1375,6 +1342,16 @@ export function mistralStreamSimple(
 				getEffectiveMistralConfig(),
 			);
 
+			/*
+			 * Retry policy: the `retry` config section's effective values are
+			 * the default layer; pi-ai's SimpleStreamOptions.maxRetries /
+			 * .maxRetryDelayMs (applied inside fetchChatCompletion) stay the
+			 * runtime override inlet.
+			 *
+			 * ADR 0025 — Staggered retry with configurable backoff
+			 */
+			const retryPolicy = getEffectiveRetryPolicy();
+
 			const reasoningEffort = resolveReasoningEffort(model, options?.reasoning);
 			if (options?.reasoning !== undefined && reasoningEffort !== undefined) {
 				output.providerThinkingLevel = reasoningEffort;
@@ -1413,7 +1390,7 @@ export function mistralStreamSimple(
 			const replacement = await options?.onPayload?.(params, model);
 			if (replacement !== undefined) params = replacement as Record<string, unknown>;
 
-			const response = await fetchChatCompletion(model, params, apiKey, options, requestPath, effectiveBaseUrl);
+			const response = await fetchChatCompletion(model, params, apiKey, options, requestPath, effectiveBaseUrl, retryPolicy);
 			await options?.onResponse?.({ status: response.status, headers: headersToRecord(response.headers) }, model);
 
 			stream.push({ type: "start", partial: output });
