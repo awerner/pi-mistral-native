@@ -16,6 +16,16 @@ import { createKnowledgeTools } from "../extensions/tools/knowledge.js";
 import { DEFAULT_QUERY_MODEL } from "../extensions/tools/knowledge.js";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { setMistralConfigForTests } from "../extensions/mistral/config.js";
+import { setRetryTestSleep, type RetryPolicy } from "../extensions/mistral/retry.js";
+
+// Retries are on by default: a mocked 429/5xx would otherwise really sleep
+// between attempts. A no-op sleep seam keeps this suite fast and
+// deterministic (each test file runs in its own process, so a module-top
+// seam is safe).
+setRetryTestSleep(async () => {});
+
+/** The default policy resolved with this suite's no-file config baseline. */
+const NO_RETRY_POLICY: RetryPolicy = { maxAttempts: 0, baseDelayMs: 1, maxDelayMs: 1 };
 
 // Force a deterministic no-file config baseline for this suite: the RAG
 // streaming default must hold regardless of the developer's
@@ -83,7 +93,7 @@ function createMockFetch() {
 /** Builds the nine tools with a client bound to the mock fetch. */
 function buildTools(mockFetch: typeof fetch) {
 	const tools = createKnowledgeTools({
-		getClient: async () => createMistralClient({ apiKey: "test-key", fetchImpl: mockFetch }),
+		getClient: async () => createMistralClient({ apiKey: "test-key", fetchImpl: mockFetch, retryPolicy: NO_RETRY_POLICY }),
 	});
 	return tools;
 }
@@ -1059,7 +1069,7 @@ test("a 404 JSON error maps to an isError result with status and server message"
 test("MistralApiError carries status and a truncated body without headers", async () => {
 	const longBody = "x".repeat(600);
 	const mock = createMockFetch();
-	const client = createMistralClient({ apiKey: "test-key", fetchImpl: mock.mockFetch });
+	const client = createMistralClient({ apiKey: "test-key", fetchImpl: mock.mockFetch, retryPolicy: NO_RETRY_POLICY });
 	mock.respond(500, JSON.stringify({ detail: longBody }));
 	try {
 		await client.listLibraries({});

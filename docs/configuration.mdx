@@ -243,3 +243,52 @@ The default OCR model.
 ```
 
 Reserved: validated and shown by `/mistral`, but no behavior derives from it.
+
+## `retry`
+
+The shared retry policy for transient API errors (429 capacity blips, 5xx, timeouts). See [How retries and backoff work](/concepts/retries/)
+
+### `retry.maxAttempts`
+
+How many times a failed request is re-sent after the initial attempt.
+
+- **Type:** positive integer
+- **Default:** `3` (up to 4 requests in total; the delay ladder is 1s → 2s → 4s)
+- **Environment variable:** none
+- **Set with:** `/mistral set retry.maxAttempts 5`
+
+```json
+{ "retry": { "maxAttempts": 5 } }
+```
+
+Counts RETRIES, not total requests. `0` is invalid — retries cannot be disabled via config.
+
+### `retry.baseDelayMs`
+
+The backoff base delay in milliseconds; the wait ladder doubles per attempt.
+
+- **Type:** positive integer
+- **Default:** `1000`
+- **Environment variable:** none
+- **Set with:** `/mistral set retry.baseDelayMs 500`
+
+```json
+{ "retry": { "baseDelayMs": 500 } }
+```
+
+Each wait is randomized uniformly in `[0, delay)` (full jitter).
+
+### `retry.maxDelayMs`
+
+The ceiling for every retry wait, including server-requested `Retry-After` delays.
+
+- **Type:** positive integer
+- **Default:** `30000`
+- **Environment variable:** none
+- **Set with:** `/mistral set retry.maxDelayMs 60000`
+
+```json
+{ "retry": { "maxDelayMs": 60000 } }
+```
+
+Must be at least `retry.baseDelayMs` (default `1000`). A server-requested delay beyond this cap fails fast with the asked duration in the error instead of waiting.

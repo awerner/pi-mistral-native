@@ -146,6 +146,7 @@ function sidebarConfig() {
         entry('concepts/tools'),
         entry('concepts/models-and-costs'),
         entry('concepts/chat-streaming'),
+        entry('concepts/retries'),
       ],
     },
     {

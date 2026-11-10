@@ -615,6 +615,119 @@ test("status card: a user-file knowledge.searchModel shows with file provenance;
 	assert.ok(items.some((item) => item.value === "set knowledge.searchModel"), "key must be offered");
 });
 
+test("status card: the three retry rows show effective defaults with default provenance", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	const user = { value: undefined, path: undefined, warning: undefined };
+	const project = { value: undefined, path: undefined, warning: undefined };
+	const card = buildStatusCard({ user, project }, undefined, true, env);
+	assert.match(card, /Retry attempts: 3  \[default\]/);
+	assert.match(card, /Retry base delay: 1000 ms  \[default\]/);
+	assert.match(card, /Retry max delay: 30000 ms  \[default\]/);
+});
+test("status card: a user-file retry section shows with file provenance; project shadows", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	const user = {
+		value: { retry: { maxAttempts: 5, baseDelayMs: 2000, maxDelayMs: 60000 } },
+		path: "/u/mistral-native.json",
+		warning: undefined,
+	};
+	const project = { value: undefined, path: undefined, warning: undefined };
+	const card = buildStatusCard({ user, project }, undefined, true, env);
+	assert.match(card, /Retry attempts: 5  \[user file \/u\/mistral-native\.json\]/);
+	assert.match(card, /Retry base delay: 2000  \[user file \/u\/mistral-native\.json\]/);
+	assert.match(card, /Retry max delay: 60000  \[user file \/u\/mistral-native\.json\]/);
+	// A project value shadows per key.
+	const projectScoped = {
+		value: { retry: { maxAttempts: 1, baseDelayMs: undefined, maxDelayMs: undefined } },
+		path: "/p/mistral-native.json",
+		warning: undefined,
+	};
+	const shadowCard = buildStatusCard({ user, project: projectScoped }, undefined, true, env);
+	assert.match(shadowCard, /Retry attempts: 1  \[project file \/p\/mistral-native\.json\]/);
+	assert.match(shadowCard, /Retry base delay: 2000  \[user file \/u\/mistral-native\.json\]/);
+});
+
+test("set: each retry key writes in both scopes; invalid values are refused; merge is atomic", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	const target = setUserConfigTargetPath(env, memoryExists(fs));
+	// A pre-existing file with another key: the write must preserve it.
+	fs.files.set(target, JSON.stringify({ agentId: "keep-me" }));
+	setUserConfigKey("retry.maxAttempts", "5", env, {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	setUserConfigKey("retry.baseDelayMs", "500", env, {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	setUserConfigKey("retry.maxDelayMs", "20000", env, {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	const written = JSON.parse(fs.files.get(target)!) as {
+		agentId: string;
+		retry: { maxAttempts: number; baseDelayMs: number; maxDelayMs: number };
+	};
+	assert.equal(written.agentId, "keep-me", "the merge preserves existing keys");
+	assert.deepEqual(written.retry, { maxAttempts: 5, baseDelayMs: 500, maxDelayMs: 20000 });
+	// Project scope writes the project path.
+	const cwd = "/project-root";
+	setProjectConfigKey(cwd, "retry.maxAttempts", "2", {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	const projectFile = JSON.parse(fs.files.get(projectConfigPath(cwd))!) as { retry: { maxAttempts: number } };
+	assert.equal(projectFile.retry.maxAttempts, 2);
+	// Invalid values are refused and nothing is written.
+	const before = fs.files.get(target)!;
+	for (const bad of ["0", "-1", "1.5", "abc", "", " 3x"]) {
+		assert.throws(
+			() => setUserConfigKey("retry.maxAttempts", bad, env, {
+				readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+			}),
+			/must be a positive integer/,
+			`value ${JSON.stringify(bad)} must be refused`,
+		);
+	}
+	assert.equal(fs.files.get(target)!, before, "refused writes leave the file unchanged");
+	// Whitespace around a valid integer is trimmed and accepted.
+	setUserConfigKey("retry.maxAttempts", " 4 ", env, {
+		readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+	});
+	const trimmed = JSON.parse(fs.files.get(target)!) as { retry: { maxAttempts: number } };
+	assert.equal(trimmed.retry.maxAttempts, 4);
+});
+
+test("set: a retry.maxDelayMs below the file's baseDelayMs is refused by the merged validation", () => {
+	const fs = emptyFs();
+	const env = memoryEnv(fs, HOME);
+	const target = setUserConfigTargetPath(env, memoryExists(fs));
+	fs.files.set(target, JSON.stringify({ retry: { baseDelayMs: 5000, maxAttempts: undefined, maxDelayMs: undefined } }));
+	assert.throws(
+		() => setUserConfigKey("retry.maxDelayMs", "3000", env, {
+			readFile: memoryRead(fs), writeFile: memoryWrite(fs), fileExists: memoryExists(fs),
+		}),
+		/must be greater than or equal to retry\.baseDelayMs/,
+	);
+	// The file is untouched.
+	const after = JSON.parse(fs.files.get(target)!) as { retry: { baseDelayMs: number; maxDelayMs?: number } };
+	assert.equal(after.retry.baseDelayMs, 5000);
+	assert.equal(after.retry.maxDelayMs, undefined);
+});
+
+test("completion: the retry keys are offered at the key position; the value position offers nothing", () => {
+	const items = mistralArgumentCompletions("set retry.");
+	assert.deepEqual(
+		items.map((item) => item.value),
+		["set retry.baseDelayMs", "set retry.maxAttempts", "set retry.maxDelayMs"],
+	);
+	// Integer keys offer no value completions.
+	assert.deepEqual(mistralArgumentCompletions("set retry.maxAttempts "), []);
+	assert.deepEqual(mistralArgumentCompletions("set retry.maxAttempts 3"), []);
+	// The project-scope key position lists them too.
+	const projectItems = mistralArgumentCompletions("set --project retry.");
+	assert.ok(projectItems.some((item) => item.value === "set --project retry.maxAttempts"));
+});
+
 test("status card: no server-tools footnote when the configured set is supported", () => {
 	const fs = emptyFs();
 	const env = {
@@ -788,6 +901,9 @@ test("completion: 'set ' offers all settable keys plus --project, full-argument 
 		"ocr.defaultModel": 0,
 		"rag.defaultLibraryId": 0,
 		"rag.streaming": 0,
+		"retry.baseDelayMs": 0,
+		"retry.maxAttempts": 0,
+		"retry.maxDelayMs": 0,
 		"serverTools": 0,
 	}).sort();
 	assert.deepEqual(

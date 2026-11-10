@@ -10,6 +10,9 @@
  * ADR 0005 — OCR, embeddings, moderations/classifications as pi tools
  */
 
+import { attemptsNote, isRetryableStatus, retryDelayMs, retrySleep, type RetryPolicy } from "./retry.js";
+import { getEffectiveMistralConfig, getEffectiveRetryPolicy } from "./config.js";
+
 /**
  * Minimal structural slice of pi's ExtensionToolContext that tool executions
  * need: provider-level API key lookup. Keeping this minimal lets tests pass a
@@ -131,12 +134,20 @@ async function readCappedBody(response: Response): Promise<string> {
  * Throws on a missing API key (never with the key value), on non-2xx responses
  * (with status and a short, size-capped body excerpt), and on 2xx responses
  * that are not valid JSON (with the original parse error as `cause`).
+ *
+ * Retries transient statuses (408/409/429/5xx) and network errors with the
+ * shared backoff policy — every mistralFetch call is a pure request POST,
+ * so a retry is always safe. A caller abort is never retried. A finally
+ * surfaced retryable error carries the attempts note after the excerpt.
+ *
+ * ADR 0025 — Staggered retry with configurable backoff
  */
 export async function mistralFetch<T>(
 	ctx: MistralAuthContext,
 	path: string,
 	body: unknown,
 	signal: AbortSignal | undefined,
+	retryPolicy: RetryPolicy = getEffectiveRetryPolicy(getEffectiveMistralConfig()),
 ): Promise<T> {
 	const apiKey = await resolveApiKey(ctx);
 	if (!apiKey) {
@@ -144,7 +155,8 @@ export async function mistralFetch<T>(
 			`No Mistral API key: provider auth for "mistral-native" returned none and MISTRAL_API_KEY is not set.`,
 		);
 	}
-	const response = await (testFetch ?? defaultFetch)(`${baseUrl()}${path}`, {
+	const url = `${baseUrl()}${path}`;
+	const init: MistralRequestInit = {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
@@ -153,19 +165,47 @@ export async function mistralFetch<T>(
 		},
 		body: JSON.stringify(body),
 		signal,
-	});
-	if (!response.ok) {
+	};
+	const fetchFn = testFetch ?? defaultFetch;
+	let attempt = 0;
+	for (;;) {
+		let response: Response;
+		try {
+			response = await fetchFn(url, init);
+		} catch (error) {
+			// A caller abort is never retried: it surfaces as-is.
+			if (signal?.aborted) throw error;
+			if (attempt < retryPolicy.maxAttempts) {
+				await retrySleep(retryDelayMs(undefined, attempt, retryPolicy), signal);
+				attempt++;
+				continue;
+			}
+			throw error;
+		}
+		if (response.ok) {
+			try {
+				return (await response.json()) as T;
+			} catch (error) {
+				throw new Error(
+					`Mistral API request to ${path} returned an invalid JSON response (status ${response.status})`,
+					{ cause: error },
+				);
+			}
+		}
+		if (isRetryableStatus(response.status) && attempt < retryPolicy.maxAttempts && !signal?.aborted) {
+			// Drain the failed body so the connection is released before the wait
+			// — via the capped reader: readCappedBody stops at the excerpt limit
+			// and cancels the reader (releasing the connection), keeping the
+			// module's memory-safety invariant (an unbounded error payload
+			// cannot exhaust memory) on the retry path too.
+			await readCappedBody(response).catch(() => undefined);
+			await retrySleep(retryDelayMs(response, attempt, retryPolicy), signal);
+			attempt++;
+			continue;
+		}
 		const text = await readCappedBody(response);
 		throw new Error(
-			`Mistral API request to ${path} failed with status ${response.status}: ${excerpt(text)}`,
-		);
-	}
-	try {
-		return (await response.json()) as T;
-	} catch (error) {
-		throw new Error(
-			`Mistral API request to ${path} returned an invalid JSON response (status ${response.status})`,
-			{ cause: error },
+				`Mistral API request to ${path} failed with status ${response.status}: ${excerpt(text)}${attemptsNote(attempt + 1)}`,
 		);
 	}
 }

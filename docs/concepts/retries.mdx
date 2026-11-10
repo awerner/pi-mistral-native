@@ -1,0 +1,49 @@
+# How retries and backoff work
+
+Why a transient Mistral error usually never reaches you.
+
+Transient API errors — a 429 capacity blip, a 5xx, a timeout — are retried automatically, by default, on every request path that talks to the Mistral API: the chat stream, the knowledge tools (OCR, embeddings, moderations, classifications) and the Conversations-backed tools (web search, code interpreter, RAG queries). Nothing to configure: a short blip is absorbed invisibly; a sustained outage still fails, but with the full error after a bounded wait.
+
+## The three keys
+
+All three live in the `retry` section of `mistral-native.json` and are settable via `/mistral set` (user scope, or `--project`):
+
+```json
+{
+  "retry": {
+    "maxAttempts": 3,
+    "baseDelayMs": 1000,
+    "maxDelayMs": 30000
+  }
+}
+```
+
+- **`retry.maxAttempts`** (default `3`) — how many times a failed request is re-sent *after* the initial attempt. `3` means up to 4 requests in total.
+- **`retry.baseDelayMs`** (default `1000`) — the backoff base; the delay ladder doubles per attempt.
+- **`retry.maxDelayMs`** (default `30000`) — the ceiling for every wait, including server-requested delays.
+
+All three must be positive integers, and `maxDelayMs` must be at least `baseDelayMs` (default `1000`). There is no environment-variable layer for these keys.
+
+## How it works
+
+**The ladder.** The wait after a failed attempt is `baseDelayMs · 2^attempt`, capped at `maxDelayMs` — with the defaults: 1s → 2s → 4s, roughly 7s of waiting in the worst case, plus request time.
+
+**Full jitter.** Each wait is randomized uniformly in `[0, delay)` — the recommended shape for capacity-type throttles. When many clients hit the same 429 at the same moment, jitter staggers their retries instead of synchronizing them into a second spike.
+
+**Retry-After wins.** When the server asks for a specific delay (`retry-after-ms` or `retry-after`), that delay replaces the computed one — still capped by `maxDelayMs`. A server request beyond the cap fails fast with the server's asked duration in the message instead of stalling the session.
+
+**Which errors retry.** 408, 409, 429 and every 5xx are retried. Deterministic failures — 401, 403, 404, 422 — fail on the first response, unchanged. Network errors retry on the chat stream and the knowledge tools (every request there is a pure request with no side effects before the first byte). The files-and-libraries client (uploads, creates, deletes) retries statuses only: a network error there may mean the server already acted, so it surfaces immediately rather than risking a duplicated side effect.
+
+**What you see.** When retries were attempted and the error is finally surfaced, the message keeps the status and body excerpt exactly as before and appends a short note, e.g. `Mistral API error (429): … (after 4 attempts)` — so a slow request explains itself. Errors never contain the API key or request headers.
+
+## Where it applies
+
+| Path | Retries | Notes |
+|---|---|---|
+| Chat stream | statuses + network errors | pi's own `maxRetries` runtime option, when passed, overrides `retry.maxAttempts` |
+| Knowledge tools (OCR, embeddings, moderations, classifications) | statuses + network errors | Pure request POSTs — retry-safe |
+| Conversations-backed tools, files/libraries | statuses only | Side-effectful operations (uploads, creates, deletes) never retry a network error |
+
+The model-catalog refresh, the `/mistral test` probe and the login flow do not retry — they are one-shot diagnostics by design.
+
+See [Configuration keys](/configuration/) · [How chat streaming works](/concepts/chat-streaming/) · [Server-side and client-side tools](/concepts/tools/)

@@ -13,8 +13,12 @@
  * without network access. Secrets are only ever placed on the outbound
  * Authorization header; they never appear in error messages or logs.
  *
- * ADR 0003 — Vendored OpenAPI spec; ADR 0015 — Streaming RAG document query.
+ * ADR 0003 — Vendored OpenAPI spec; ADR 0015 — Streaming RAG document query;
+ * ADR 0025 — Staggered retry with configurable backoff
  */
+
+import { attemptsNote, isRetryableStatus, retryDelayMs, retrySleep, type RetryPolicy } from "../mistral/retry.js";
+import { getEffectiveMistralConfig, getEffectiveRetryPolicy } from "../mistral/config.js";
 
 /** Options for {@link createMistralClient}. */
 export interface MistralClientOptions {
@@ -24,6 +28,8 @@ export interface MistralClientOptions {
 	fetchImpl?: typeof fetch | undefined;
 	/** Mistral API key. Required at request time; never logged. */
 	apiKey?: string | undefined;
+	/** Retry policy override (tests); defaults to the effective config policy. */
+	retryPolicy?: RetryPolicy | undefined;
 }
 
 /** Error thrown for non-2xx Mistral API responses. Never contains request headers or the API key. */
@@ -32,13 +38,20 @@ export class MistralApiError extends Error {
 	/** Response body (truncated) for diagnostics; server-supplied content only. */
 	readonly body: string;
 
-	constructor(status: number, body: string) {
+	/**
+	 * `attempts` counts the requests sent (initial + retries); when more than
+	 * one was needed, the message gains the attempts note after the body
+	 * excerpt — visibility that the request was retried.
+	 *
+	 * ADR 0025 — Staggered retry with configurable backoff
+	 */
+	constructor(status: number, body: string, attempts = 1) {
 		const truncated = body.length > 500 ? `${body.slice(0, 500)}…` : body;
 		const serverMessage = extractServerMessage(body);
 		super(
-			serverMessage
+			(serverMessage
 				? `Mistral API error ${status}: ${serverMessage}`
-				: `Mistral API error ${status}${truncated ? `: ${truncated}` : ""}`,
+				: `Mistral API error ${status}${truncated ? `: ${truncated}` : ""}`) + attemptsNote(attempts),
 		);
 		this.name = "MistralApiError";
 		this.status = status;
@@ -332,6 +345,15 @@ export interface MistralClient {
  * Shared request helper. Sets Authorization/Accept, sends JSON or FormData
  * bodies, and throws {@link MistralApiError} on non-ok responses. The
  * Content-Type of multipart bodies is set by fetch itself (boundary).
+ *
+ * Retries transient statuses (408/409/429/5xx) only — no network-error
+ * retry: this client also performs side-effectful uploads, creates and
+ * deletes, where a network error may mean the server already acted; a
+ * retry could duplicate the effect. A caller abort is never retried.
+ * The `attempts` out-param feeds the finally surfaced error's attempts
+ * note.
+ *
+ * ADR 0025 — Staggered retry with configurable backoff
  */
 async function request(
 	fetchImpl: typeof fetch,
@@ -340,6 +362,8 @@ async function request(
 	method: "GET" | "POST" | "PUT" | "DELETE",
 	path: string,
 	init: { signal?: AbortSignal | undefined; query?: Record<string, string | undefined>; json?: unknown; form?: FormData },
+	retryPolicy: RetryPolicy,
+	attempts: { count: number } = { count: 1 },
 ): Promise<{ ok: true; text: string; status: number } | { ok: false; status: number; body: string }> {
 	if (!apiKey) {
 		throw new Error("MISTRAL_API_KEY not set and mistral-native provider has no API key");
@@ -357,7 +381,7 @@ async function request(
 	if (init.json !== undefined) {
 		headers["Content-Type"] = "application/json";
 	}
-	const response = await fetchImpl(url, {
+	const fetchInit: RequestInit = {
 		method,
 		headers,
 		...(init.json !== undefined
@@ -366,12 +390,22 @@ async function request(
 				? { body: init.form }
 				: {}),
 		...(init.signal !== undefined ? { signal: init.signal } : {}),
-	});
-	const text = await response.text();
-	if (!response.ok) {
-		return { ok: false, status: response.status, body: text };
+	};
+	let attempt = 0;
+	for (;;) {
+		attempts.count = attempt + 1;
+		const response = await fetchImpl(url, fetchInit);
+		const text = await response.text();
+		if (!response.ok) {
+			if (isRetryableStatus(response.status) && attempt < retryPolicy.maxAttempts && !init.signal?.aborted) {
+				await retrySleep(retryDelayMs(response, attempt, retryPolicy), init.signal);
+				attempt++;
+				continue;
+			}
+			return { ok: false, status: response.status, body: text };
+		}
+		return { ok: true, text, status: response.status };
 	}
-	return { ok: true, text, status: response.status };
 }
 
 /** Parses a JSON object response; throws on a non-object body. */
@@ -412,7 +446,11 @@ function extractMessage(parsed: Record<string, unknown>): string {
  * non-2xx responses (the error body is drained and truncated). The body is
  * consumed incrementally by {@link sseChunkStream}.
  *
- * ADR 0015 — Streaming RAG document query.
+ * Retries transient statuses only (same rationale as `request` — no
+ * network-error retry); a caller abort is never retried.
+ *
+ * Decisions: ADR 0015 — Streaming RAG document query; ADR 0025 — Staggered
+ * retry with configurable backoff
  */
 async function postStreaming(
 	fetchImpl: typeof fetch,
@@ -421,11 +459,13 @@ async function postStreaming(
 	path: string,
 	json: unknown,
 	signal: AbortSignal | undefined,
+	retryPolicy: RetryPolicy,
 ): Promise<Response> {
 	if (!apiKey) {
 		throw new Error("MISTRAL_API_KEY not set and mistral-native provider has no API key");
 	}
-	const response = await fetchImpl(new URL(`${baseUrl}${path}`), {
+	const url = new URL(`${baseUrl}${path}`);
+	const fetchInit: RequestInit = {
 		method: "POST",
 		headers: {
 			Authorization: `Bearer ${apiKey}`,
@@ -434,12 +474,21 @@ async function postStreaming(
 		},
 		body: JSON.stringify(json),
 		...(signal !== undefined ? { signal } : {}),
-	});
-	if (!response.ok) {
+	};
+	let attempt = 0;
+	for (;;) {
+		const response = await fetchImpl(url, fetchInit);
+		if (response.ok) return response;
+		if (isRetryableStatus(response.status) && attempt < retryPolicy.maxAttempts && !signal?.aborted) {
+			const retryResponse = response;
+			await retryResponse.text().catch(() => "");
+			await retrySleep(retryDelayMs(response, attempt, retryPolicy), signal);
+			attempt++;
+			continue;
+		}
 		const text = await response.text().catch(() => "");
-		throw new MistralApiError(response.status, text);
+		throw new MistralApiError(response.status, text, attempt + 1);
 	}
-	return response;
 }
 
 /**
@@ -557,19 +606,24 @@ export function createMistralClient(options: MistralClientOptions): MistralClien
 	const baseUrl = (options.baseUrl ?? "https://api.mistral.ai/v1").replace(/\/+$/, "");
 	const fetchImpl = options.fetchImpl ?? fetch;
 	const apiKey = options.apiKey;
+	// Tests inject an explicit policy; production resolves the effective
+	// config policy once per client (config changes apply to new clients).
+	const retryPolicy = options.retryPolicy ?? getEffectiveRetryPolicy(getEffectiveMistralConfig());
 
 	/** GET/POST/PUT/DELETE wrapper that throws MistralApiError on non-ok. */
 	const doRequest = (
 		method: "GET" | "POST" | "PUT" | "DELETE",
 		path: string,
 		init: Parameters<typeof request>[5],
-	) =>
-		request(fetchImpl, baseUrl, apiKey, method, path, init).then((result) => {
+	) => {
+		const attempts = { count: 1 };
+		return request(fetchImpl, baseUrl, apiKey, method, path, init, retryPolicy, attempts).then((result) => {
 			if (!result.ok) {
-				throw new MistralApiError(result.status, result.body);
+				throw new MistralApiError(result.status, result.body, attempts.count);
 			}
 			return result.text;
 		});
+	};
 
 	return {
 		async uploadFile({ fileName, content, mimeType, purpose, expiryHours, visibility, signal }) {
@@ -838,7 +892,7 @@ export function createMistralClient(options: MistralClientOptions): MistralClien
 				stream: true,
 				stream_options: { include_usage: true },
 				...(maxTokens !== undefined ? { max_tokens: maxTokens } : {}),
-			}, signal);
+			}, signal, retryPolicy);
 			for await (const chunk of sseChunkStream(response, signal)) {
 				yield chunk;
 			}

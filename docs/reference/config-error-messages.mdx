@@ -5,7 +5,7 @@ The error messages a bad `mistral-native.json` produces, and what each one means
 ## Unknown field
 
 ```text
-unknown field "serverToolss" in ~/.pi/agent/mistral-native.json; known fields: agentId, connectorTools, connectors, endpoint, knowledge, models, ocr, rag, serverTools
+unknown field "serverToolss" in ~/.pi/agent/mistral-native.json; known fields: agentId, connectorTools, connectors, endpoint, knowledge, models, ocr, rag, retry, serverTools
 ```
 
 A typo in a top-level key. The message lists the known fields alphabetically.
@@ -28,6 +28,14 @@ field "serverTools" in ~/.pi/agent/mistral-native.json must be an array of strin
 
 ```text
 field "models.rateCard[0].rates.input" in ~/.pi/agent/mistral-native.json must be a non-negative number
+```
+
+```text
+field "retry.maxAttempts" in ~/.pi/agent/mistral-native.json must be a positive integer; got 0
+```
+
+```text
+field "retry.maxDelayMs" in ~/.pi/agent/mistral-native.json must be greater than or equal to retry.baseDelayMs (1000 by default)
 ```
 
 ## Malformed JSON

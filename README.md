@@ -31,7 +31,8 @@ client, no context switching.
 
 **Chat with Mistral models — including reasoning.** Pick any
 `mistral-native/…` model and chat as usual: thinking streams into
-proper thinking blocks, tool calls execute, usage and cost are shown.
+proper thinking blocks, tool calls execute, usage and cost are shown,
+and transient API errors (capacity blips, 5xx) are retried automatically.
 Quick way: nothing beyond the Quickstart — the models just appear.
 
 **Use Mistral connectors — Outlook, SharePoint, Notion, Google Drive,

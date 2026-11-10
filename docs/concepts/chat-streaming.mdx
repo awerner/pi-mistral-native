@@ -11,7 +11,7 @@ Tool-call deltas arrive incrementally: a first delta carries the call id and fun
 ## What happens on failure
 
 - **Context overflow** — the stream normalizes Mistral's varying error wording into a stable marker, so pi reliably triggers compaction instead of showing a cryptic error.
-- **Transient failures** — timeouts, 429s, 5xx and network errors retry with interruptible exponential backoff honoring `retry-after`.
+- **Transient failures** — timeouts, 429s, 5xx and network errors retry with interruptible exponential backoff honoring `retry-after`; the number of retries and the delays are configurable via the `retry` keys (see [How retries and backoff work](/concepts/retries/)).
 - **Cancellation** — an abort keeps the partial answer and never hangs on the server closing the connection.
 
 ## Usage and cost
